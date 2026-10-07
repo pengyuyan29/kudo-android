@@ -51,7 +51,7 @@ Status: implemented
 
 示例是源码而非稳定组件 API，需要维护少量适配和许可。隐藏采样增加一层绘制；帧率、Android12和更宽窄设备仍不能用单台真机结果推定。参数以已连接 RMX2202 的观感为依据。
 
-`THIRD_PARTY_NOTICES.md` 记录源码版本、五份接入文件、修改范围与完整许可路径；应用“开源致谢”明确底栏来自 Backdrop 官方示例，并列出 Shapes。接口与酷安仅作为研究参考，不包含它们的实现。
+`THIRD_PARTY_NOTICES.md` 记录源码版本、六份接入文件、修改范围与完整许可路径；应用“开源致谢”明确底栏与详情操作栏来自 Backdrop 官方示例，并列出 Shapes。接口与酷安仅作为研究参考，不包含它们的实现。
 
 ## Verification
 
@@ -62,6 +62,10 @@ Surface Liquid Button 的编译、Debug / 测试 APK、Lint 通过，0 errors / 
 调整截图等待后，5项按钮测试再次独立通过，10.258秒，输出为 `surface-screenshot-instrumentation.txt`；浅色静止按钮没有残留涟漪圆，深色130%文字和三个动作完整，按压/静止的条纹夹具截图显示真实边缘折射与表面形变。
 
 2026-10-08：详情按钮加入后，通过无障碍界面关闭系统动画，确认三项缩放为0，完整18项测试通过，25.076秒，输出为 `artifacts/surface-reduced-motion.txt`。结束通过系统界面恢复三项缩放为1。
+
+同机官方 demo 的 Buttons 页静止/按压截图为 `surface-demo-resting.png` / `surface-demo-pressed.png`，与条纹夹具的 `surface-button-resting.png` / `surface-button-pressed.png` 人工检查：轻表面、边缘折射、按压内容放大与触点高光一致，背景不同，未作为像素相等或帧率结论。最终安装后真实详情与滚动截图为 `surface-real-topic.png` / `surface-real-topic-scrolled.png`，玻璃后的正文随滚动改变，未触发社区写操作。
+
+移除无调用旧 glass 后编译通过；补齐应用与文档致谢后的 Debug / 测试 APK、Lint通过，仍为0 errors / 27 warnings。分发 APK 已覆盖安装，构建、分发和设备包 SHA256 均为 `9dce24461f7ca685c385af57546cab79649ca355a371f100151e489ca97f2bb1`，完整上游许可与 assets 内文本一致，记录为 `artifacts/surface-apk-verification.txt`。
 
 辅助代码的 Kotlin 编译通过。替换后初次12项回归有3项失败：10%静止灰令黄色图标像素变暗；两项几何断言仍读取未缩放的布局边界。颜色改为6%灰后通过；几何改用 boundsInRoot，镜片高度与可见整栏比较，中心位置允许官方弹性偏移，不再断言手写动画的绝对触点坐标。
 
