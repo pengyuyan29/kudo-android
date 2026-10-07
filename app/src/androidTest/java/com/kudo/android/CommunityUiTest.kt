@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.test.*
@@ -82,6 +83,56 @@ class CommunityUiTest {
         compose.onNodeWithText("大号 · 130%").performClick()
         compose.runOnIdle { assertEquals(1.3f, settings.fontScale) }
         capture("settings-dark-large.png")
+    }
+
+    @Test fun glassSelectionContinuesFromReleasePosition() {
+        var selected by mutableIntStateOf(0)
+        var published = 0
+        compose.setContent {
+            KudoTheme(DisplaySettings()) {
+                val backdrop = rememberLayerBackdrop()
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.background))
+                    GlassNavigation(selected, { selected = it }, { published++ }, backdrop, GlassMode.LIQUID,
+                        Modifier.align(Alignment.BottomCenter).padding(16.dp).fillMaxWidth().testTag("navigation"))
+                }
+            }
+        }
+        compose.mainClock.autoAdvance = false
+        val navigation = compose.onNodeWithTag("navigation")
+        navigation.performTouchInput {
+            down(Offset(width * 0.1f, centerY))
+            moveTo(Offset(width * 0.9f, centerY), delayMillis = 300)
+        }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        val before = compose.onNodeWithTag("navigation-selection").getUnclippedBoundsInRoot()
+        navigation.performTouchInput { up() }
+        compose.mainClock.advanceTimeByFrame()
+        compose.waitForIdle()
+        val after = compose.onNodeWithTag("navigation-selection").getUnclippedBoundsInRoot()
+        assertTrue("松手后胶囊不能跳回旧标签：${before.left} → ${after.left}", after.left >= before.left - (before.right - before.left) * 0.25f)
+        compose.mainClock.advanceTimeBy(700)
+        compose.runOnIdle { assertEquals(4, selected); assertEquals(0, published) }
+        val settled = compose.onNodeWithTag("navigation-selection").getUnclippedBoundsInRoot()
+        navigation.performTouchInput {
+            down(Offset(width * 0.9f, centerY))
+            moveTo(Offset(width * 0.5f, centerY), delayMillis = 300)
+            up()
+        }
+        compose.mainClock.advanceTimeBy(700)
+        compose.runOnIdle { assertEquals("松手于发布入口时保留原标签", 4, selected); assertEquals(0, published) }
+        val returned = compose.onNodeWithTag("navigation-selection").getUnclippedBoundsInRoot()
+        assertEquals("胶囊回到原标签", settled.left.value, returned.left.value, 1f)
+        navigation.performTouchInput {
+            down(Offset(width * 0.9f, centerY))
+            moveTo(Offset(width * 0.6f, centerY), delayMillis = 300)
+            cancel()
+        }
+        compose.mainClock.advanceTimeBy(700)
+        compose.runOnIdle { assertEquals(4, selected); assertEquals(0, published) }
+        val cancelled = compose.onNodeWithTag("navigation-selection").getUnclippedBoundsInRoot()
+        assertEquals("取消拖动回到原标签", settled.left.value, cancelled.left.value, 1f)
     }
 
     @Test fun nativePostRendersAndActionsAreWired() {

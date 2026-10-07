@@ -1,6 +1,7 @@
 package com.kudo.android.ui.components
 
 import android.os.Build
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -26,6 +27,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -33,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.IntOffset
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -60,23 +63,34 @@ fun Modifier.glass(backdrop: Backdrop, mode: GlassMode, shape: Shape = RoundedCo
 fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Unit, backdrop: Backdrop, mode: GlassMode, modifier: Modifier = Modifier) {
     val labels = listOf("首页", "分类", "发布", "消息", "我的")
     val icons = listOf(Icons.Rounded.Home, Icons.Rounded.GridView, Icons.Rounded.Add, Icons.Rounded.Explore, Icons.Rounded.Person)
-    val position by animateFloatAsState(selected.toFloat(), spring(dampingRatio = 0.9f, stiffness = 650f), label = "玻璃选中态")
+    val position = remember { Animatable(selected.toFloat()) }
+    val selectionAnimation = remember { spring<Float>(dampingRatio = 0.9f, stiffness = 650f) }
+    val scope = rememberCoroutineScope()
     var dragPosition by remember { mutableStateOf<Float?>(null) }
+    LaunchedEffect(selected) { position.animateTo(selected.toFloat(), selectionAnimation) }
     BoxWithConstraints(modifier.height(56.dp).glass(backdrop, mode)) {
         val slotWidth = maxWidth / 5
         val slotPixels = with(LocalDensity.current) { slotWidth.toPx() }
-        Box(Modifier.padding(4.dp).offset { IntOffset(((dragPosition?.let { it / slotPixels - 0.5f }?.coerceIn(0f, 4f) ?: position) * slotPixels).roundToInt(), 0) }.width(slotWidth - 8.dp).fillMaxHeight()
+        fun settleDrag(cancelled: Boolean) {
+            val release = dragPosition ?: return
+            val from = (release / slotPixels - 0.5f).coerceIn(0f, 4f)
+            val slot = (release / slotPixels).toInt().coerceIn(0, 4)
+            val target = if (cancelled || slot == 2) selected else slot
+            scope.launch {
+                position.snapTo(from)
+                dragPosition = null
+                if (target != selected) onSelect(target)
+                else position.animateTo(target.toFloat(), selectionAnimation)
+            }
+        }
+        Box(Modifier.padding(4.dp).offset { IntOffset(((dragPosition?.let { it / slotPixels - 0.5f }?.coerceIn(0f, 4f) ?: position.value) * slotPixels).roundToInt(), 0) }.width(slotWidth - 8.dp).fillMaxHeight().testTag("navigation-selection")
             .glass(backdrop, mode, tint = LogoYellow.copy(alpha = 0.2f)))
         Row(Modifier.fillMaxSize().pointerInput(selected) {
             detectHorizontalDragGestures(
                 onDragStart = { dragPosition = it.x },
-                onDragCancel = { dragPosition = null },
-                onDragEnd = {
-                    val slot = ((dragPosition ?: 0f) / (size.width / 5f)).toInt().coerceIn(0, 4)
-                    if (slot != 2) onSelect(slot)
-                    dragPosition = null
-                },
-            ) { change, amount -> change.consume(); dragPosition = (dragPosition ?: change.position.x) + amount }
+                onDragCancel = { settleDrag(cancelled = true) },
+                onDragEnd = { settleDrag(cancelled = false) },
+            ) { change, _ -> change.consume(); dragPosition = change.position.x }
         }, verticalAlignment = Alignment.CenterVertically) {
             labels.forEachIndexed { index, label ->
                 val chosen = selected == index
