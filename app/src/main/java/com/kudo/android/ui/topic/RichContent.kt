@@ -1,0 +1,126 @@
+package com.kudo.android.ui.topic
+
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.*
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import com.kudo.android.ui.components.mediaUrl
+import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
+import org.jsoup.nodes.Node
+import org.jsoup.nodes.TextNode
+
+sealed interface ArticleBlock {
+    data class TextBlock(val html: String, val quote: Boolean = false, val heading: Boolean = false) : ArticleBlock
+    data class Code(val text: String) : ArticleBlock
+    data class Image(val url: String, val alt: String, val ratio: Float) : ArticleBlock
+    data class Embed(val url: String, val title: String) : ArticleBlock
+    data object Rule : ArticleBlock
+}
+
+fun parseArticle(html: String): List<ArticleBlock> {
+    val result = mutableListOf<ArticleBlock>()
+    fun walk(element: Element, quote: Boolean = false) {
+        when (element.normalName()) {
+            "script", "style", "noscript" -> Unit
+            "pre" -> result.add(ArticleBlock.Code(element.wholeText()))
+            "table" -> result.add(ArticleBlock.Code(element.select("tr").joinToString("\n") { row -> row.select("th,td").joinToString("  │  ") { it.text() } }))
+            "hr" -> result.add(ArticleBlock.Rule)
+            "img" -> {
+                val raw = element.attr("src")
+                if (element.hasClass("emoji")) result.add(ArticleBlock.TextBlock(element.attr("alt"), quote))
+                else mediaUrl(raw)?.let { url ->
+                    val width = element.attr("width").toFloatOrNull() ?: 16f
+                    val height = element.attr("height").toFloatOrNull() ?: 10f
+                    result.add(ArticleBlock.Image(url, element.attr("alt"), (width / height.coerceAtLeast(1f)).coerceIn(0.65f, 2.5f)))
+                }
+            }
+            "iframe", "video", "audio" -> {
+                val raw = element.attr("src").ifBlank { element.selectFirst("source")?.attr("src").orEmpty() }
+                mediaUrl(raw)?.let { result.add(ArticleBlock.Embed(it, "在浏览器打开媒体")) }
+            }
+            "blockquote", "aside" -> {
+                if (element.hasClass("onebox")) {
+                    val link = element.selectFirst("a[href]")
+                    link?.let { a -> mediaUrl(a.attr("href"))?.let { result.add(ArticleBlock.Embed(it, a.text().ifBlank { "打开链接" })) } }
+                } else element.children().forEach { walk(it, true) }
+            }
+            "p", "h1", "h2", "h3", "h4", "li", "summary" -> {
+                val images = element.select("img:not(.emoji)")
+                val copy = element.clone().apply { select("img:not(.emoji)").remove() }
+                if (copy.text().isNotBlank() || copy.select("img.emoji").isNotEmpty()) result.add(ArticleBlock.TextBlock(if (element.normalName() == "li") "• ${copy.html()}" else copy.html(), quote, element.normalName().startsWith("h")))
+                images.forEach { walk(it, quote) }
+            }
+            else -> {
+                if (element.children().isEmpty() && element.text().isNotBlank()) result.add(ArticleBlock.TextBlock(element.html(), quote))
+                else element.childNodes().forEach { node ->
+                    if (node is Element) walk(node, quote)
+                    else if (node is TextNode && !node.isBlank) result.add(ArticleBlock.TextBlock(node.outerHtml(), quote))
+                }
+            }
+        }
+    }
+    walk(Jsoup.parseBodyFragment(html).body())
+    return result
+}
+
+private fun inlineText(html: String, linkColor: Color): AnnotatedString = buildAnnotatedString {
+    fun appendNode(node: Node) {
+        if (node is TextNode) append(node.text())
+        else if (node is Element) {
+            val children: AnnotatedString.Builder.() -> Unit = { node.childNodes().forEach(::appendNode) }
+            when (node.normalName()) {
+                "br" -> append("\n")
+                "strong", "b" -> withStyle(SpanStyle(fontWeight = FontWeight.Bold), children)
+                "em", "i" -> withStyle(SpanStyle(fontStyle = FontStyle.Italic), children)
+                "del", "s" -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough), children)
+                "code" -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = linkColor.copy(alpha = 0.1f)), children)
+                "img" -> append(node.attr("alt"))
+                "a" -> {
+                    val url = mediaUrl(node.attr("href"))
+                    if (url != null) withLink(LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))), children)
+                    else children()
+                }
+                "script", "style" -> Unit
+                else -> children()
+            }
+        }
+    }
+    Jsoup.parseBodyFragment(html).body().childNodes().forEach(::appendNode)
+}
+
+@Composable
+fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Unit) {
+    val blocks = remember(html) { parseArticle(html) }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        blocks.forEach { block -> when (block) {
+            is ArticleBlock.TextBlock -> {
+                val color = MaterialTheme.colorScheme.primary
+                val text = remember(block.html, color) { inlineText(block.html, color) }
+                SelectionContainer {
+                    Text(text, Modifier.fillMaxWidth().then(if (block.quote) Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(9.dp)).padding(12.dp) else Modifier), style = if (block.heading) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge, color = if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            is ArticleBlock.Code -> SelectionContainer {
+                Text(block.text, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).horizontalScroll(rememberScrollState()).padding(13.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
+            }
+            is ArticleBlock.Image -> AsyncImage(block.url, block.alt.ifBlank { "帖子图片，点击放大" }, Modifier.fillMaxWidth().aspectRatio(block.ratio).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onImage(block.url) }, contentScale = ContentScale.Fit)
+            is ArticleBlock.Embed -> Text("↗ ${block.title}", Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onLink(block.url) }.padding(14.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+            ArticleBlock.Rule -> Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+        } }
+    }
+}

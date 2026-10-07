@@ -14,6 +14,8 @@ ui/theme 定义 #FFB003 品牌黄与深琥珀色文本，ui/components/Glass.kt 
 
 FeedScreen 按社区筛选展示原生卡片，FeedViewModel 取消过时请求，分页去重，保留分页重试入口。SearchViewModel 保存查询和分页，取消旧查询防止结果覆盖。
 
+RichContent 使用 Jsoup 解析 cooked HTML，输出可选择文本、可点击链接、横向代码块、引用和图片；链接只接受 HTTPS。TopicViewModel 基于 post_stream id 加载缺失楼层，点赞和收藏成功后更新该楼层，进行中的操作锁住同一楼层。图片页面提供双指缩放。
+
 ## Alternatives considered
 
 - 单纯半透明白色：成本低且兼容所有设备，但无法满足参考图的动态折射；作为系统降级模式保留。
