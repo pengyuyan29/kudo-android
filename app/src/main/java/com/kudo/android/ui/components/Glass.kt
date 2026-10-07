@@ -102,7 +102,7 @@ fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Uni
         val slotPixels = with(LocalDensity.current) { slotWidth.toPx() }
         val moving by remember { derivedStateOf { dragPosition != null || position.isRunning } }
         val lensProgress by animateFloatAsState(if (moving) 1f else 0f, tween(140), label = "玻璃抬升")
-        val lensWidth = slotWidth - 8.dp + 20.dp * lensProgress
+        val lensWidth = slotWidth - 8.dp + 36.dp * lensProgress
         val lensHeight = 48.dp + 20.dp * lensProgress
         val lensWidthPixels = with(LocalDensity.current) { lensWidth.toPx() }
         val previewSlot by remember(selected, slotPixels) {

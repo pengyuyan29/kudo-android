@@ -18,7 +18,7 @@ ui/theme 定义 #FFB003 品牌黄与深琥珀色文本；底部导航高亮图�
 
 拖动时选中胶囊跟随手指，释放后吸附到标签；穿过中心发布按钮不触发发布。位置状态在布局阶段读取，避免每帧重新组合。
 
-真机与酷安对比后，底部导航采用 56dp 高、22dp 图标和 10sp 标签；中央按钮为 44×34dp 横向胶囊。选中镜片静止为 48dp 高，运动时增至 68dp，宽度从格宽减 8dp 增至格宽加 12dp，上下各凸出底栏 6dp。中心位置保持跟随手指，尺寸变化不改变拖动命中格和触控布局。整栏距两侧和底部 20dp，保留至少 48dp 的标签触控高度。
+真机与酷安对比后，底部导航采用 56dp 高、22dp 图标和 10sp 标签；中央按钮为 44×34dp 横向胶囊。选中镜片静止为 48dp 高，运动时增至 68dp，宽度从格宽减 8dp 增至格宽加 28dp，上下各凸出底栏 6dp。RMX2202 上运动镜片由 76×68dp 加宽为约 92×68dp，接近扁胶囊比例。中心位置保持跟随手指，尺寸变化不改变拖动命中格和触控布局。整栏距两侧和底部 20dp，保留至少 48dp 的标签触控高度。
 
 主题根节点用 Material Surface 提供背景和默认前景色，避免只配置 colorScheme 后，普通 Text / Icon 在深色页面仍继承黑色。真机文字布局测试先复现这一缺陷，再检查实际默认文字的亮度。
 
@@ -52,6 +52,6 @@ RichContent 使用 Jsoup 解析 cooked HTML，输出可选择文本、可点击�
 
 本轮先在纯白背景的真机测试夹具中读取标签 TextLayoutResult、图标像素与选中区域的色偏，再比较拖动胶囊和标签的实际高度；视觉折射另用同机酷安与酷DO慢拖录屏检查，不用静态 blur / lens 参数断言替代实际图像。
 
-RMX2202 / Android 13 上新增的三个测试均先失败：高亮文字为 #805600、选中区域呈 #FFEFCD 黄底、拖动高度为 48dp / 标签 56dp。修正后完整 10 项 Compose 测试通过，最终宽度调整后的回归耗时 18.224 秒，Debug APK、测试 APK 和 Lint 通过（0 errors / 26 warnings）。复现与回归输出为 artifacts/navigation-material-repro.txt / navigation-material-instrumentation.txt。navigation-raised-lens.png 和 navigation-material-dark-large.png 已人工查看，确认浅色、深色 130% 字号的双高亮，以及镜片上下凸出且中心图标文字清晰。本轮未重跑关闭系统动画的 10 项测试。
+RMX2202 / Android 13 上新增的三个测试均先失败：高亮文字为 #805600、选中区域呈 #FFEFCD 黄底、拖动高度为 48dp / 标签 56dp。修正并将运动镜片加宽至约 92×68dp 后，完整 10 项 Compose 测试通过，耗时 17.482 秒，覆盖松手位置连续、取消吸附、拖过发布入口不误触和双高亮。Debug APK、测试 APK 和 Lint 通过（0 errors / 26 warnings）。最初复现输出为 artifacts/navigation-material-repro.txt，当前宽度回归输出为 artifacts/navigation-width-instrumentation.txt。navigation-raised-lens.png 和 navigation-material-dark-large.png 已更新并人工查看，确认浅色、深色 130% 字号的双高亮，以及镜片上下凸出且中心图标文字清晰。本轮未重跑关闭系统动画的 10 项测试。
 
-同机 12 秒慢拖录屏 navigation-glass-coolapk-motion.mp4 / navigation-glass-kudo-motion.mp4 及 navigation-glass-comparison-00.png 至 -02.png 已逐段查看：运动镜片能折射发布按钮与经过标签的轮廓，中心保留清晰内容，双向拖动后位置与高度平滑收敛；真实首页的静止背景为透明中性灰，图标和文字为品牌黄。最终普通首页截图为 navigation-glass-home.png，结束留在真实首页。录制设置 60fps 上限，以 10fps 抽帧只验证动作和材质，不推定酷安内部参数或本机稳定帧率。
+复用同机酷安 12 秒参考录屏 navigation-glass-coolapk-motion.mp4，加宽后的酷DO重新录制 navigation-glass-kudo-motion.mp4，并更新 navigation-glass-comparison-00.png 至 -02.png 逐段查看：运动镜片横向更扁，两端未被裁切，仍能折射发布按钮与经过标签的轮廓，中心保留清晰内容，双向拖动后位置与高度平滑收敛；真实首页的静止背景为透明中性灰，图标和文字为品牌黄。最终普通首页截图为 navigation-glass-home.png，结束留在真实首页。录制设置 60fps 上限，以 10fps 抽帧只验证动作和材质，不推定酷安内部参数或本机稳定帧率；更窄或更宽屏幕的实际比例尚未真机复核。
