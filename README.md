@@ -10,7 +10,7 @@ Linux.do 社区的 Android 原生第三方客户端。Kotlin + Jetpack Compose�
 - 点赞、收藏、发帖、回复、图片上传、按账号和话题保存草稿。
 - 浅色 / 深色 / 跟随系统，字号和材质设置。
 
-Android 13+ 使用完整液态玻璃；Android 12 使用背景模糊；Android 8–11 使用半透明。底部导航为 56dp 高、22dp 图标，高亮图标和文字使用 `#FFB003`，静止选中面为透明中性灰。运动镜片增高至 68dp，凸出底栏上下边缘，采样页面及底栏图标，中心保留清晰度，边缘呈现折射、轻微色散和高光；中央发布按钮采用横向胶囊。设置中可以主动切换兼容材质。
+Android 13+ 使用完整液态玻璃；Android 12 使用背景模糊；Android 8–11 使用半透明。底部导航直接改编自 Backdrop 官方 `LiquidBottomTabs` 示例，保留阻尼、速度拉伸、触点高光，以及可见底栏 / 隐藏放大标签 / 前景镜片三层结构。底栏为56dp高、22dp图标和10sp标签；高亮为 `#FFB003`，静止选中面为透明中性灰。镜片静止48dp、运动约64dp高，宽度略大于标签格，中心文字和图标放大，弧面边缘呈现折射与色散；中央发布按钮采用横向胶囊。设置中可以主动切换兼容材质。
 
 同机对照酷安调整字号和间距：列表摘要为 14sp / 22sp，长文正文为 16sp / 32sp；首页标签为 19 / 16sp，详情操作栏最小 48dp。底栏胶囊运动时透明，当前标签与经过标签同时高亮；拖动时页面保持不变，松手后切换并从当前位置吸附，只保留目标标签高亮。帖子进入 / 返回使用 280 / 220ms 淡变与轻微缩放；动画遵循系统时长设置。
 
@@ -38,7 +38,7 @@ adb -s <真机序列号> shell am force-stop com.android.cli.interact.instrument
 adb -s <真机序列号> shell am instrument -w -r -e class com.kudo.android.CommunityUiTest com.kudo.android.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-2026-10-07：此前 18 项 JVM 测试已通过；本轮 12 项 RMX2202 / Android 13 真机界面测试通过，耗时 21.31 秒，Lint 无错误。前轮关闭系统动画时的 6 项界面测试通过，本轮未重跑关闭动画的 12 项测试。测试覆盖请求来源、CSRF、失败不重发、重定向、解析、退出竞争，以及玻璃导航点击、松手吸附、滑动双高亮、品牌黄图标与文字、中性灰选中面、整栏放大与取消复位、镜片中心放大、镜片仅略凸出运动底栏、帖子动作、主题、字号和深色文字可读性。浅色 / 深色 130% 截图与同机酷安 / 酷DO 慢拖录屏已人工检查，确认中心文字和图标放大、前景边缘折射、松手收回及静止镜片没有额外白圈。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。只在真实社区做只读检查，自动化中的帖子与互动是测试夹具。
+2026-10-08：本轮13项 RMX2202 / Android13 真机界面测试通过，正常动画23.749秒、系统关闭动画17.544秒，结束恢复动画设置。Debug / 测试 APK、Lint 与笔记检查通过，Lint 为0 errors / 27 warnings；此前18项 JVM 测试已通过。界面测试覆盖导航点击与实际触摸、松手连续、取消、双高亮、发布隔离、采样入口唯一、黄色图标与文字、中性灰、整栏和镜片中心放大、帖子动作、主题及深色大字号。浅深色截图、动静图和同机官方 demo / 酷DO 慢拖已人工检查。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。真实社区只做只读检查，自动化帖子与互动使用夹具。
 
 ## 使用边界
 
@@ -53,4 +53,4 @@ adb -s <真机序列号> shell am instrument -w -r -e class com.kudo.android.Com
 
 `data/` 负责 Discourse 协议和本地设置；`ui/` 按信息流、帖子、账号、编辑器拆分；`ui/components/` 封装玻璃与公共组件。重要取舍记录在 `.agents/notes/`，提交前运行 `npm run verify-notes`。
 
-接口行为参考 [FluxDO](https://github.com/Lingyan000/fluxdo)（研究版本 `e1bd839`），独立实现 Kotlin 代码。酷安仅作为布局和交互参考，不包含其 APK 资源或反编译代码。使用的开源组件及许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+接口行为参考 [FluxDO](https://github.com/Lingyan000/fluxdo)（研究版本 `e1bd839`），独立实现 Kotlin 代码。底部导航改编自 [Backdrop 官方 catalog](https://github.com/Kyant0/AndroidLiquidGlass/tree/896a94a3ade1cc1a940b92365f942a34971fecda/catalog)，保留来源、修改说明与完整 Apache-2.0 许可；接入依据见[架构笔记](.agents/notes/implemented/architecture/2026-10-07-backdrop-demo-navigation.md)。酷安仅作为布局和交互参考，不包含其 APK 资源或反编译代码。开源组件及许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

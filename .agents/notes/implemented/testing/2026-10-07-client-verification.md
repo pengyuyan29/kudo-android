@@ -38,6 +38,8 @@ JUnit 与 MockWebServer 检查请求来源、CSRF、失败不重试、JSON 与 H
 
 2026-10-08 官方示例接入：RMX2202 / Android13 的13项 Compose 测试全部通过，正常动画23.749秒，系统关闭动画17.544秒。三项全局动画缩放通过系统界面关闭并恢复为1。Debug / 测试 APK、Lint通过，0 errors / 27 warnings。当前几何测试读取 boundsInRoot，包括镜片在内的真实缩放边界；镜片高度与整栏表面比较，并允许官方弹性面板的少量横向偏移。中心放大仍读取完整根画面像素。输出为 `artifacts/backdrop-final-instrumentation.txt` / `backdrop-reduced-motion.txt`；同机 demo / 酷DO慢拖及浅深色截图已检查，来源与参数见上述笔记。
 
+最终分发 APK 为 `artifacts/Kudo-0.1.0-debug.apk`，覆盖安装成功；构建、分发和设备安装包的 SHA256 相同，完整上游 Apache-2.0 文本进入 `assets/licenses/`。本轮仅导航与开源致谢变化，18项协议 JVM 测试沿用此前结果。详细命令、材料与最终哈希见 TASKS.md。
+
 ### 此前自绘底栏的回归记录
 
 2026-10-07：此前 18 项 JVM 测试已通过，本轮 Debug 构建和 Lint 通过（0 errors / 26 warnings）。RMX2202（Android 13 / API 33、WebView 153）本轮正常动画下运行 12 项 Compose 测试全部通过，21.31 秒；前轮系统动画关闭时的 6 项通过，本轮未重跑关闭动画的 12 项测试。截图确认原生帖子和深色 130% 字号可读，摘要 / 正文基线间距分别约 22 / 32dp。首页、分类列表、分类话题及多楼层详情已使用真实 API 验证。分类 429、规范地址 301、对象标签、访客搜索、深色默认文字、胶囊松手跳回、首个拖动事件重复位移、滑动预选未高亮、品牌色、选中面色偏、镜片高度、整栏不放大与错误的整体反向采样均先复现失败再修复。详细命令和限制见仓库 TASKS.md。

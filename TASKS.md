@@ -21,6 +21,7 @@
 - [x] F5 首页顶栏：社区 slogan、未登录 Linux.do Logo、移除右侧名称；真机普通字号与深色 130% 检查。
 - [x] F6 玻璃材质：品牌黄图标与文字、中性灰选中面、凸起镜片与前景折射；三个复现测试和同机慢拖对照。
 - [x] F7 凸面玻璃：整栏抬升放大、镜片中心放大与弧面边缘折射、收窄镜片凸出高度、静止高光归零；两项新回归和同机动静对照。
+- [x] F8 官方示例：直接复用 Backdrop LiquidBottomTabs 的图层、阻尼、速度拉伸和触点高光，微调主题与胶囊比例；正常/关闭系统动画各13项真机回归，同机 demo 慢拖对照，保留完整许可。
 
 各单元继续按构建配置、数据契约、页面组件等小批次实施，每个小功能连同笔记中文提交。功能开发优先，集中运行完整检查；发现缺陷先补复现测试。
 
@@ -38,30 +39,34 @@
 10. 胶囊拖动松手后从当前位置吸附，在发布入口松手或取消拖动时回原标签；切页不触发发布。帖子进入 / 返回过渡正常；系统关闭动画后仍能浏览和操作。
 11. 从首页慢拖经过分类、发布入口与消息：运动胶囊透明，首页与当前经过的标签同时高亮，松手前页面不变，经过发布入口不发布；在消息松手后只消息高亮，取消拖动回原标签。浅色与深色 130% 字号下分别检查，点击切页时也观察透明过渡。
 12. 未登录首页左侧显示黑白黄 Linux.do Logo，搜索栏为“真诚 · 友善 · 团结 · 专业”，右侧无“酷DO”；点击分别进入登录与搜索页。登录状态显示账号头像；普通字号与深色 130% 下检查文案和搜索图标。
-13. 高亮图标和文字均为品牌黄，静止选中面为透明中性灰。慢拖时整栏放大至 1.04 倍，镜片约 92×64dp，只比放大后的 58.24dp 底栏上下各高约 2.9dp；镜片中心图标和文字继续放大，弧面边缘局部折射、压缩和色散，经过发布按钮时能看到轮廓折射。松手与取消后平滑收回，静止时没有额外镜片白圈。以真机截图和录屏判断材质，两端不得裁切，镜片中心保持跟随手指。
+13. 高亮图标和文字均为品牌黄，静止选中面为透明中性灰。采用官方示例后整栏放大比例为 `1 + 16dp / 宽度`，RMX2202 上约1.05倍；镜片稳定运动约93.9×64dp，略高于58.8dp底栏，并叠加官方速度形变。镜片中心图标和文字放大，弧面边缘折射、压缩和色散，经过发布按钮时能看到轮廓折射。松手与取消后平滑收回，静止时关闭镜片高光。以同机 demo 对照和录屏判断材质，慢拖两端不得裁切；位置保留阻尼跟随与少量弹性偏移。
+14. 使用实际触摸点按分类与发布；分别从发布入口、未选中标签开始拖动，在发布格松手不发布、不切页。无障碍和布局树中每个入口唯一，隐藏采样层不暴露第二份入口。普通与关闭系统动画下分别验证。
 
 ## 验证记录
 
-2026-10-07 完成：
+2026-10-08 更新（未改动的接口检查保留此前结果）：
 
 | 检查 | 结果 |
 | --- | --- |
 | JVM 回归 | 18 项通过，包含分类 429、301、对象标签、会话竞争、访客搜索、请求边界与解析 |
-| Android Lint | 0 errors；26 项依赖升级 / API 使用建议等 warnings |
+| Android Lint | 0 errors；27 项依赖升级 / API 使用建议等 warnings，新增 Shapes 升级建议 |
 | Debug APK | 构建成功，0.1.0，约 25 MiB，已覆盖安装到新真机 |
 | RMX2202 真机 | Android 13 / API 33，WebView 153，1080×2400 |
-| Compose 界面 | 12 项通过，21.31 秒：导航点击和拖动、松手连续、双高亮、品牌黄图标与文字、选中面中性色、镜片凸出与收回、整栏放大与取消复位、镜片中心放大、原生帖子动作、信息流、主题与字号、深色默认文字 |
+| Compose 界面 | 13项通过，正常动画23.749秒、关闭系统动画17.544秒：新增实际触摸和隐藏采样入口隔离，其余导航、材质、页面和主题回归全部保留 |
 | 真实只读浏览 | 首页及图片、分类、分类规范地址跳转、帖子与多楼层正文均已加载 |
 | 网页验证 | 用户手动完成人机验证，官网登录表单成功加载；部分接口仍可能再次验证 |
 | 搜索 | 已发送真实查询，站点要求登录；已补 `not_logged_in` 回归与登录引导 |
 | 视觉对比 | 对照同机酷安，导航为 56dp / 22dp 图标 / 横向发布胶囊；顶部标签为 19 / 16sp，卡片内边距为 12dp，详情操作栏最小 48dp |
 | 字号与行距 | PNG 实测摘要基线间距 22.0 / 21.8dp，详情正文 32.0dp；作者 15sp / 时间 12sp 保留；浅色与深色 130% 首页、长标题和正文无裁切 |
-| 动画与低动态 | 前轮录屏检查点击、双向拖动、帖子进入 / 返回；系统关闭动态效果后三项缩放为 0，当时的 6 项测试全部通过，真实分类与帖子浏览可用；本轮未重跑关闭动画的 12 项测试；结束后恢复动画与应用主题字号 |
+| 动画与低动态 | 官方底栏与 demo 双向慢拖对照已检查；系统关闭动态效果后确认三项缩放为0，13项测试通过，结束恢复三项缩放为1；此前帖子过渡与真实阅读结果保留 |
 | 首页顶栏 | slogan 完整、未登录 Logo 正确、搜索栏扩宽；搜索与登录入口可用，已看普通字号与深色 130% 截图；登录头像分支使用测试夹具检查 |
-| 玻璃与双高亮 | 本轮浅色、深色 130% 截图和同机酷安 / 酷DO 慢拖录屏已人工检查；整栏轻微放大，镜片中心放大更明显，边缘折射发布按钮和标签，运动镜片仅略凸出底栏，当前与经过标签为品牌黄，松手后恢复中性灰选中面并关闭镜片高光 |
+| 玻璃与双高亮 | 本轮浅色/深色130%与动静截图、同机官方 demo / 酷DO 慢拖已人工检查；中心内容放大、弧面折射、速度拉伸、扁胶囊、透明双高亮及收回正常，慢拖两端轮廓可见 |
+| 来源与交付 | 应用开源致谢显示官方示例与 Shapes；完整 Apache-2.0 许可已核实进入 APK；构建、分发与设备安装 APK 的 SHA256 一致 |
 | 旧机兼容 | MI 6X / Android 9 安装与半透明材质正常，当时网络失败，未完成在线验收 |
 
-仪器测试通过 adb 指定新真机执行，保留应用数据；本轮 12 项输出为 `artifacts/navigation-scale-instrumentation.txt`，整栏不放大和反向采样错误的复现为 `artifacts/navigation-scale-repro.txt` / `artifacts/navigation-center-repro.txt`。此前三个材质测试的失败复现为 `artifacts/navigation-material-repro.txt`，10 项回归为 `artifacts/navigation-material-instrumentation.txt`。前轮 7 项输出为 `artifacts/navigation-preview-instrumentation.txt`，双高亮失败复现为 `artifacts/navigation-preview-repro.txt`；正常与关闭动画的 6 项输出分别为 `artifacts/realme-density-instrumentation-final.txt` 和 `artifacts/realme-density-reduced-motion.txt`。测试前停止 `com.android.cli.interact.instrumentation`，避免 Android CLI 布局工具与测试截图争用 UiAutomation。真机截图均在 `artifacts/`，已人工检查首页、原生正文和深色大字号。
+仪器测试通过 adb 指定新真机执行，保留应用数据；本轮13项输出为 `artifacts/backdrop-final-instrumentation.txt` / `backdrop-reduced-motion.txt`。初次回归为 `backdrop-initial-instrumentation.txt`：10%灰令黄色像素变暗，改为6%后通过；两项几何测试改读实际图层边界后通过。新的实际触摸与几何三项先独立通过，输出为 `backdrop-touch-repro.txt`。此前自绘底栏的失败与回归日志仍留在 `navigation-scale-*`、`navigation-center-*`、`navigation-material-*`、`navigation-preview-*` 和 `realme-density-*`。测试前停止 `com.android.cli.interact.instrumentation`，避免 UI 自动化争用。
+
+本轮同机录像为 `backdrop-demo-motion.mp4` / `navigation-glass-backdrop-kudo-motion.mp4`，对照图为 `backdrop-demo-kudo-comparison-00.png` / `-01.png`；动静图为 `backdrop-kudo-scale-comparison.png`，最终首页为 `backdrop-kudo-home.png`。普通动画测试截图位于 `artifacts/backdrop-ui-tests/ui-tests/`。最终 APK 为 `artifacts/Kudo-0.1.0-debug.apk`，24.94MiB；SHA256 为 `cc5533899609bd1ecdd68e4851e4358e7738fb79a37f2db3a59b02a67e486867`，与构建和设备安装包一致。许可与哈希验证输出为 `backdrop-apk-verification.txt`，关于页检查为 `backdrop-credits-verification.txt`。
 
 本轮材质截图为 `navigation-glass-home.png`、`navigation-raised-lens.png` / `navigation-material-dark-large.png`，动静对照为 `navigation-scale-resting.png` / `navigation-scale-center.png` / `navigation-scale-before-after.png`；同机慢拖为 `navigation-glass-coolapk-motion.mp4` / `navigation-glass-kudo-motion.mp4`，逐帧对照为 `navigation-glass-comparison-00.png` 至 `-02.png`。首页顶栏截图为 `home-header-light.png` / `home-header-dark-large.png`。此前字号 / 帖子对照为 `density-home-comparison.png` 和 `density-topic-comparison.png`，帖子过渡录屏为 `density-motion-final.mp4`。录屏用于动作与材质检查，不作为正式帧率基准。所有 artifacts 均为本地产物，不提交 Git。
 
