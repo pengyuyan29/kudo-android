@@ -12,6 +12,8 @@ ui/theme 定义 #FFB003 品牌黄与深琥珀色文本，ui/components/Glass.kt 
 
 原生卡片提供作者、分类、标签和回复统计；空状态和网络错误提供明确操作入口。
 
+FeedScreen 按社区筛选展示原生卡片，FeedViewModel 取消过时请求，分页去重，保留分页重试入口。SearchViewModel 保存查询和分页，取消旧查询防止结果覆盖。
+
 ## Alternatives considered
 
 - 单纯半透明白色：成本低且兼容所有设备，但无法满足参考图的动态折射；作为系统降级模式保留。
