@@ -20,6 +20,8 @@ JUnit 与 MockWebServer 检查请求来源、CSRF、失败不重试、JSON 与 H
 
 用户指出高亮仍偏棕、选中黄底和镜片过矮后，增加三个实际渲染检查：文字颜色与品牌 LogoYellow 比较，标签上半部的图标像素应包含品牌黄；纯白背景的静止选中面检查 RGB 色偏，允许不同的中性灰强度；拖动镜片比较实际上下边界与标签高度，取消后应收回。真实前景折射与裁切另用同机静止截图和慢拖录屏人工检查，完整液态效果的结果只归属于已测 Android 13 真机。材质与图层契约见[玻璃导航](../feature/2026-10-07-liquid-glass-ui.md)。
 
+整栏抬升与中心放大增加两项回归：读取变换后的 boundsInRoot 比较拖动前后的可见尺寸，检查镜片中心仍跟随手指、镜片仅略高于放大后的标签，取消后恢复原尺寸；捕获完整 Compose 根画面，比较同一图标在静止与镜片覆盖时的实际像素宽度，并与镜片外图标比较。只捕获标签子树会漏掉前景镜片，只读取未裁切布局宽度也不能衡量图层缩放。白色夹具的两侧 20dp 边距与正式首页一致，具体光学比例仍由同机录屏校准。
+
 ## Alternatives considered
 
 - 只在真实站点自动化：最贴近线上，但会受到限流和会话影响，也可能发出真实社区写操作；真实请求仅做只读验证。
@@ -32,8 +34,8 @@ JUnit 与 MockWebServer 检查请求来源、CSRF、失败不重试、JSON 与 H
 
 ## Verification
 
-2026-10-07：18 项 JVM 测试已通过，本轮 Debug 构建和 Lint 通过（0 errors / 26 warnings）。RMX2202（Android 13 / API 33、WebView 153）本轮正常动画下运行 10 项 Compose 测试全部通过；前轮系统动画关闭时的 6 项通过，本轮未重跑关闭动画的 10 项测试。截图确认原生帖子和深色 130% 字号可读，摘要 / 正文基线间距分别约 22 / 32dp。首页、分类列表、分类话题及多楼层详情已使用真实 API 验证。分类 429、规范地址 301、对象标签、访客搜索、深色默认文字、胶囊松手跳回、首个拖动事件重复位移、滑动预选未高亮、品牌色、选中面色偏和镜片高度均先复现失败再修复。详细命令和限制见仓库 TASKS.md。
+2026-10-07：此前 18 项 JVM 测试已通过，本轮 Debug 构建和 Lint 通过（0 errors / 26 warnings）。RMX2202（Android 13 / API 33、WebView 153）本轮正常动画下运行 12 项 Compose 测试全部通过，21.31 秒；前轮系统动画关闭时的 6 项通过，本轮未重跑关闭动画的 12 项测试。截图确认原生帖子和深色 130% 字号可读，摘要 / 正文基线间距分别约 22 / 32dp。首页、分类列表、分类话题及多楼层详情已使用真实 API 验证。分类 429、规范地址 301、对象标签、访客搜索、深色默认文字、胶囊松手跳回、首个拖动事件重复位移、滑动预选未高亮、品牌色、选中面色偏、镜片高度、整栏不放大与错误的整体反向采样均先复现失败再修复。详细命令和限制见仓库 TASKS.md。
 
-本轮失败复现与完整回归输出为 artifacts/navigation-material-repro.txt 和 navigation-material-instrumentation.txt。navigation-raised-lens.png / navigation-material-dark-large.png 截图与 navigation-glass-coolapk-motion.mp4 / navigation-glass-kudo-motion.mp4 同机慢拖确认透明凸起镜片、前景边缘折射、双高亮和松手收敛；navigation-glass-home.png 确认静止灰面和品牌黄，结束留在真实首页。前轮双高亮复现与 7 项回归保留在 navigation-preview-repro.txt / navigation-preview-instrumentation.txt。录屏仅验证动作与材质，不作为帧率基准。
+本轮失败复现为 artifacts/navigation-scale-repro.txt / navigation-center-repro.txt，完整回归为 navigation-scale-instrumentation.txt。navigation-scale-before-after.png、navigation-raised-lens.png / navigation-material-dark-large.png 截图与 navigation-glass-coolapk-motion.mp4 / navigation-glass-kudo-motion.mp4 同机慢拖确认整栏放大、镜片中心图标和文字继续放大、前景弧面边缘折射、双高亮和松手收敛；navigation-glass-home.png 确认静止灰面和品牌黄且没有额外镜片白圈，结束留在真实首页。此前材质复现与 10 项回归保留在 navigation-material-repro.txt / navigation-material-instrumentation.txt，双高亮复现与 7 项回归保留在 navigation-preview-repro.txt / navigation-preview-instrumentation.txt。录屏仅验证动作与材质，不作为帧率基准。
 
 较早在 MI 6X（Android 9 / API 28）安装启动正常，半透明兼容材质正常，但当时网络连接失败；未以旧机完成在线验收。用户换机后，不再运行模拟器。较早 API 36 模拟器结果仅为历史验证，不替代本次真机结果。

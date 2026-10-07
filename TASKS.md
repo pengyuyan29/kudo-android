@@ -20,6 +20,7 @@
 - [x] F4 透明预选：运动胶囊透明，当前与经过标签同时高亮，松手收敛；补复现测试并完成真机慢拖检查。
 - [x] F5 首页顶栏：社区 slogan、未登录 Linux.do Logo、移除右侧名称；真机普通字号与深色 130% 检查。
 - [x] F6 玻璃材质：品牌黄图标与文字、中性灰选中面、凸起镜片与前景折射；三个复现测试和同机慢拖对照。
+- [x] F7 凸面玻璃：整栏抬升放大、镜片中心放大与弧面边缘折射、收窄镜片凸出高度、静止高光归零；两项新回归和同机动静对照。
 
 各单元继续按构建配置、数据契约、页面组件等小批次实施，每个小功能连同笔记中文提交。功能开发优先，集中运行完整检查；发现缺陷先补复现测试。
 
@@ -37,7 +38,7 @@
 10. 胶囊拖动松手后从当前位置吸附，在发布入口松手或取消拖动时回原标签；切页不触发发布。帖子进入 / 返回过渡正常；系统关闭动画后仍能浏览和操作。
 11. 从首页慢拖经过分类、发布入口与消息：运动胶囊透明，首页与当前经过的标签同时高亮，松手前页面不变，经过发布入口不发布；在消息松手后只消息高亮，取消拖动回原标签。浅色与深色 130% 字号下分别检查，点击切页时也观察透明过渡。
 12. 未登录首页左侧显示黑白黄 Linux.do Logo，搜索栏为“真诚 · 友善 · 团结 · 专业”，右侧无“酷DO”；点击分别进入登录与搜索页。登录状态显示账号头像；普通字号与深色 130% 下检查文案和搜索图标。
-13. 高亮图标和文字均为品牌黄，静止选中面为透明中性灰。慢拖时镜片增高至 68dp，凸出 56dp 底栏上下边缘且未裁切；经过发布按钮时能看到边缘折射，中心文字仍清晰，松手与取消后平滑收回。以真机截图和录屏判断材质。
+13. 高亮图标和文字均为品牌黄，静止选中面为透明中性灰。慢拖时整栏放大至 1.04 倍，镜片约 92×64dp，只比放大后的 58.24dp 底栏上下各高约 2.9dp；镜片中心图标和文字继续放大，弧面边缘局部折射、压缩和色散，经过发布按钮时能看到轮廓折射。松手与取消后平滑收回，静止时没有额外镜片白圈。以真机截图和录屏判断材质，两端不得裁切，镜片中心保持跟随手指。
 
 ## 验证记录
 
@@ -49,19 +50,19 @@
 | Android Lint | 0 errors；26 项依赖升级 / API 使用建议等 warnings |
 | Debug APK | 构建成功，0.1.0，约 25 MiB，已覆盖安装到新真机 |
 | RMX2202 真机 | Android 13 / API 33，WebView 153，1080×2400 |
-| Compose 界面 | 10 项通过：导航点击和拖动、松手连续、双高亮、品牌黄图标与文字、选中面中性色、镜片凸出与收回、原生帖子动作、信息流、主题与字号、深色默认文字 |
+| Compose 界面 | 12 项通过，21.31 秒：导航点击和拖动、松手连续、双高亮、品牌黄图标与文字、选中面中性色、镜片凸出与收回、整栏放大与取消复位、镜片中心放大、原生帖子动作、信息流、主题与字号、深色默认文字 |
 | 真实只读浏览 | 首页及图片、分类、分类规范地址跳转、帖子与多楼层正文均已加载 |
 | 网页验证 | 用户手动完成人机验证，官网登录表单成功加载；部分接口仍可能再次验证 |
 | 搜索 | 已发送真实查询，站点要求登录；已补 `not_logged_in` 回归与登录引导 |
 | 视觉对比 | 对照同机酷安，导航为 56dp / 22dp 图标 / 横向发布胶囊；顶部标签为 19 / 16sp，卡片内边距为 12dp，详情操作栏最小 48dp |
 | 字号与行距 | PNG 实测摘要基线间距 22.0 / 21.8dp，详情正文 32.0dp；作者 15sp / 时间 12sp 保留；浅色与深色 130% 首页、长标题和正文无裁切 |
-| 动画与低动态 | 前轮录屏检查点击、双向拖动、帖子进入 / 返回；系统关闭动态效果后三项缩放为 0，当时的 6 项测试全部通过，真实分类与帖子浏览可用；本轮未重跑关闭动画的 10 项测试；结束后恢复动画与应用主题字号 |
+| 动画与低动态 | 前轮录屏检查点击、双向拖动、帖子进入 / 返回；系统关闭动态效果后三项缩放为 0，当时的 6 项测试全部通过，真实分类与帖子浏览可用；本轮未重跑关闭动画的 12 项测试；结束后恢复动画与应用主题字号 |
 | 首页顶栏 | slogan 完整、未登录 Logo 正确、搜索栏扩宽；搜索与登录入口可用，已看普通字号与深色 130% 截图；登录头像分支使用测试夹具检查 |
-| 玻璃与双高亮 | 本轮浅色、深色 130% 截图和同机酷安 / 酷DO 慢拖录屏已人工检查；运动镜片高于底栏，边缘折射发布按钮和标签，中心清晰，当前与经过标签为品牌黄，松手后恢复中性灰选中面 |
+| 玻璃与双高亮 | 本轮浅色、深色 130% 截图和同机酷安 / 酷DO 慢拖录屏已人工检查；整栏轻微放大，镜片中心放大更明显，边缘折射发布按钮和标签，运动镜片仅略凸出底栏，当前与经过标签为品牌黄，松手后恢复中性灰选中面并关闭镜片高光 |
 | 旧机兼容 | MI 6X / Android 9 安装与半透明材质正常，当时网络失败，未完成在线验收 |
 
-仪器测试通过 adb 指定新真机执行，保留应用数据；本轮 10 项输出为 `artifacts/navigation-material-instrumentation.txt`，三个新增测试的失败复现为 `artifacts/navigation-material-repro.txt`。前轮 7 项输出为 `artifacts/navigation-preview-instrumentation.txt`，双高亮失败复现为 `artifacts/navigation-preview-repro.txt`；正常与关闭动画的 6 项输出分别为 `artifacts/realme-density-instrumentation-final.txt` 和 `artifacts/realme-density-reduced-motion.txt`。测试前停止 `com.android.cli.interact.instrumentation`，避免 Android CLI 布局工具与测试截图争用 UiAutomation。真机截图均在 `artifacts/`，已人工检查首页、原生正文和深色大字号。
+仪器测试通过 adb 指定新真机执行，保留应用数据；本轮 12 项输出为 `artifacts/navigation-scale-instrumentation.txt`，整栏不放大和反向采样错误的复现为 `artifacts/navigation-scale-repro.txt` / `artifacts/navigation-center-repro.txt`。此前三个材质测试的失败复现为 `artifacts/navigation-material-repro.txt`，10 项回归为 `artifacts/navigation-material-instrumentation.txt`。前轮 7 项输出为 `artifacts/navigation-preview-instrumentation.txt`，双高亮失败复现为 `artifacts/navigation-preview-repro.txt`；正常与关闭动画的 6 项输出分别为 `artifacts/realme-density-instrumentation-final.txt` 和 `artifacts/realme-density-reduced-motion.txt`。测试前停止 `com.android.cli.interact.instrumentation`，避免 Android CLI 布局工具与测试截图争用 UiAutomation。真机截图均在 `artifacts/`，已人工检查首页、原生正文和深色大字号。
 
-本轮材质截图为 `navigation-glass-home.png`、`navigation-raised-lens.png` / `navigation-material-dark-large.png`，同机慢拖为 `navigation-glass-coolapk-motion.mp4` / `navigation-glass-kudo-motion.mp4`，逐帧对照为 `navigation-glass-comparison-00.png` 至 `-02.png`。首页顶栏截图为 `home-header-light.png` / `home-header-dark-large.png`。此前字号 / 帖子对照为 `density-home-comparison.png` 和 `density-topic-comparison.png`，帖子过渡录屏为 `density-motion-final.mp4`。录屏用于动作与材质检查，不作为正式帧率基准。所有 artifacts 均为本地产物，不提交 Git。
+本轮材质截图为 `navigation-glass-home.png`、`navigation-raised-lens.png` / `navigation-material-dark-large.png`，动静对照为 `navigation-scale-resting.png` / `navigation-scale-center.png` / `navigation-scale-before-after.png`；同机慢拖为 `navigation-glass-coolapk-motion.mp4` / `navigation-glass-kudo-motion.mp4`，逐帧对照为 `navigation-glass-comparison-00.png` 至 `-02.png`。首页顶栏截图为 `home-header-light.png` / `home-header-dark-large.png`。此前字号 / 帖子对照为 `density-home-comparison.png` 和 `density-topic-comparison.png`，帖子过渡录屏为 `density-motion-final.mp4`。录屏用于动作与材质检查，不作为正式帧率基准。所有 artifacts 均为本地产物，不提交 Git。
 
 真实账号的搜索结果、登录持久化、发帖、回复、图片上传、点赞、收藏和通知尚待用户验收。自动化使用本地模拟服务和测试夹具，不向社区发布测试内容。Android 12 模糊分支、平板、折叠屏及正式帧率基准尚未实测，不能从当前真机结果推定通过。
