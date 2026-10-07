@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,6 +21,8 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
+import com.kudo.android.ui.components.liquid.LiquidButton
+import com.kudo.android.ui.theme.LogoYellow
 
 @Composable
 fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit) {
@@ -78,12 +81,24 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         if (detail != null) {
             val first = detail.posts.firstOrNull { it.number == 1 }
             Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 14.dp, vertical = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                TextButton(onClick = { reply(null) }, enabled = !detail.closed, modifier = Modifier.weight(0.95f).heightIn(min = 48.dp).glass(backdrop, glass)) {
-                    Icon(Icons.Rounded.Edit, null, Modifier.size(22.dp)); Spacer(Modifier.width(8.dp)); Text("写回复", fontWeight = FontWeight.Medium)
+                LiquidButton(onClick = { reply(null) }, enabled = !detail.closed, backdrop = backdrop, mode = glass,
+                    surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f), contentColor = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(0.95f)) {
+                    Icon(Icons.Rounded.Edit, null, Modifier.size(22.dp))
+                    Text("写回复", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
                 }
-                Row(Modifier.weight(1.3f).heightIn(min = 48.dp).glass(backdrop, glass), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { first?.let(like) }, enabled = first != null && first.id !in state.busy) { Icon(if (first?.liked == true) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, "赞主帖", Modifier.size(22.dp)) }
-                    IconButton(onClick = { first?.let(bookmark) }, enabled = first != null && first.id !in state.busy) { Icon(if (first?.bookmarkId != null) Icons.Rounded.Star else Icons.Rounded.StarOutline, "收藏主帖", Modifier.size(22.dp)) }
+                LiquidButton(onClick = null, backdrop = backdrop, mode = glass,
+                    surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                    contentPadding = PaddingValues(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.weight(1.3f).testTag("topic-actions")) {
+                    IconButton(onClick = { first?.let(like) }, enabled = first != null && first.id !in state.busy) {
+                        Icon(if (first?.liked == true) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, "赞主帖", Modifier.size(22.dp),
+                            tint = if (first?.liked == true) LogoYellow else LocalContentColor.current)
+                    }
+                    IconButton(onClick = { first?.let(bookmark) }, enabled = first != null && first.id !in state.busy) {
+                        Icon(if (first?.bookmarkId != null) Icons.Rounded.Star else Icons.Rounded.StarOutline, "收藏主帖", Modifier.size(22.dp),
+                            tint = if (first?.bookmarkId != null) LogoYellow else LocalContentColor.current)
+                    }
                     IconButton(onClick = share) { Icon(Icons.Rounded.Share, "分享话题", Modifier.size(22.dp)) }
                 }
             }

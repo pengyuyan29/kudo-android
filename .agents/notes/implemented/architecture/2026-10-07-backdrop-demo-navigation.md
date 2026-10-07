@@ -1,10 +1,12 @@
-# Agent Note: 采用 Backdrop 官方示例底部导航
+# Agent Note: 采用 Backdrop 官方示例玻璃组件
 
 Status: implemented
 
 ## Problem
 
 用户安装 Backdrop demo 后确认其材质和动作就是目标，要求直接复用、仅微调参数。现有底栏自行组织采样和中心缩放，虽满足前轮几何回归，观感仍反复偏离参考。Backdrop 发布包只有绘制基础 API，LiquidBottomTabs 是 catalog 示例源码。
+
+详情页原有两块操作胶囊使用独立 `.glass()`，表面色62%、8dp blur和18 / 28dp lens，与官方 Surface Liquid Button 的轻表面和按压动作不同。用户提供酷安与酷DO操作栏截图，要求同样替换为官方按钮示例。
 
 ## Decision
 
@@ -22,6 +24,12 @@ Status: implemented
 
 手势辅助增加独立取消回调。高光检查器位于手势链内层，在 Main pass 中先读移动，随后阻尼检查器消费移动，防止高光因事件已消费而提前取消。位置与速度仍由官方动画驱动，保留最多4dp的弹性面板偏移。
 
+## Surface Liquid Button
+
+详情底栏左侧“写回复”与右侧“赞 / 收藏 / 分享”操作组采用同一版本 catalog 的 LiquidButton。官方示例的 Surface 样式即 LiquidButton 加30%表面色，并不需要另一个 Surface 组件。沿用2dp blur、12 / 24dp lens、Capsule、触点高光、按压时 `1 + 4dp / 高度` 放大与 tanh 阻尼平移，不叠加旧 glass 的边框或62%遮罩；浅深色使用各自主题的 surface。
+
+组件适配 enabled 和 nullable onClick：左侧作为独立按钮，话题关闭时不能回复；右侧只是玻璃容器，三个子按钮分别可点击，空白处不能产生第四个点击入口。缺失主帖或请求忙碌时保持点赞/收藏禁用，分享仍可用。停用或更改交互模式时重建高光状态，避免在按下过程中禁用后留下放大。最小48dp高度保留大字号增高能力；左右胶囊保留现有宽度比例、边距和22dp图标。兼容模式继续遵守现有API边界。
+
 ## Existing note audit
 
 - [玻璃与原生阅读](../feature/2026-10-07-liquid-glass-ui.md)：部分重叠，本篇接管导航渲染决策；该篇保留主题、阅读、网络和历史取舍，双方互链，不整篇归档。
@@ -33,6 +41,7 @@ Status: implemented
 
 - 继续微调手写采样中心缩放：文件少且前轮行为与几何已通过，但用户确认官方 demo 已符合目标；不断推测私有效果会增加不必要分歧，改用示例实际图层和动作。
 - 直接使用最新 KMP 2.0.1 示例：可以对齐上游最新代码，但其 Kotlin 2.4.10、Compose 1.12.0 和平台 Shader API 超出当前工具链；Android 1.0.6 示例已有相同 LiquidBottomTabs 结构，可避免无关升级。
+- 继续给详情操作栏调旧 glass 参数：可沿用现有 TextButton / IconButton，改动少，但用户已指定官方 Surface 样式，旧材质还有独立边框、浓表面和缺少真实触点形变的问题；直接接入 LiquidButton，并保留原有业务回调。
 
 ## Consequences
 
@@ -43,6 +52,8 @@ Status: implemented
 `THIRD_PARTY_NOTICES.md` 记录源码版本、五份接入文件、修改范围与完整许可路径；应用“开源致谢”明确底栏来自 Backdrop 官方示例，并列出 Shapes。接口与酷安仅作为研究参考，不包含它们的实现。
 
 ## Verification
+
+Surface Liquid Button 接入单元的 `:app:compileDebugKotlin` 通过；其动作隔离、禁用、按压/取消和材质模式在后续真机单元检查，不以编译通过代替视觉验收。
 
 辅助代码的 Kotlin 编译通过。替换后初次12项回归有3项失败：10%静止灰令黄色图标像素变暗；两项几何断言仍读取未缩放的布局边界。颜色改为6%灰后通过；几何改用 boundsInRoot，镜片高度与可见整栏比较，中心位置允许官方弹性偏移，不再断言手写动画的绝对触点坐标。
 
