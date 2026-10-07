@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.text.TextLayoutResult
@@ -26,6 +27,7 @@ import com.kudo.android.ui.components.GlassNavigation
 import com.kudo.android.ui.feed.FeedScreen
 import com.kudo.android.ui.feed.FeedState
 import com.kudo.android.ui.theme.KudoTheme
+import com.kudo.android.ui.theme.LogoYellow
 import com.kudo.android.ui.topic.*
 import org.junit.Assert.*
 import org.junit.Rule
@@ -209,6 +211,65 @@ class CommunityUiTest {
         navigation.performTouchInput { cancel() }
         compose.waitForIdle()
         compose.runOnIdle { assertEquals(3, selected); assertEquals(0, published) }
+    }
+
+    @Test fun navigationHighlightsUseBrandYellowForIconAndLabel() {
+        showWhiteNavigation()
+        val layouts = mutableListOf<TextLayoutResult>()
+        val home = compose.onNodeWithText("首页")
+        home.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals("高亮文字使用品牌黄", LogoYellow, layouts.single().layoutInput.style.color)
+        val pixels = home.captureToImage().toPixelMap()
+        var brandPixels = 0
+        for (y in 0 until pixels.height / 2) for (x in 0 until pixels.width) {
+            val color = pixels[x, y]
+            if (kotlin.math.abs(color.red - LogoYellow.red) < 0.07f &&
+                kotlin.math.abs(color.green - LogoYellow.green) < 0.07f && color.blue < 0.15f) brandPixels++
+        }
+        assertTrue("高亮图标也使用品牌黄", brandPixels > 20)
+    }
+
+    @Test fun navigationRestingSelectionHasNeutralSurface() {
+        showWhiteNavigation()
+        val pixels = compose.onNodeWithTag("navigation-selection").captureToImage().toPixelMap()
+        val surface = pixels[pixels.width / 2, (pixels.height * 0.1f).toInt()]
+        val spread = maxOf(surface.red, surface.green, surface.blue) - minOf(surface.red, surface.green, surface.blue)
+        assertTrue("选中区域应为中性灰而非黄底：$surface", spread < 0.04f)
+    }
+
+    @Test fun draggingLensExtendsBeyondTabHeight() {
+        showWhiteNavigation()
+        val tab = compose.onNodeWithText("首页").getUnclippedBoundsInRoot()
+        val tabHeight = tab.bottom - tab.top
+        val navigation = compose.onNodeWithTag("navigation")
+        navigation.performTouchInput {
+            down(Offset(width * 0.1f, centerY))
+            moveTo(Offset(width * 0.3f, centerY), delayMillis = 300)
+        }
+        compose.waitForIdle()
+        val lens = compose.onNodeWithTag("navigation-selection").getUnclippedBoundsInRoot()
+        val lensHeight = lens.bottom - lens.top
+        assertTrue("拖动玻璃应高于标签：$lensHeight / $tabHeight", lensHeight > tabHeight)
+        assertTrue("玻璃应凸出标签上边缘", lens.top < tab.top)
+        assertTrue("玻璃应凸出标签下边缘", lens.bottom > tab.bottom)
+        capture("navigation-raised-lens.png")
+        navigation.performTouchInput { cancel() }
+        compose.waitForIdle()
+        val resting = compose.onNodeWithTag("navigation-selection").getUnclippedBoundsInRoot()
+        assertTrue("取消后收回底栏内部", resting.bottom - resting.top <= tabHeight)
+    }
+
+    private fun showWhiteNavigation() {
+        compose.setContent {
+            KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+                val backdrop = rememberLayerBackdrop()
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.surface))
+                    GlassNavigation(0, {}, {}, backdrop, GlassMode.LIQUID,
+                        Modifier.align(Alignment.BottomCenter).padding(16.dp).fillMaxWidth().testTag("navigation"))
+                }
+            }
+        }
     }
 
     @Test fun nativePostRendersAndActionsAreWired() {
