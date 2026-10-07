@@ -1,5 +1,6 @@
 package com.kudo.android.ui.feed
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,10 +19,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kudo.android.R
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
 import com.kudo.android.ui.theme.Ink
@@ -35,14 +38,16 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
     Column(modifier.fillMaxSize()) {
         if (categoryTitle != null) PageTopBar(categoryTitle, back)
         else Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).statusBarsPadding().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.size(48.dp).clip(CircleShape).clickable(onClick = login), contentAlignment = Alignment.Center) { Avatar(user, 36.dp) }
+            Box(Modifier.size(48.dp).clip(CircleShape).clickable(onClick = login), contentAlignment = Alignment.Center) {
+                if (user == null) Image(painterResource(R.drawable.ic_linux_do), "Linux.do 社区 Logo", Modifier.size(36.dp))
+                else Avatar(user, 36.dp)
+            }
             Box(Modifier.weight(1f).heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = search), contentAlignment = Alignment.Center) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 32.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("搜索 Linux.do 的精彩", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("真诚 · 友善 · 团结 · 专业", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Icon(Icons.Rounded.Search, "搜索", Modifier.size(20.dp), MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Text("酷DO", fontWeight = FontWeight.Black, fontSize = 18.sp, lineHeight = 24.sp)
         }
         ScrollableTabRow(selectedTabIndex = FeedFilters.indexOfFirst { it.first == state.filter }.coerceAtLeast(0), containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.primary, edgePadding = 10.dp, divider = {}, indicator = {}) {
             FeedFilters.forEach { (value, label) ->
