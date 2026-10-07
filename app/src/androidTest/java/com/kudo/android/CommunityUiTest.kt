@@ -135,6 +135,82 @@ class CommunityUiTest {
         assertEquals("取消拖动回到原标签", settled.left.value, cancelled.left.value, 1f)
     }
 
+    @Test fun draggingHighlightsCurrentAndPreviewWithoutSwitchingPage() {
+        var selected by mutableIntStateOf(0)
+        var published = 0
+        var settings by mutableStateOf(DisplaySettings(theme = ThemeMode.LIGHT))
+        compose.setContent {
+            KudoTheme(settings) {
+                val backdrop = rememberLayerBackdrop()
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.surface))
+                    GlassNavigation(selected, { selected = it }, { published++ }, backdrop, GlassMode.LIQUID,
+                        Modifier.align(Alignment.BottomCenter).padding(16.dp).fillMaxWidth().testTag("navigation"))
+                }
+            }
+        }
+        fun textColor(label: String): androidx.compose.ui.graphics.Color {
+            val layouts = mutableListOf<TextLayoutResult>()
+            compose.onNodeWithText(label).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            return layouts.single().layoutInput.style.color
+        }
+        val active = textColor("首页")
+        val inactive = textColor("分类")
+        assertNotEquals(active, inactive)
+        val navigation = compose.onNodeWithTag("navigation")
+        navigation.performTouchInput {
+            down(Offset(width * 0.1f, centerY))
+            moveTo(Offset(width * 0.3f, centerY), delayMillis = 300)
+        }
+        compose.waitForIdle()
+        assertEquals("拖到分类时与当前首页同时高亮", active, textColor("分类"))
+        assertEquals(active, textColor("首页"))
+        assertEquals(inactive, textColor("我的"))
+        compose.runOnIdle { assertEquals("松手之前不切换页面", 0, selected); assertEquals(0, published) }
+        capture("navigation-drag-clear.png")
+        navigation.performTouchInput { moveTo(Offset(width * 0.5f, centerY), delayMillis = 300) }
+        compose.waitForIdle()
+        assertEquals(active, textColor("首页"))
+        assertEquals(inactive, textColor("分类"))
+        compose.runOnIdle { assertEquals(0, selected); assertEquals(0, published) }
+        navigation.performTouchInput { moveTo(Offset(width * 0.7f, centerY), delayMillis = 300) }
+        compose.waitForIdle()
+        assertEquals(active, textColor("消息"))
+        assertEquals(inactive, textColor("分类"))
+        assertEquals(active, textColor("首页"))
+        navigation.performTouchInput { up() }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(3, selected); assertEquals(0, published) }
+        assertEquals(inactive, textColor("首页"))
+        assertEquals(active, textColor("消息"))
+        navigation.performTouchInput {
+            down(Offset(width * 0.7f, centerY))
+            moveTo(Offset(width * 0.3f, centerY), delayMillis = 300)
+            cancel()
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(3, selected); assertEquals(0, published) }
+        assertEquals(inactive, textColor("分类"))
+        assertEquals(active, textColor("消息"))
+        compose.runOnIdle { settings = DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f) }
+        compose.waitForIdle()
+        val darkActive = textColor("消息")
+        val darkInactive = textColor("首页")
+        assertNotEquals(darkActive, darkInactive)
+        navigation.performTouchInput {
+            down(Offset(width * 0.7f, centerY))
+            moveTo(Offset(width * 0.1f, centerY), delayMillis = 300)
+        }
+        compose.waitForIdle()
+        assertEquals(darkActive, textColor("首页"))
+        assertEquals(darkActive, textColor("消息"))
+        assertEquals(darkInactive, textColor("分类"))
+        capture("navigation-drag-dark-large.png")
+        navigation.performTouchInput { cancel() }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(3, selected); assertEquals(0, published) }
+    }
+
     @Test fun nativePostRendersAndActionsAreWired() {
         val member = Member(1, "fixture", "界面测试", "")
         val post = Post(10, 1, member, "<p>这是一段用于仪器测试的原生正文。</p><blockquote><p>引用内容</p></blockquote><pre><code>val kudo = true</code></pre>", "2026-10-07T00:00:00Z", 12, false, null, null, true)

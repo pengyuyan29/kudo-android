@@ -71,6 +71,14 @@ fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Uni
     BoxWithConstraints(modifier.height(56.dp).glass(backdrop, mode)) {
         val slotWidth = maxWidth / 5
         val slotPixels = with(LocalDensity.current) { slotWidth.toPx() }
+        val moving by remember { derivedStateOf { dragPosition != null || position.isRunning } }
+        val previewSlot by remember(selected, slotPixels) {
+            derivedStateOf {
+                val slot = dragPosition?.let { (it / slotPixels).toInt().coerceIn(0, 4) }
+                    ?: if (position.isRunning) position.value.roundToInt().coerceIn(0, 4) else selected
+                slot.takeUnless { it == 2 }
+            }
+        }
         fun settleDrag(cancelled: Boolean) {
             val release = dragPosition ?: return
             val from = (release / slotPixels - 0.5f).coerceIn(0f, 4f)
@@ -84,7 +92,7 @@ fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Uni
             }
         }
         Box(Modifier.padding(4.dp).offset { IntOffset(((dragPosition?.let { it / slotPixels - 0.5f }?.coerceIn(0f, 4f) ?: position.value) * slotPixels).roundToInt(), 0) }.width(slotWidth - 8.dp).fillMaxHeight().testTag("navigation-selection")
-            .glass(backdrop, mode, tint = LogoYellow.copy(alpha = 0.2f)))
+            .glass(backdrop, mode, tint = if (moving) Color.Transparent else LogoYellow.copy(alpha = 0.2f)))
         Row(Modifier.fillMaxSize().pointerInput(selected) {
             detectHorizontalDragGestures(
                 onDragStart = { dragPosition = it.x },
@@ -94,6 +102,7 @@ fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Uni
         }, verticalAlignment = Alignment.CenterVertically) {
             labels.forEachIndexed { index, label ->
                 val chosen = selected == index
+                val highlighted = chosen || previewSlot == index
                 val interaction = remember { MutableInteractionSource() }
                 val pressed by interaction.collectIsPressedAsState()
                 val pressScale by animateFloatAsState(if (pressed) 0.94f else 1f, tween(100), label = "导航按压")
@@ -107,8 +116,8 @@ fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Uni
                             Icon(icons[index], "发布话题", Modifier.size(24.dp), tint = Ink)
                         }
                     } else {
-                        Icon(icons[index], null, Modifier.size(22.dp), tint = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                        Text(label, style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp, lineHeight = 14.sp), color = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        Icon(icons[index], null, Modifier.size(22.dp), tint = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        Text(label, style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp, lineHeight = 14.sp), color = if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }

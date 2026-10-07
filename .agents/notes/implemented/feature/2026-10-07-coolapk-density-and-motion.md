@@ -6,6 +6,8 @@ Status: implemented
 
 底部导航已调整为扁平胶囊，但首页仍显得较大较松，顶部标签、列表摘要、详情标题和页面动画的比例尚未统一。用户要求在同机酷安上进一步对照字体大小、间距和动画。
 
+用户补充拖动截图指出：运动中的胶囊应透明，手指经过的标签应与当前标签同时高亮。原实现的黄色填充在运动中仍保留，标签颜色只读取 selected，没有体现拖动预选。本轮先补真机复现测试，验证预选颜色与页面选择相互独立。
+
 ## Decision
 
 列表、长文和导航分别控制字号与节奏。首页介绍区与搜索框使用最小高度而非固定高度；搜索框和缩小的头像外保留 48dp 点击区，帖子作者行整体可点击。
@@ -15,6 +17,8 @@ Status: implemented
 3. 动画节奏：KudoApp.kt 与 Glass.kt 保留底部标签内容直接切换，选中玻璃胶囊采用 spring(0.9, 650) 减少长尾；进入帖子采用 280ms 淡入加 0.97→1 轻微缩放，返回采用 220ms 淡出加 1→0.98 缩放。NavHost 的普通进入 / 退出使用 280 / 180ms 淡变、返回 220ms，与帖子过渡同步，避免底层默认时长拖慢整体结束。底栏按压用 100ms 缩放反馈，触控布局不随缩放变小。Compose 动画保留系统动画时长缩放支持。不复用酷安的私有资源；时长是本项目建议值，录屏不能推定其所有内部参数。
 
 胶囊位置由 Animatable 保存。拖动时布局直接读取手指绝对坐标；松手先 snapTo 当前可见位置，再清除拖动覆盖并吸附到目标。目标改变由 selected 的 LaunchedEffect 驱动；释放到原标签、发布入口或取消拖动时，在原位置动画回原标签。发布入口不参与拖动切页。真机录屏发现旧的 animateFloatAsState 从原 selected 重新起步；先用冻结 Compose 时钟的仪器测试复现 282.3dp→20dp 跳回，再修改位置交接。同一测试继续复现首个拖动事件重复累加位移，导致在发布入口松手却选择首页；坐标直接取 change.position.x，避免把拖动起点的已移动距离算两次。
+
+运动中的胶囊不叠加黄色填充，保留背景采样、模糊、折射和高光边框；停止运动后恢复黄色选中底色。previewSlot 与 selected 分离：拖动按手指所在格计算，点击后的吸附动画按胶囊中心所在格计算；原标签与经过标签的图标和文字同时使用选中色。页面与 selected 语义只在实际切页时改变，松手或取消后预选高亮随吸附收敛。发布格不作为预选标签，经过时不会发布。derivedStateOf 只在跨格或运动开始 / 结束时刷新颜色，位置继续在布局阶段读取。
 
 ## Evidence
 
@@ -45,14 +49,20 @@ Status: implemented
 - 每次切底部标签都加整页滑动：转场显眼且方向明确，但同机参考的内容直接切换，持续的整页位移也会干扰背景采样；只调整胶囊和进入 / 返回帖子的动作。
 - 精确复制酷安所有布局与动画参数：观感可能最接近，但论坛话题、楼层和社区权限流程不同，XML 也不能证明运行时所有设置；使用可验证的比例并独立实现。
 - 继续用 animateFloatAsState 驱动选中位置：声明式代码更少，点击切页已经流畅，但拖动时位置是独立覆盖值，松手不能把这个值交给旧动画；使用 Animatable 的 snapTo 明确交接位置。
+- 拖动经过哪个标签就立即切换页面：视觉和页面状态可共用一个变量，但连续拖动会频繁加载页面，也无法同时保持当前标签高亮；预选单独计算，页面在松手后切换。
+- 全程保留黄色填充：选中区域一直明显，但遮住移动胶囊下的内容，也与用户给出的透明过渡不同；仅静止时使用黄色选中底色。
 
 ## Verification
 
 三个单元的 Kotlin 编译、Debug APK、18 项 JVM 测试与 Lint 通过（0 errors / 26 warnings）。同机原始截图实测摘要基线间隔为 22.0 / 21.8dp，详情正文为 32.0dp。浅色与深色 130% 字号下的首页、长标题和正文已人工检查，搜索提示允许单行省略，介绍区随内容增高。
 
-RMX2202 / Android 13 的 6 项 Compose 测试通过。新增 glassSelectionContinuesFromReleasePosition 先失败，再验证松手位置连续、发布入口吸附回原标签、取消拖动回原标签；原有导航点击与拖动不发布测试保留。系统“关闭动态效果”开启时，三项动画缩放值为 0，6 项测试也全部通过；真实分类切页、进入帖子加载正文与返回可用。结束后恢复系统动画开启状态，以及应用的跟随系统主题和字号。
+前轮 RMX2202 / Android 13 的 6 项 Compose 测试通过。glassSelectionContinuesFromReleasePosition 先失败，再验证松手位置连续、发布入口吸附回原标签、取消拖动回原标签；原有导航点击与拖动不发布测试保留。系统“关闭动态效果”开启时，三项动画缩放值为 0，当时的 6 项测试也全部通过；真实分类切页、进入帖子加载正文与返回可用。结束后恢复系统动画开启状态，以及应用的跟随系统主题和字号。
 
-最终录屏确认胶囊松手连续、底部内容直接替换、帖子进入 / 返回淡变正常，无明显白屏或玻璃闪动；网络等待显示加载指示，正文在请求完成后出现。正常动画与关闭动画的仪器输出分别为 artifacts/realme-density-instrumentation-final.txt 和 realme-density-reduced-motion.txt，录屏为 density-motion-final.mp4，同机对照为 density-home-comparison.png / density-topic-comparison.png。60fps 录制以 20fps 拼图观察动作，重点事件另取 60fps 帧检查；不据此宣称稳定帧率。新增测试只覆盖交互缺陷，不对样式常量镜像断言。
+前轮录屏确认胶囊松手连续、底部内容直接替换、帖子进入 / 返回淡变正常，无明显白屏或玻璃闪动；网络等待显示加载指示，正文在请求完成后出现。正常动画与关闭动画的仪器输出分别为 artifacts/realme-density-instrumentation-final.txt 和 realme-density-reduced-motion.txt，录屏为 density-motion-final.mp4，同机对照为 density-home-comparison.png / density-topic-comparison.png。60fps 录制以 20fps 拼图观察动作，重点事件另取 60fps 帧检查；不据此宣称稳定帧率。测试只覆盖交互缺陷，不对样式常量镜像断言。
+
+透明预选修正后，同一真机正常动画下的 7 项 Compose 测试全部通过，耗时 11.95 秒；Debug APK、测试 APK 与 Lint 通过（0 errors / 26 warnings）。draggingHighlightsCurrentAndPreviewWithoutSwitchingPage 在修改前因分类仍为未选中色而失败；修正后验证当前标签与经过标签同时高亮、松手前不切页、发布格不触发发布、取消后清除预选，以及深色 130% 字号下的双高亮。复现与完整回归输出为 artifacts/navigation-preview-repro.txt 和 navigation-preview-instrumentation.txt，截图为 navigation-drag-clear.png / navigation-drag-dark-large.png，均已人工检查。本轮未重跑关闭系统动画的 7 项测试。
+
+本轮真实慢拖录屏 navigation-preview-motion.mp4 确认首页→分类→消息→首页的胶囊在运动中透明、当前与经过标签同时高亮，松手后只保留目标标签高亮并恢复黄色底色；结束留在真实首页。60fps 录制以 10fps 拼图观察，属于动作验证，不作为帧率基准。
 
 ## Consequences
 
