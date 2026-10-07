@@ -14,6 +14,8 @@ Android 13+ 使用完整液态玻璃；Android 12 使用背景模糊；Android 8
 
 同机对照酷安调整字号和间距：列表摘要为 14sp / 22sp，长文正文为 16sp / 32sp；首页标签为 19 / 16sp，详情操作栏最小 48dp。底栏胶囊运动时透明，当前标签与经过标签同时高亮；拖动时页面保持不变，松手后切换并从当前位置吸附，只保留目标标签高亮。帖子进入 / 返回使用 280 / 220ms 淡变与轻微缩放；动画遵循系统时长设置。
 
+详情页“写回复”和“赞 / 收藏 / 分享”两块胶囊直接采用官方 `Surface Liquid Button` 样式：30%主题表面色、2dp模糊、12 / 24dp边缘折射、触点高光及按压放大；四个操作保持独立，关闭、请求忙碌与缺失主帖时的权限不变。
+
 ## 构建与安装
 
 需要 JDK 17+、Android SDK Platform 36，首次构建需要访问 Google Maven、Maven Central 和 Gradle。设置 `ANDROID_HOME` 或在未入库的 `local.properties` 中填写 `sdk.dir`。仓库包含 Gradle Wrapper，不需要全局安装 Gradle。
@@ -35,10 +37,10 @@ npm run verify-notes
 adb -s <真机序列号> install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # 使用 Android CLI 检查过布局时，先停止它的辅助测试进程，避免 UiAutomation 冲突。
 adb -s <真机序列号> shell am force-stop com.android.cli.interact.instrumentation
-adb -s <真机序列号> shell am instrument -w -r -e class com.kudo.android.CommunityUiTest com.kudo.android.test/androidx.test.runner.AndroidJUnitRunner
+adb -s <真机序列号> shell am instrument -w -r -e class com.kudo.android.CommunityUiTest,com.kudo.android.SurfaceLiquidUiTest com.kudo.android.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-2026-10-08：本轮13项 RMX2202 / Android13 真机界面测试通过，正常动画23.749秒、系统关闭动画17.544秒，结束恢复动画设置。Debug / 测试 APK、Lint 与笔记检查通过，Lint 为0 errors / 27 warnings；此前18项 JVM 测试已通过。界面测试覆盖导航点击与实际触摸、松手连续、取消、双高亮、发布隔离、采样入口唯一、黄色图标与文字、中性灰、整栏和镜片中心放大、帖子动作、主题及深色大字号。浅深色截图、动静图和同机官方 demo / 酷DO 慢拖已人工检查。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。真实社区只做只读检查，自动化帖子与互动使用夹具。
+2026-10-08：本轮18项 RMX2202 / Android13 真机界面测试通过，正常动画28.73秒、系统关闭动画25.076秒，结束恢复动画设置。Debug / 测试 APK、Lint 与笔记检查通过，Lint 为0 errors / 27 warnings；此前18项 JVM 测试已通过。界面测试覆盖导航点击与实际触摸、松手连续、取消、双高亮、发布隔离、采样入口唯一、黄色图标与文字、中性灰、整栏和镜片中心放大、帖子动作、主题及深色大字号；新增详情按钮独立触摸、禁用恢复、按压与取消、三种材质深色130%检查。官方 demo 的按钮动静截图、浅深色详情及真实滚动已人工检查。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。真实社区只做只读检查，自动化帖子与互动使用夹具。
 
 ## 使用边界
 
@@ -53,4 +55,4 @@ adb -s <真机序列号> shell am instrument -w -r -e class com.kudo.android.Com
 
 `data/` 负责 Discourse 协议和本地设置；`ui/` 按信息流、帖子、账号、编辑器拆分；`ui/components/` 封装玻璃与公共组件。重要取舍记录在 `.agents/notes/`，提交前运行 `npm run verify-notes`。
 
-接口行为参考 [FluxDO](https://github.com/Lingyan000/fluxdo)（研究版本 `e1bd839`），独立实现 Kotlin 代码。底部导航改编自 [Backdrop 官方 catalog](https://github.com/Kyant0/AndroidLiquidGlass/tree/896a94a3ade1cc1a940b92365f942a34971fecda/catalog)，保留来源、修改说明与完整 Apache-2.0 许可；接入依据见[架构笔记](.agents/notes/implemented/architecture/2026-10-07-backdrop-demo-navigation.md)。酷安仅作为布局和交互参考，不包含其 APK 资源或反编译代码。开源组件及许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+接口行为参考 [FluxDO](https://github.com/Lingyan000/fluxdo)（研究版本 `e1bd839`），独立实现 Kotlin 代码。底部导航和详情操作栏改编自 [Backdrop 官方 catalog](https://github.com/Kyant0/AndroidLiquidGlass/tree/896a94a3ade1cc1a940b92365f942a34971fecda/catalog)，保留来源、修改说明与完整 Apache-2.0 许可；接入依据见[架构笔记](.agents/notes/implemented/architecture/2026-10-07-backdrop-demo-navigation.md)。酷安仅作为布局和交互参考，不包含其 APK 资源或反编译代码。开源组件及许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

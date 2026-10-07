@@ -40,9 +40,11 @@ JUnit 与 MockWebServer 检查请求来源、CSRF、失败不重试、JSON 与 H
 
 2026-10-08 详情 Surface Liquid Button：新增5项与原有13项共18项真机测试通过，28.73秒，输出为 `artifacts/surface-final-instrumentation.txt`。Debug / 测试 APK 与 Lint通过，0 errors / 27 warnings；三种材质的深色130%、实际触摸、禁用恢复与取消均使用夹具验证。初轮字号断言失败记录为 `surface-button-instrumentation.txt` / `surface-overflow-repro.txt`；实际文案未裁切，改用字符边界后通过。
 
+系统关闭动画后的完整18项通过，25.076秒，输出为 `surface-reduced-motion.txt`；结束确认三项缩放恢复1。截图等待调整后按钮5项再通过，10.258秒，输出为 `surface-screenshot-instrumentation.txt`。官方 demo Buttons 页与夹具动静、浅/深色130%详情及最终安装后的真实滚动截图均已人工检查，具体材料见 TASKS.md。
+
 2026-10-08 官方示例接入：RMX2202 / Android13 的13项 Compose 测试全部通过，正常动画23.749秒，系统关闭动画17.544秒。三项全局动画缩放通过系统界面关闭并恢复为1。Debug / 测试 APK、Lint通过，0 errors / 27 warnings。当前几何测试读取 boundsInRoot，包括镜片在内的真实缩放边界；镜片高度与整栏表面比较，并允许官方弹性面板的少量横向偏移。中心放大仍读取完整根画面像素。输出为 `artifacts/backdrop-final-instrumentation.txt` / `backdrop-reduced-motion.txt`；同机 demo / 酷DO慢拖及浅深色截图已检查，来源与参数见上述笔记。
 
-最终分发 APK 为 `artifacts/Kudo-0.1.0-debug.apk`，覆盖安装成功；构建、分发和设备安装包的 SHA256 相同，完整上游 Apache-2.0 文本进入 `assets/licenses/`。本轮仅导航与开源致谢变化，18项协议 JVM 测试沿用此前结果。详细命令、材料与最终哈希见 TASKS.md。
+最终分发 APK 为 `artifacts/Kudo-0.1.0-debug.apk`，覆盖安装成功；构建、分发和设备安装包的 SHA256 相同，完整上游 Apache-2.0 文本进入 `assets/licenses/`。本轮为导航、详情操作栏与开源致谢变化，18项协议 JVM 测试沿用此前结果。详细命令、材料与最终哈希见 TASKS.md。
 
 ### 此前自绘底栏的回归记录
 
