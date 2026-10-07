@@ -8,13 +8,15 @@ Status: implemented
 
 详情页原有两块操作胶囊使用独立 `.glass()`，表面色62%、8dp blur和18 / 28dp lens，与官方 Surface Liquid Button 的轻表面和按压动作不同。用户提供酷安与酷DO操作栏截图，要求同样替换为官方按钮示例。
 
+用户静止截图指出灰色选中面首尾横向留白小于上下留白，底栏仍偏白。原镜片静止就比格宽多8dp并向外偏4dp，首尾外侧留白为0，上下为4dp；40%表面色与8dp模糊使真实背景较弱。先增加实际边界与黑色背景透色测试复现，参数修正保持官方拖动图层与动作。
+
 ## Decision
 
 `ui/components/liquid/` 接入 AndroidLiquidGlass 的 Android 1.0.6 catalog 六份源码，来源提交 `896a94a3ade1cc1a940b92365f942a34971fecda`，与现有 Backdrop 1.0.6 依赖保持一致。GlassNavigation 只提供酷DO入口内容；LiquidBottomTabs 采用官方可见底栏、隐藏放大采样层、组合镜片，DampedDragAnimation 与 InteractiveHighlight 提供官方阻尼、速度拉伸和触点高光。源码保留来源、Apache-2.0 许可和修改说明；完整许可随 APK 放入 assets。
 
 位置、速度、按压进度和横纵缩放沿用官方弹簧，分别为 (1,1000)、(0.5,300)、(1,1000)、(0.6,250)、(0.7,250)。整栏运动比例为 `1 + 16dp / 宽度`，隐藏标签从1放大到1.2；只在隐藏采样层放大内容，不使用手写 onDrawBackdrop 中心缩放。
 
-适配参数为品牌黄、五入口、56dp 底栏、48dp 静止镜片、64dp 运动镜片、22dp 图标和10sp文字。镜片宽度比标签格多8dp并居中，RMX2202 上约70.4×48dp静止、93.9×64dp稳定运动，速度拉伸另叠加。静止中性灰为6%，避免官方10%灰将黄色图标明显压暗；运动灰为3%黑并保留官方高光、内外阴影与色散。可见表面为40%主题表面色、8dp blur和24 / 24dp lens，隐藏表面的lens随按压进度变化，镜片沿用10 / 14dp lens。
+适配参数为品牌黄、五入口、56dp 底栏、48dp 静止镜片、64dp 运动镜片、22dp 图标和10sp文字。静止灰面宽度等于标签格，首尾外侧与上下均留4dp；按压进度从0到1时，镜片增加0到8dp宽并向外偏0到4dp，保持中心与官方动作。RMX2202 上约62.4×48dp静止、93.9×64dp稳定运动，速度拉伸另叠加。静止中性灰为6%，避免官方10%灰将黄色图标明显压暗；运动灰为3%黑并保留官方高光、内外阴影与色散。可见与隐藏表面同步使用20%主题表面色、4dp blur和24 / 24dp lens，减少白色遮盖并保留背景细节；隐藏表面的lens随按压进度变化，镜片沿用10 / 14dp lens。半透明兼容分支仍为94%表面。
 
 隐藏采样标签使用品牌黄，中央发布保留黄底黑色加号；不对整层使用官方的 accent ColorFilter，以免发布图标和黄底变为同色。增加官方相同版本的 `shapes:1.2.0` 编译依赖使用 Capsule，原依赖只作为 Backdrop 的 runtime 依赖可用。兼容模式遵守现有 API 33折射、31模糊、26半透明边界。
 
@@ -55,6 +57,10 @@ Status: implemented
 `THIRD_PARTY_NOTICES.md` 记录源码版本、六份接入文件、修改范围与完整许可路径；应用“开源致谢”明确底栏与详情操作栏来自 Backdrop 官方示例，并列出 Shapes。接口与酷安仅作为研究参考，不包含它们的实现。
 
 ## Verification
+
+静止边距与透明度先在真机复现两项失败：首个灰面左边距为0、上下12px（4dp），黑色背景下底栏白面为0.4。输出 `artifacts/navigation-insets-repro.txt`。NavigationMaterialUiTest 检查首尾边距与上下相同、两种宽度/字号和三种材质；黑底实际根画面采样检查静止与按压透色，允许官方按压高光并检查取消恢复。
+
+参数修正后两项真机回归通过，11.246秒，输出 `artifacts/navigation-insets-fixed.txt`。Debug / 测试APK与Lint通过，仍为0 errors / 27 warnings。正常动画完整27项通过，54.887秒，输出 `navigation-insets-final.txt`。动态透色采样随后补强为实际拖动、冻结时钟推进并断言底栏已放大，两项再次通过，11.07秒，输出 `navigation-insets-motion.txt`；系统关闭动画与真实背景观感继续独立验收。
 
 Surface Liquid Button 的编译、Debug / 测试 APK、Lint 通过，0 errors / 27 warnings。新增5项 SurfaceLiquidUiTest 与原有13项合计18项真机回归通过，28.73秒，输出为 `artifacts/surface-final-instrumentation.txt`。检查真实触摸的四个独立动作、容器无多余点击入口、关闭/忙碌/缺主帖禁用、按压内容放大、取消复位、按下期间禁用再启用，以及深色130%下三种材质。
 

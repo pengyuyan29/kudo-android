@@ -64,7 +64,7 @@ internal fun LiquidBottomTabs(
     val isLightTheme = surface.luminance() > 0.5f
     val canBlur = mode != GlassMode.TRANSLUCENT && Build.VERSION.SDK_INT >= 31
     val canRefract = mode == GlassMode.LIQUID && Build.VERSION.SDK_INT >= 33
-    val containerColor = surface.copy(alpha = if (canBlur) 0.4f else 0.94f)
+    val containerColor = surface.copy(alpha = if (canBlur) 0.2f else 0.94f)
     val tabsBackdrop = rememberLayerBackdrop()
     val selectedIndex by rememberUpdatedState(selectedTabIndex)
     val selectTab by rememberUpdatedState(onTabSelected)
@@ -162,7 +162,7 @@ internal fun LiquidBottomTabs(
                         backdrop = backdrop,
                         shape = { Capsule() },
                         effects = {
-                            if (canBlur) { vibrancy(); blur(8.dp.toPx()) }
+                            if (canBlur) { vibrancy(); blur(4.dp.toPx()) }
                             if (canRefract) lens(24.dp.toPx(), 24.dp.toPx())
                         },
                         layerBlock = {
@@ -195,7 +195,7 @@ internal fun LiquidBottomTabs(
                             shape = { Capsule() },
                             effects = {
                                 val progress = dampedDragAnimation.pressProgress
-                                if (canBlur) { vibrancy(); blur(8.dp.toPx()) }
+                                if (canBlur) { vibrancy(); blur(4.dp.toPx()) }
                                 if (canRefract) lens(24.dp.toPx() * progress, 24.dp.toPx() * progress)
                             },
                             highlight = { Highlight.Default.copy(alpha = dampedDragAnimation.pressProgress) },
@@ -214,7 +214,8 @@ internal fun LiquidBottomTabs(
                     .padding(horizontal = 4.dp)
                     .graphicsLayer {
                         translationX = (if (isLtr) dampedDragAnimation.value
-                        else tabsCount - 1 - dampedDragAnimation.value) * tabWidth + panelOffset - 4.dp.toPx()
+                        else tabsCount - 1 - dampedDragAnimation.value) * tabWidth + panelOffset -
+                            4.dp.toPx() * dampedDragAnimation.pressProgress
                     }
                     .drawBackdrop(
                         backdrop = rememberCombinedBackdrop(backdrop, tabsBackdrop),
@@ -243,7 +244,8 @@ internal fun LiquidBottomTabs(
                         },
                     )
                     .testTag("navigation-selection")
-                    .height(48.dp).width(with(density) { tabWidth.toDp() } + 8.dp),
+                    // Resting end caps share the bar's 4dp inset; dragging restores the wider lens.
+                    .height(48.dp).width(with(density) { tabWidth.toDp() } + 8.dp * dampedDragAnimation.pressProgress),
             )
         }
     }
