@@ -44,7 +44,7 @@ RichContent 使用 Jsoup 解析 cooked HTML，输出可选择文本、可点击�
 
 视觉、网络和正文解析相互隔离，可以分别校验。玻璃帧率需要真机验证。复杂交互插件、数学公式和音视频当前通过外部浏览器阅读，基础文本、代码和图片在原生页面内完成。
 
-前景采样会增加一个图层和一次镜片绘制，静止时不启用折射。高亮颜色按用户要求采用品牌黄，导航与正文的颜色职责分离。色散强度与折射边缘仍以真机实际图像为准，录屏不能证明稳定帧率或精确还原酷安私有参数。
+前景采样会增加一个图层和一次镜片绘制，镜片静止时不启用折射。高亮颜色按用户要求采用品牌黄，导航与正文的颜色职责分离。色散强度与折射边缘仍以真机实际图像为准，录屏不能证明稳定帧率或精确还原酷安私有参数。
 
 ## Verification
 
@@ -54,4 +54,4 @@ RichContent 使用 Jsoup 解析 cooked HTML，输出可选择文本、可点击�
 
 RMX2202 / Android 13 上新增的三个测试均先失败：高亮文字为 #805600、选中区域呈 #FFEFCD 黄底、拖动高度为 48dp / 标签 56dp。修正后完整 10 项 Compose 测试通过，最终宽度调整后的回归耗时 18.224 秒，Debug APK、测试 APK 和 Lint 通过（0 errors / 26 warnings）。复现与回归输出为 artifacts/navigation-material-repro.txt / navigation-material-instrumentation.txt。navigation-raised-lens.png 和 navigation-material-dark-large.png 已人工查看，确认浅色、深色 130% 字号的双高亮，以及镜片上下凸出且中心图标文字清晰。本轮未重跑关闭系统动画的 10 项测试。
 
-同机 12 秒慢拖录屏 navigation-glass-coolapk-motion.mp4 / navigation-glass-kudo-motion.mp4 及 navigation-glass-comparison-00.png 至 -02.png 已逐段查看：运动镜片能折射发布按钮与经过标签的轮廓，中心保留清晰内容，双向拖动后位置与高度平滑收敛；真实首页的静止背景为透明中性灰，图标和文字为品牌黄。最终普通首页截图为 navigation-glass-home.png，结束留在真实首页。60fps 录制以 10fps 抽帧只验证动作和材质，不推定酷安内部参数或本机稳定帧率。
+同机 12 秒慢拖录屏 navigation-glass-coolapk-motion.mp4 / navigation-glass-kudo-motion.mp4 及 navigation-glass-comparison-00.png 至 -02.png 已逐段查看：运动镜片能折射发布按钮与经过标签的轮廓，中心保留清晰内容，双向拖动后位置与高度平滑收敛；真实首页的静止背景为透明中性灰，图标和文字为品牌黄。最终普通首页截图为 navigation-glass-home.png，结束留在真实首页。录制设置 60fps 上限，以 10fps 抽帧只验证动作和材质，不推定酷安内部参数或本机稳定帧率。
