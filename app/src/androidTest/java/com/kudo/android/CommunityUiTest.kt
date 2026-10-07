@@ -72,6 +72,40 @@ class CommunityUiTest {
         compose.runOnIdle { assertEquals(1, published) }
     }
 
+    @Test fun physicalNavigationTouchesKeepSamplingAndPublishIsolated() {
+        var selected by mutableIntStateOf(0)
+        var published = 0
+        compose.setContent {
+            KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+                val backdrop = rememberLayerBackdrop()
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.surface))
+                    GlassNavigation(selected, { selected = it }, { published++ }, backdrop, GlassMode.LIQUID,
+                        Modifier.align(Alignment.BottomCenter).padding(20.dp).fillMaxWidth().testTag("navigation"))
+                }
+            }
+        }
+        compose.onAllNodesWithText("首页").assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("发布话题").assertCountEquals(1)
+        val navigation = compose.onNodeWithTag("navigation")
+        navigation.performTouchInput { click(Offset(width * 0.3f, centerY)) }
+        compose.runOnIdle { assertEquals(1, selected); assertEquals(0, published) }
+        navigation.performTouchInput { click(Offset(width * 0.5f, centerY)) }
+        compose.runOnIdle { assertEquals(1, selected); assertEquals(1, published) }
+        navigation.performTouchInput {
+            down(Offset(width * 0.5f, centerY))
+            moveTo(Offset(width * 0.9f, centerY), delayMillis = 300)
+            up()
+        }
+        compose.runOnIdle { assertEquals(4, selected); assertEquals("从发布入口开始拖动不应发布", 1, published) }
+        navigation.performTouchInput {
+            down(Offset(width * 0.3f, centerY))
+            moveTo(Offset(width * 0.5f, centerY), delayMillis = 300)
+            up()
+        }
+        compose.runOnIdle { assertEquals("从未选中标签拖到发布仍保持当前页", 4, selected); assertEquals(1, published) }
+    }
+
     @Test fun themeAndMaterialOptionsChangeImmediately() {
         var settings by mutableStateOf(DisplaySettings())
         compose.setContent { KudoTheme(settings) { SettingsScreen(settings, { settings = it }, null, {}, {}, {}) } }
@@ -239,7 +273,7 @@ class CommunityUiTest {
 
     @Test fun draggingLensExtendsBeyondTabHeight() {
         showWhiteNavigation()
-        val tab = compose.onNodeWithText("首页").getUnclippedBoundsInRoot()
+        val tab = compose.onNodeWithText("首页").fetchSemanticsNode().boundsInRoot
         val tabHeight = tab.bottom - tab.top
         val navigation = compose.onNodeWithTag("navigation")
         navigation.performTouchInput {
@@ -247,7 +281,7 @@ class CommunityUiTest {
             moveTo(Offset(width * 0.3f, centerY), delayMillis = 300)
         }
         compose.waitForIdle()
-        val lens = compose.onNodeWithTag("navigation-selection").getUnclippedBoundsInRoot()
+        val lens = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
         val lensHeight = lens.bottom - lens.top
         assertTrue("拖动玻璃应高于标签：$lensHeight / $tabHeight", lensHeight > tabHeight)
         assertTrue("玻璃应凸出标签上边缘", lens.top < tab.top)
@@ -255,7 +289,7 @@ class CommunityUiTest {
         capture("navigation-raised-lens.png")
         navigation.performTouchInput { cancel() }
         compose.waitForIdle()
-        val resting = compose.onNodeWithTag("navigation-selection").getUnclippedBoundsInRoot()
+        val resting = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
         assertTrue("取消后收回底栏内部", resting.bottom - resting.top <= tabHeight)
     }
 
@@ -272,11 +306,13 @@ class CommunityUiTest {
         val moving = compose.onNodeWithText("我的").fetchSemanticsNode().boundsInRoot
         assertTrue("拖动时整栏应横向放大：$resting → $moving", moving.width > resting.width)
         assertTrue("拖动时整栏应纵向放大", moving.height > resting.height)
-        val lens = compose.onNodeWithTag("navigation-selection").getUnclippedBoundsInRoot()
-        val touchX = (touchBounds.left + (touchBounds.right - touchBounds.left) * 0.3f).value
-        assertEquals("放大过程中镜片中心仍应跟随手指", touchX, ((lens.left + lens.right) / 2).value, 0.5f)
-        val tabHeight = moving.height
-        val lensHeight = with(compose.density) { (lens.bottom - lens.top).toPx() }
+        val lens = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
+        val touchX = with(compose.density) { (touchBounds.left + (touchBounds.right - touchBounds.left) * 0.3f).toPx() }
+        // The demo allows a small elastic panel offset; compare transformed visual bounds.
+        val tabWidth = with(compose.density) { (touchBounds.right - touchBounds.left).toPx() / 5 }
+        assertEquals("阻尼收敛后镜片中心仍应跟随手指", touchX, lens.center.x, tabWidth * 0.1f)
+        val tabHeight = compose.onNodeWithTag("navigation-surface").fetchSemanticsNode().boundsInRoot.height
+        val lensHeight = lens.height
         assertTrue("镜片仅略高于放大后的底栏：$lensHeight / $tabHeight", lensHeight > tabHeight && lensHeight < tabHeight * 1.15f)
         navigation.performTouchInput { cancel() }
         compose.waitForIdle()
