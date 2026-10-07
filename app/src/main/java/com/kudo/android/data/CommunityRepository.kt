@@ -1,0 +1,81 @@
+package com.kudo.android.data
+
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
+
+class CommunityRepository(val client: DiscourseClient) {
+    suspend fun topics(filter: String = "latest", categoryId: Int? = null, next: String? = null): TopicPage {
+        require(filter in setOf("latest", "hot", "top", "new", "unread"))
+        val path = next ?: if (categoryId == null) "/$filter.json" else "/c/$categoryId/l/$filter.json"
+        return DiscourseParser.topicPage(client.get(path))
+    }
+    suspend fun categories() = DiscourseParser.categories(client.get("/site.json"))
+    suspend fun currentUser(): Member? = client.get("/session/current.json").optJSONObject("current_user")?.let(DiscourseParser::member)
+    suspend fun user(username: String): Member {
+        val path = client.baseUrl.newBuilder().addPathSegment("u").addPathSegment("$username.json").build().toString()
+        return DiscourseParser.member(client.get(path).getJSONObject("user"))
+    }
+    suspend fun detail(id: Int, number: Int? = null) = DiscourseParser.detail(client.get(if (number == null) "/t/$id.json" else "/t/$id/$number.json"))
+    suspend fun posts(topicId: Int, ids: List<Int>): List<Post> {
+        if (ids.isEmpty()) return emptyList()
+        val url = client.resolve("/t/$topicId/posts.json").newBuilder().apply { ids.take(20).forEach { addQueryParameter("post_ids[]", it.toString()) } }.build()
+        return client.get(url.toString()).getJSONObject("post_stream").optJSONArray("posts").objects().map(DiscourseParser::post)
+    }
+    suspend fun post(id: Int) = DiscourseParser.post(client.get("/posts/$id.json"))
+    suspend fun search(query: String, page: Int = 1): Pair<List<Topic>, Boolean> {
+        val json = client.get("/search.json", mapOf("q" to query, "page" to page.toString()))
+        val posts = json.optJSONArray("posts").objects().associateBy { it.optInt("topic_id") }
+        val topics = json.optJSONArray("topics").objects().map { item ->
+            val post = posts[item.optInt("id")]
+            Topic(item.getInt("id"), item.text("title"), plainText(post?.text("blurb").orEmpty()),
+                post?.let(DiscourseParser::member), item.optInt("category_id"), item.optJSONArray("tags").strings(),
+                (item.optInt("posts_count", 1) - 1).coerceAtLeast(0), item.optInt("views"), item.optInt("like_count"),
+                item.text("image_url"), item.text("last_posted_at"))
+        }
+        return topics to (json.optJSONObject("grouped_search_result")?.optBoolean("more_full_page_results") ?: false)
+    }
+    suspend fun like(post: Post) {
+        if (post.liked) client.write("DELETE", "/post_actions/${post.id}?post_action_type_id=2")
+        else client.write("POST", "/post_actions", mapOf("id" to post.id.toString(), "post_action_type_id" to "2"))
+    }
+    suspend fun bookmark(post: Post): Int? {
+        if (post.bookmarkId != null) { client.write("DELETE", "/bookmarks/${post.bookmarkId}.json"); return null }
+        val result = client.write("POST", "/bookmarks.json", mapOf("bookmarkable_id" to post.id.toString(), "bookmarkable_type" to "Post"))
+        return result.positiveInt("id") ?: result.optJSONObject("bookmark")?.positiveInt("id")
+            ?: throw ApiFailure(FailureKind.SERVER, "收藏状态需刷新确认")
+    }
+    suspend fun bookmarks(username: String, page: Int): Pair<List<SavedTopic>, Boolean> {
+        val url = client.baseUrl.newBuilder().addPathSegment("u").addPathSegment(username).addPathSegment("bookmarks.json").addQueryParameter("page", page.toString()).build()
+        val list = client.get(url.toString()).optJSONObject("user_bookmark_list")
+        val result = list?.optJSONArray("bookmarks").objects().map {
+            SavedTopic(it.getInt("id"), it.optInt("topic_id"), it.text("title"), plainText(it.text("excerpt")), it.positiveInt("post_number"))
+        }.filter { it.topicId > 0 }
+        return result to !list?.text("more_bookmarks_url").isNullOrBlank()
+    }
+    suspend fun notifications(offset: Int): List<Notice> = DiscourseParser.notices(client.get("/notifications", mapOf("offset" to offset.toString(), "limit" to "30")))
+    suspend fun readNotification(id: Int? = null) { client.write("PUT", "/notifications/mark-read", id?.let { mapOf("id" to it.toString()) } ?: emptyMap()) }
+    suspend fun publish(raw: String, title: String?, categoryId: Int?, topicId: Int?, replyTo: Int?): PublishResult {
+        val fields = mutableMapOf("raw" to raw)
+        if (topicId != null) fields["topic_id"] = topicId.toString() else {
+            fields["title"] = title.orEmpty()
+            categoryId?.let { fields["category"] = it.toString() }
+        }
+        replyTo?.let { fields["reply_to_post_number"] = it.toString() }
+        val result = client.write("POST", "/posts.json", fields)
+        if (result.text("action") == "enqueued") return PublishResult(topicId, true)
+        val post = result.optJSONObject("post") ?: result
+        if (post.positiveInt("id") == null) throw ApiFailure(FailureKind.SERVER, "未确认发布结果，草稿已保留，请到社区查看")
+        return PublishResult(post.positiveInt("topic_id") ?: topicId, false)
+    }
+    suspend fun upload(bytes: ByteArray, mimeType: String, filename: String): String {
+        require(bytes.isNotEmpty() && bytes.size <= 10 * 1024 * 1024) { "请选择 10 MB 以内的图片" }
+        require(mimeType in setOf("image/jpeg", "image/png", "image/webp", "image/gif")) { "请选择 JPG、PNG、WebP 或 GIF 图片" }
+        val body = MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("type", "composer")
+            .addFormDataPart("synchronous", "true").addFormDataPart("file", filename, bytes.toRequestBody(mimeType.toMediaType())).build()
+        val result = client.write("POST", "/uploads.json", body = body)
+        val url = result.text("short_url").ifBlank { result.text("url") }
+        require(url.isNotBlank()) { "上传未返回图片地址" }
+        return "![图片]($url)"
+    }
+}
