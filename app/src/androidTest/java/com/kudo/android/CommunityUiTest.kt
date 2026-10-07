@@ -259,6 +259,76 @@ class CommunityUiTest {
         assertTrue("取消后收回底栏内部", resting.bottom - resting.top <= tabHeight)
     }
 
+    @Test fun draggingEnlargesNavigationAndRestoresItOnCancel() {
+        showWhiteNavigation()
+        val resting = compose.onNodeWithText("我的").fetchSemanticsNode().boundsInRoot
+        val navigation = compose.onNodeWithTag("navigation")
+        val touchBounds = navigation.getUnclippedBoundsInRoot()
+        navigation.performTouchInput {
+            down(Offset(width * 0.1f, centerY))
+            moveTo(Offset(width * 0.3f, centerY), delayMillis = 300)
+        }
+        compose.waitForIdle()
+        val moving = compose.onNodeWithText("我的").fetchSemanticsNode().boundsInRoot
+        assertTrue("拖动时整栏应横向放大：$resting → $moving", moving.width > resting.width)
+        assertTrue("拖动时整栏应纵向放大", moving.height > resting.height)
+        val lens = compose.onNodeWithTag("navigation-selection").getUnclippedBoundsInRoot()
+        val touchX = (touchBounds.left + (touchBounds.right - touchBounds.left) * 0.3f).value
+        assertEquals("放大过程中镜片中心仍应跟随手指", touchX, ((lens.left + lens.right) / 2).value, 0.5f)
+        val tabHeight = moving.height
+        val lensHeight = with(compose.density) { (lens.bottom - lens.top).toPx() }
+        assertTrue("镜片仅略高于放大后的底栏：$lensHeight / $tabHeight", lensHeight > tabHeight && lensHeight < tabHeight * 1.15f)
+        navigation.performTouchInput { cancel() }
+        compose.waitForIdle()
+        val returned = compose.onNodeWithText("我的").fetchSemanticsNode().boundsInRoot
+        assertEquals("取消后恢复原宽度", resting.width, returned.width, 1f)
+        assertEquals("取消后恢复原高度", resting.height, returned.height, 1f)
+    }
+
+    @Test fun lensCenterContentKeepsNavigationMagnification() {
+        showWhiteNavigation()
+        val restingInside = navigationIconWidth("分类")
+        val restingOutside = navigationIconWidth("我的")
+        capture("navigation-scale-resting.png")
+        val navigation = compose.onNodeWithTag("navigation")
+        navigation.performTouchInput {
+            down(Offset(width * 0.1f, centerY))
+            moveTo(Offset(width * 0.3f, centerY), delayMillis = 300)
+        }
+        compose.waitForIdle()
+        val movingInside = navigationIconWidth("分类")
+        val movingOutside = navigationIconWidth("我的")
+        val insideRatio = movingInside.toFloat() / restingInside
+        val outsideRatio = movingOutside.toFloat() / restingOutside
+        assertTrue("镜片外图标应放大：$restingOutside → $movingOutside", movingOutside > restingOutside)
+        assertTrue("镜片中心图标仍应放大：$restingInside → $movingInside", movingInside > restingInside)
+        assertTrue("镜片中心应保留放大而非压回静止尺寸：内 $insideRatio / 外 $outsideRatio", insideRatio >= outsideRatio - 0.01f)
+        capture("navigation-scale-center.png")
+        navigation.performTouchInput { cancel() }
+        compose.waitForIdle()
+        assertEquals("取消后图标恢复静止宽度", restingOutside, navigationIconWidth("我的"))
+    }
+
+    private fun navigationIconWidth(label: String): Int {
+        val bounds = compose.onNodeWithText(label).getUnclippedBoundsInRoot()
+        // Capture the composed root so the foreground lens is included.
+        val pixels = compose.onRoot().captureToImage().toPixelMap()
+        val left = with(compose.density) { bounds.left.roundToPx() }.coerceAtLeast(0)
+        val right = with(compose.density) { bounds.right.roundToPx() }.coerceAtMost(pixels.width)
+        val top = with(compose.density) { bounds.top.roundToPx() }.coerceAtLeast(0)
+        val bottom = with(compose.density) { (bounds.top + (bounds.bottom - bounds.top) * 0.52f).roundToPx() }.coerceAtMost(pixels.height)
+        var first = right
+        var last = left - 1
+        for (y in top until bottom) for (x in left until right) {
+            val color = pixels[x, y]
+            val ink = color.red < 0.25f && color.green < 0.25f && color.blue < 0.25f
+            val brand = color.red > 0.9f && color.green in 0.55f..0.8f && color.blue < 0.15f
+            if (ink || brand) { first = minOf(first, x); last = maxOf(last, x) }
+        }
+        assertTrue("应读到 $label 图标的实际像素", last >= first)
+        return last - first + 1
+    }
+
     private fun showWhiteNavigation() {
         compose.setContent {
             KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
@@ -266,7 +336,7 @@ class CommunityUiTest {
                 Box(Modifier.fillMaxSize()) {
                     Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.surface))
                     GlassNavigation(0, {}, {}, backdrop, GlassMode.LIQUID,
-                        Modifier.align(Alignment.BottomCenter).padding(16.dp).fillMaxWidth().testTag("navigation"))
+                        Modifier.align(Alignment.BottomCenter).padding(20.dp).fillMaxWidth().testTag("navigation"))
                 }
             }
         }
