@@ -12,6 +12,8 @@ LiquidModal 封装同窗口的玻璃模态层，设置内容提供 LayerBackdrop
 
 模态层在当前窗口内绘制，使用返回键拦截、完整触摸遮罩、dialog语义与焦点分组；焦点离开模态分组时取消离开。小屏和大字号下内容能滚动，底部安全区不能挡住取消，说明不能仅显示摘要。兼容材质沿用API 33折射、31模糊、26半透明边界。接入页面必须在打开及退出动画期间隐藏背景可访问入口；选择仍即时保存，取消/背景/返回键均不修改，退出仅确认触发一次。主题或材质改变后动画使用最新主题，不影响底层业务。
 
+SettingsScreen 用独立目标内容和 MutableTransitionState 控制模态，关闭期间保留标题与内容，避免退出动画闪空。背景页面使用 clearAndSetSemantics 和焦点进入拦截，直到动画完全退出。主题、材质、字号选项使用 selectable 语义与黄色勾选；说明、致谢与退出确认不使用 AlertDialog。表面仅采样设置内容，选项或关闭不会触发隐藏页面的设置入口。
+
 ## Existing note audit
 
 - [官方玻璃组件](../../implemented/architecture/2026-10-07-backdrop-demo-navigation.md)：部分重叠，保留导航/详情的来源与业务隔离；本篇负责模态层采样和关闭契约，互链。
@@ -37,4 +39,4 @@ LiquidModal 封装同窗口的玻璃模态层，设置内容提供 LayerBackdrop
 
 ## Verification
 
-组件单元 Kotlin 编译通过，输出 `artifacts/modal-component-build.txt`。设置页接入和真机验收属于后续单元，此时尚未验证模态行为。
+组件与设置页接入的 Kotlin 编译通过，输出 `artifacts/modal-component-build.txt` / `modal-settings-build.txt`。真机验收属于后续单元，此时尚未验证模态行为。
