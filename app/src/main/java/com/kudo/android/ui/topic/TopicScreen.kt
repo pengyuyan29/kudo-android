@@ -1,6 +1,7 @@
 package com.kudo.android.ui.topic
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -36,7 +37,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                 if (state.error != null) item { ErrorState(state.error, retry, login) }
                 if (detail != null) {
                     item("title") {
-                        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(19.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Text(detail.title, style = MaterialTheme.typography.headlineSmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text("${detail.stream.size.coerceAtLeast(detail.posts.size)} 个楼层", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -45,9 +46,9 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                         }
                     }
                     items(detail.posts, key = { it.id }) { post ->
-                        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Avatar(post.author, 38.dp) { user(post.author.username) }
+                        Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(Modifier.heightIn(min = 48.dp).clickable { user(post.author.username) }, verticalAlignment = Alignment.CenterVertically) {
+                                Avatar(post.author, 32.dp)
                                 Column(Modifier.weight(1f).padding(start = 10.dp)) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Text(post.author.displayName, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
@@ -77,13 +78,13 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         if (detail != null) {
             val first = detail.posts.firstOrNull { it.number == 1 }
             Row(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 14.dp, vertical = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                TextButton(onClick = { reply(null) }, enabled = !detail.closed, modifier = Modifier.weight(0.95f).height(57.dp).glass(backdrop, glass)) {
+                TextButton(onClick = { reply(null) }, enabled = !detail.closed, modifier = Modifier.weight(0.95f).heightIn(min = 48.dp).glass(backdrop, glass)) {
                     Icon(Icons.Rounded.Edit, null, Modifier.size(22.dp)); Spacer(Modifier.width(8.dp)); Text("写回复", fontWeight = FontWeight.Medium)
                 }
-                Row(Modifier.weight(1.3f).height(57.dp).glass(backdrop, glass), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { first?.let(like) }, enabled = first != null && first.id !in state.busy) { Icon(if (first?.liked == true) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, "赞主帖") }
-                    IconButton(onClick = { first?.let(bookmark) }, enabled = first != null && first.id !in state.busy) { Icon(if (first?.bookmarkId != null) Icons.Rounded.Star else Icons.Rounded.StarOutline, "收藏主帖") }
-                    IconButton(onClick = share) { Icon(Icons.Rounded.Share, "分享话题") }
+                Row(Modifier.weight(1.3f).heightIn(min = 48.dp).glass(backdrop, glass), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { first?.let(like) }, enabled = first != null && first.id !in state.busy) { Icon(if (first?.liked == true) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, "赞主帖", Modifier.size(22.dp)) }
+                    IconButton(onClick = { first?.let(bookmark) }, enabled = first != null && first.id !in state.busy) { Icon(if (first?.bookmarkId != null) Icons.Rounded.Star else Icons.Rounded.StarOutline, "收藏主帖", Modifier.size(22.dp)) }
+                    IconButton(onClick = share) { Icon(Icons.Rounded.Share, "分享话题", Modifier.size(22.dp)) }
                 }
             }
         }
