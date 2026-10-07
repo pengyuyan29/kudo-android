@@ -28,6 +28,8 @@ JUnit 与 MockWebServer 检查请求来源、CSRF、失败不重试、JSON 与 H
 
 整栏抬升与中心放大增加两项回归：读取变换后的 boundsInRoot 比较拖动前后的可见尺寸，检查镜片中心仍跟随手指、镜片仅略高于放大后的标签，取消后恢复原尺寸；捕获完整 Compose 根画面，比较同一图标在静止与镜片覆盖时的实际像素宽度，并与镜片外图标比较。只捕获标签子树会漏掉前景镜片，只读取未裁切布局宽度也不能衡量图层缩放。白色夹具的两侧 20dp 边距与正式首页一致，具体光学比例仍由同机录屏校准。
 
+NavigationMaterialUiTest 检查首尾灰面外侧与上下的实际留白相等，覆盖两种宽度/字号和三种材质。黑底根画面采样判断白面强度，真实移动并确认整栏放大后采样动态透色，取消恢复；黑底不作为浅色标签可读性验证。新增多位置停顿几何检查时，逐帧推进Compose时钟并等待真实16ms，因为官方VelocityTracker使用墙钟；瞬间推进虚拟900ms不代表速度采样经历了停顿。保留原凸出范围断言，系统关闭动画单独复现速度形变后再修复，材质判断仍结合真实正文和图片。
+
 ## Alternatives considered
 
 - 只在真实站点自动化：最贴近线上，但会受到限流和会话影响，也可能发出真实社区写操作；真实请求仅做只读验证。
@@ -40,6 +42,8 @@ JUnit 与 MockWebServer 检查请求来源、CSRF、失败不重试、JSON 与 H
 
 ## Verification
 
+2026-10-08 静止留白与透色：首尾与黑底复现两项失败后修正参数；关闭动画又发现速度残留压扁/拉高，独立复现失败后增加系统缩放观察。最终28项正常动画63.441秒、关闭动画51.013秒全部通过，输出 `artifacts/navigation-material-final.txt` / `navigation-material-reduced-motion.txt`，结束三项缩放恢复1。Debug / 测试APK和Lint通过，0 errors / 27 warnings；真实首页、图片经过底栏、拖动双高亮和末端静止截图已人工检查。新增测试的虚拟时钟与墙钟不一致记录为 `navigation-material-initial.txt` / `navigation-material-clock-fixed.txt`，几何断言未放宽。
+
 2026-10-08 设置玻璃模态：新增7项与原有18项共25项真机测试全部通过，正常动画45.988秒、系统关闭动画38.548秒，输出 `artifacts/modal-final-instrumentation.txt` / `modal-reduced-motion.txt`；结束三项系统缩放恢复1。Debug / 测试APK与Lint通过，0 errors / 27 warnings。6项初轮的3个误报均为测试时序、虚拟列表或圆角外坐标；增加有效条件后通过。焦点用例显式键盘模式后通过，没有为测试误报改产品行为。浅/深色130%、三种材质截图已人工检查。
 
 2026-10-08 详情 Surface Liquid Button：新增5项与原有13项共18项真机测试通过，28.73秒，输出为 `artifacts/surface-final-instrumentation.txt`。Debug / 测试 APK 与 Lint通过，0 errors / 27 warnings；三种材质的深色130%、实际触摸、禁用恢复与取消均使用夹具验证。初轮字号断言失败记录为 `surface-button-instrumentation.txt` / `surface-overflow-repro.txt`；实际文案未裁切，改用字符边界后通过。
@@ -48,7 +52,7 @@ JUnit 与 MockWebServer 检查请求来源、CSRF、失败不重试、JSON 与 H
 
 2026-10-08 官方示例接入：RMX2202 / Android13 的13项 Compose 测试全部通过，正常动画23.749秒，系统关闭动画17.544秒。三项全局动画缩放通过系统界面关闭并恢复为1。Debug / 测试 APK、Lint通过，0 errors / 27 warnings。当前几何测试读取 boundsInRoot，包括镜片在内的真实缩放边界；镜片高度与整栏表面比较，并允许官方弹性面板的少量横向偏移。中心放大仍读取完整根画面像素。输出为 `artifacts/backdrop-final-instrumentation.txt` / `backdrop-reduced-motion.txt`；同机 demo / 酷DO慢拖及浅深色截图已检查，来源与参数见上述笔记。
 
-最终分发 APK 为 `artifacts/Kudo-0.1.0-debug.apk`，覆盖安装成功；构建、分发和设备安装包的 SHA256 相同，最新记录为 `modal-apk-verification.txt`，完整上游 Apache-2.0 文本进入 `assets/licenses/`。本轮为导航、详情操作栏、设置模态与开源致谢变化，18项协议 JVM 测试沿用此前结果。详细命令、材料与最终哈希见 TASKS.md。
+最终分发 APK 为 `artifacts/Kudo-0.1.0-debug.apk`，覆盖安装成功；构建、分发和设备安装包的 SHA256 相同，最新记录为 `navigation-insets-apk-verification.txt`，完整上游 Apache-2.0 文本进入 `assets/licenses/`。本轮只调整底栏几何、材质和低动态速度形变，18项协议 JVM 测试沿用此前结果。详细命令、材料与最终哈希见 TASKS.md。
 
 ### 此前自绘底栏的回归记录
 

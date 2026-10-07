@@ -10,7 +10,7 @@ Linux.do 社区的 Android 原生第三方客户端。Kotlin + Jetpack Compose�
 - 点赞、收藏、发帖、回复、图片上传、按账号和话题保存草稿。
 - 浅色 / 深色 / 跟随系统，字号和材质设置。
 
-Android 13+ 使用完整液态玻璃；Android 12 使用背景模糊；Android 8–11 使用半透明。底部导航直接改编自 Backdrop 官方 `LiquidBottomTabs` 示例，保留阻尼、速度拉伸、触点高光，以及可见底栏 / 隐藏放大标签 / 前景镜片三层结构。底栏为56dp高、22dp图标和10sp标签；高亮为 `#FFB003`，静止选中面为透明中性灰。镜片静止48dp、运动约64dp高，宽度略大于标签格，中心文字和图标放大，弧面边缘呈现折射与色散；中央发布按钮采用横向胶囊。设置中可以主动切换兼容材质。
+Android 13+ 使用完整液态玻璃；Android 12 使用背景模糊；Android 8–11 使用半透明。底部导航直接改编自 Backdrop 官方 `LiquidBottomTabs` 示例，保留阻尼、速度拉伸、触点高光，以及可见底栏 / 隐藏放大标签 / 前景镜片三层结构。底栏为56dp高、22dp图标和10sp标签；高亮为 `#FFB003`，静止选中面为透明中性灰。镜片静止48dp高、宽度等于标签格，首尾外侧和上下留白均为4dp；运动时增宽8dp、约64dp高，中心文字和图标放大，弧面边缘呈现折射与色散。玻璃底栏采用20%主题表面色和4dp模糊，半透明兼容材质仍为94%；中央发布按钮采用横向胶囊。关闭系统动画时停用速度附加拉伸，保留基础按压放大与折射。设置中可以主动切换兼容材质。
 
 同机对照酷安调整字号和间距：列表摘要为 14sp / 22sp，长文正文为 16sp / 32sp；首页标签为 19 / 16sp，详情操作栏最小 48dp。底栏胶囊运动时透明，当前标签与经过标签同时高亮；拖动时页面保持不变，松手后切换并从当前位置吸附，只保留目标标签高亮。帖子进入 / 返回使用 280 / 220ms 淡变与轻微缩放；动画遵循系统时长设置。
 
@@ -39,10 +39,10 @@ npm run verify-notes
 adb -s <真机序列号> install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # 使用 Android CLI 检查过布局时，先停止它的辅助测试进程，避免 UiAutomation 冲突。
 adb -s <真机序列号> shell am force-stop com.android.cli.interact.instrumentation
-adb -s <真机序列号> shell am instrument -w -r -e class 'com.kudo.android.CommunityUiTest,com.kudo.android.SurfaceLiquidUiTest,com.kudo.android.SettingsModalUiTest' com.kudo.android.test/androidx.test.runner.AndroidJUnitRunner
+adb -s <真机序列号> shell am instrument -w -r -e class 'com.kudo.android.CommunityUiTest,com.kudo.android.SurfaceLiquidUiTest,com.kudo.android.SettingsModalUiTest,com.kudo.android.NavigationMaterialUiTest' com.kudo.android.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-2026-10-08：本轮25项 RMX2202 / Android13 真机界面测试通过，正常动画45.988秒、系统关闭动画38.548秒，结束恢复动画设置。Debug / 测试 APK、Lint 与笔记检查通过，Lint 为0 errors / 27 warnings；此前18项 JVM 测试已通过。保留导航与详情按钮全部回归，新增7项模态选择、取消/遮罩/返回、空白与背景隔离、退出确认、键盘焦点、三种材质深色130%与短窗口滚动。官方 demo 的按钮动静及Dialog截图、浅深色界面和真实详情滚动已人工检查。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。真实社区只做只读检查，自动化帖子与互动使用夹具。
+2026-10-08：本轮28项 RMX2202 / Android13 真机界面测试通过，正常动画63.441秒、系统关闭动画51.013秒，结束恢复三项动画缩放为1。Debug / 测试 APK、Lint 与笔记检查通过，Lint 为0 errors / 27 warnings；此前18项 JVM 测试已通过。保留导航、详情按钮与设置模态25项回归，新增首尾等边留白、实际按压透色和多个拖动停顿位置3项测试。真实首页、图片经过底栏、双黄色高亮和末端静止截图已人工检查。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。真实社区只做只读检查，自动化帖子与互动使用夹具。
 
 ## 使用边界
 
