@@ -1,12 +1,12 @@
 # Agent Note: 酷DO 原生社区客户端与玻璃渲染边界
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
 空仓库需要形成可安装的 Linux.do 原生客户端。参考酷安的视觉与交互，同时社区数据和账号能力遵循 Linux.do 的 Discourse 行为；玻璃效果不能让旧设备无法使用。
 
-## Proposal
+## Decision
 
 采用 Kotlin、Jetpack Compose、单 Activity 和按功能分包的单应用模块。ViewModel 持有界面状态，Repository 负责 Discourse 契约，OkHttp 负责请求，Coil 负责图片。应用名酷DO，包名 com.kudo.android，最低 API 26。品牌黄为参考项目 Logo 中的 #FFB003，文字采用深色或可读的深琥珀色。
 
@@ -30,10 +30,10 @@ Status: proposed
 - 自写整套 AGSL 渲染器：能控制全部折射参数，但背景采样、坐标和性能适配会扩大风险；复用开放许可的 Backdrop，再独立实现酷DO组件。
 - 全站 WebView：能完整支持所有 Discourse 插件，但无法实现要求的原生信息流与玻璃控件；仅保留验证和外部内容入口。
 
-## Acceptance criteria
+## Verification
 
-TASKS.md 的基础闭环可运行；生成 Debug APK；单元测试覆盖模型、分页、请求来源与写操作错误；模拟器检查玻璃和核心页面。真实账号写操作留给用户主动操作验收。
+TASKS.md 记录基础闭环；Gradle 生成 Debug APK；单元测试覆盖模型、分页、请求来源与写操作错误；模拟器检查玻璃和核心页面。真实账号写操作留给用户主动操作验收。
 
-## Risks
+## Consequences
 
-Cloudflare 验证可能对 HTTP 客户端指纹敏感；即使网页验证成功也不能承诺所有网络环境均可原生访问。复杂帖子插件可能需要外部网页。实时折射的帧率必须在真机上确认；模拟器只能确认渲染和交互正确。
+原生页面使用统一的主题、网络契约和错误入口。Cloudflare 验证可能对 HTTP 客户端指纹敏感；即使网页验证成功也不能承诺所有网络环境均可原生访问。复杂帖子插件可能需要外部网页。实时折射的帧率必须在真机上确认；模拟器只能确认渲染和交互正确。

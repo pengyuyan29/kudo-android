@@ -1,0 +1,139 @@
+package com.kudo.android.ui
+
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import androidx.navigation.NavType
+import androidx.navigation.compose.*
+import androidx.navigation.navArgument
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kudo.android.data.*
+import com.kudo.android.ui.account.*
+import com.kudo.android.ui.components.*
+import com.kudo.android.ui.editor.*
+import com.kudo.android.ui.feed.*
+import com.kudo.android.ui.theme.KudoTheme
+import com.kudo.android.ui.topic.*
+import kotlinx.coroutines.launch
+
+@Composable
+private inline fun <reified T : ViewModel> model(key: String, noinline create: () -> T): T = viewModel(key = key, factory = viewModelFactory { initializer { create() } })
+
+@Composable
+fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
+    val display by app.settings.display.collectAsStateWithLifecycle()
+    KudoTheme(display) {
+        val account = model("account") { AccountViewModel(app) }
+        val nav = rememberNavController()
+        val snackbar = remember { SnackbarHostState() }
+        val scope = rememberCoroutineScope()
+        val context = LocalContext.current
+        var refreshEpoch by remember { mutableIntStateOf(0) }
+        fun openLink(url: String) {
+            if (Uri.parse(url).scheme != "https") return
+            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+            catch (_: Exception) { scope.launch { snackbar.showSnackbar("没有可打开此链接的浏览器") } }
+        }
+        fun login() { nav.navigate("login") { launchSingleTop = true } }
+        fun authenticated(action: () -> Unit) { if (account.user == null) login() else action() }
+        fun topic(id: Int, number: Int? = null) { if (id > 0) nav.navigate("topic/$id?post=${number ?: 0}") }
+        fun user(username: String) { if (username.isNotBlank()) nav.navigate("user/${Uri.encode(username)}") }
+        fun editor(id: Int? = null, number: Int? = null) { authenticated { nav.navigate("compose?topic=${id ?: 0}&reply=${number ?: 0}") } }
+        LaunchedEffect(account) { account.events.collect { snackbar.showSnackbar(it) } }
+        LaunchedEffect(incomingUrl) {
+            incomingUrl?.let { value ->
+                val uri = Uri.parse(value)
+                if (uri.scheme == "https" && uri.host == "linux.do" && uri.pathSegments.firstOrNull() == "t") {
+                    val numbers = uri.pathSegments.drop(1).mapNotNull(String::toIntOrNull)
+                    numbers.firstOrNull()?.let { topic(it, numbers.getOrNull(1)) }
+                }
+            }
+        }
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.TopCenter) {
+            NavHost(nav, "root", Modifier.widthIn(max = 840.dp).fillMaxSize()) {
+                composable("root") {
+                    val feed = model("feed") { FeedViewModel(app.repository) }
+                    val state by feed.state.collectAsStateWithLifecycle()
+                    var selected by rememberSaveable { mutableIntStateOf(0) }
+                    val backdrop = rememberLayerBackdrop()
+                    LaunchedEffect(refreshEpoch) { if (refreshEpoch > 0) feed.refresh() }
+                    LaunchedEffect(selected, account.user?.id) {
+                        if (selected == 1 && account.categories.isEmpty()) account.loadCategories()
+                        if (selected == 3) account.loadNotices()
+                    }
+                    Box(Modifier.fillMaxSize()) {
+                        Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.background)) {
+                            when (selected) {
+                                0 -> FeedScreen(state, account.user, feed::select, feed::refresh, feed::more, { topic(it) }, ::user, { nav.navigate("search") }, { if (account.user == null) login() else user(account.user!!.username) }, { selected = 1 })
+                                1 -> CategoriesScreen(account.categories, account.categoriesLoading, account.categoryError, account::loadCategories, ::login) { nav.navigate("category/${it.id}") }
+                                3 -> NotificationsScreen(account, ::login, ::topic)
+                                4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) })
+                            }
+                        }
+                        GlassNavigation(selected, { selected = it }, { editor() }, backdrop, display.glass, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp).widthIn(max = 530.dp).fillMaxWidth())
+                    }
+                }
+                composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
+                    val id = entry.arguments!!.getInt("id")
+                    val vm = model("category-$id") { FeedViewModel(app.repository, id) }
+                    val state by vm.state.collectAsStateWithLifecycle()
+                    FeedScreen(state, account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, categoryTitle = account.categories.firstOrNull { it.id == id }?.name ?: "社区分类", back = { nav.popBackStack() })
+                }
+                composable("search") {
+                    val vm = model("search") { SearchViewModel(app.repository) }
+                    val state by vm.state.collectAsStateWithLifecycle()
+                    SearchScreen(state, vm::search, { nav.popBackStack() }, { topic(it) }, ::user, ::login)
+                }
+                composable("topic/{id}?post={post}", arguments = listOf(navArgument("id") { type = NavType.IntType }, navArgument("post") { type = NavType.IntType; defaultValue = 0 })) { entry ->
+                    val id = entry.arguments!!.getInt("id")
+                    val number = entry.arguments!!.getInt("post").takeIf { it > 0 }
+                    val vm = model("topic-$id-$number") { TopicViewModel(app.repository, id, number) }
+                    val state by vm.state.collectAsStateWithLifecycle()
+                    val nonce by entry.savedStateHandle.getStateFlow("refresh", 0L).collectAsStateWithLifecycle()
+                    LaunchedEffect(nonce) { if (nonce != 0L) vm.refresh() }
+                    LaunchedEffect(vm) { vm.events.collect { snackbar.showSnackbar(it) } }
+                    TopicScreen(state, display.glass, { nav.popBackStack() }, vm::refresh, vm::more, ::login, { authenticated { vm.like(it) } }, { authenticated { vm.bookmark(it) } }, { editor(id, it?.number) }, ::user, { nav.navigate("image?url=${Uri.encode(it)}") }, ::openLink,
+                        { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${state.detail?.title.orEmpty()}\nhttps://linux.do/t/$id") }, "分享话题")) })
+                }
+                composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); scope.launch { snackbar.showSnackbar("欢迎回来，${account.user?.displayName}") } }) }
+                composable("settings") { SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openLink) }
+                composable("bookmarks") { LaunchedEffect(account.user?.id) { account.loadSaved() }; BookmarksScreen(account, { nav.popBackStack() }, ::login, ::topic) }
+                composable("user/{username}") { entry -> UserScreen(entry.arguments!!.getString("username")!!, app.repository, { nav.popBackStack() }, ::login, ::openLink) }
+                composable("compose?topic={topic}&reply={reply}", arguments = listOf(navArgument("topic") { type = NavType.IntType; defaultValue = 0 }, navArgument("reply") { type = NavType.IntType; defaultValue = 0 })) { entry ->
+                    val topicId = entry.arguments!!.getInt("topic").takeIf { it > 0 }
+                    val replyTo = entry.arguments!!.getInt("reply").takeIf { it > 0 }
+                    val currentUser = account.user
+                    if (currentUser == null) {
+                        Column { PageTopBar("发布", { nav.popBackStack() }); EmptyState("登录后发布", "草稿会自动保存在本机。", actionLabel = "登录", action = ::login) }
+                    } else {
+                        val vm = model("editor-${currentUser.id}-$topicId-$replyTo") { EditorViewModel(app, currentUser.id, topicId, replyTo) }
+                        LaunchedEffect(Unit) { if (account.categories.isEmpty()) account.loadCategories() }
+                        LaunchedEffect(vm) { vm.published.collect { result ->
+                            nav.previousBackStackEntry?.savedStateHandle?.set("refresh", System.nanoTime())
+                            nav.popBackStack(); refreshEpoch++
+                            if (!result.queued && topicId == null) result.topicId?.let { topic(it) }
+                            snackbar.showSnackbar(if (result.queued) "内容已提交，等待社区审核" else "发布成功")
+                        } }
+                        EditorScreen(vm, account.categories, account.categoryError, account::loadCategories, { nav.popBackStack() })
+                    }
+                }
+                composable("image?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry -> val url = entry.arguments!!.getString("url").orEmpty(); ImageScreen(url, { nav.popBackStack() }, { openLink(url) }) }
+            }
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp).widthIn(max = 600.dp))
+        }
+    }
+}
