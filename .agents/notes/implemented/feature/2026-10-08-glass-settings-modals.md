@@ -1,0 +1,40 @@
+# Agent Note: 设置选项 ActionSheet 与官方玻璃 Dialog
+
+Status: implemented
+
+## Problem
+
+设置页的主题、材质、字号、说明和退出确认使用 Material AlertDialog，与已经采用官方液态玻璃的导航及详情操作栏不一致。用户指定不用原生 MD 弹窗，并确认选项用酷安式底部 ActionSheet、说明与确认用 Backdrop 官方 Dialog。
+
+## Decision
+
+LiquidModal 封装同窗口的玻璃模态层，设置内容提供 LayerBackdrop，遮暗层与弹窗均不进入采样，防止自身递归折射。说明/确认沿用 Android 1.0.6 catalog DialogContent 的 colorControls、16 / 8dp模糊、24 / 48dp深度折射、Plain高光和浅深色表面；底部选项采用同一材质的宽面板与独立取消区，保留最小48dp触控区域。弹窗圆角36dp、底部面板28dp；面板限制最大440dp宽并避让系统安全区。
+
+模态层在当前窗口内绘制，使用返回键拦截、完整触摸遮罩、dialog语义与焦点分组；焦点离开模态分组时取消离开。小屏和大字号下内容能滚动，底部安全区不能挡住取消，说明不能仅显示摘要。兼容材质沿用API 33折射、31模糊、26半透明边界。接入页面必须在打开及退出动画期间隐藏背景可访问入口；选择仍即时保存，取消/背景/返回键均不修改，退出仅确认触发一次。主题或材质改变后动画使用最新主题，不影响底层业务。
+
+## Existing note audit
+
+- [官方玻璃组件](../../implemented/architecture/2026-10-07-backdrop-demo-navigation.md)：部分重叠，保留导航/详情的来源与业务隔离；本篇负责模态层采样和关闭契约，互链。
+- [黄色玻璃与原生阅读](../../implemented/feature/2026-10-07-liquid-glass-ui.md)：部分重叠，主题与兼容材质继续适用，不归档。
+- [客户端验证](../../implemented/testing/2026-10-07-client-verification.md)：部分重叠，延续真机和夹具规则；新增选择、取消、返回、退出及大字号滚动验证。
+- 活跃 proposed / rejected 无其他弹窗方案；网络与构建笔记无关。
+
+## Alternatives considered
+
+- 继续使用 AlertDialog：已有系统关闭、焦点与可访问行为，接入成本最低，但用户明确拒绝MD样式，并确认改用玻璃Dialog和底部选项面板。
+- 直接给独立窗口 Dialog 加 drawBackdrop：能复用原生模态窗口，但官方示例在同窗口内采样，跨窗口坐标和绘制层还需单独证明；当前设置均为非输入模态，选择同窗口承载并补齐交互与可访问隔离。
+- 全部统一玻璃Dialog：组件与布局最简单，但用户已确认选项用底部ActionSheet，选择列表与说明/破坏性确认分开呈现。
+
+## Interaction contract
+
+- 设置页不再调用 AlertDialog；选项面板黄色勾选，取消/返回/遮罩关闭不改变设置。
+- 说明完整可滚动，退出仅确认触发；背景无可访问操作和触摸穿透，模态入口唯一。
+- 浅色、深色130%、三种材质与系统关闭动画在真机通过；复用来源及许可同步，交付APK已安装。
+
+## Consequences
+
+统一玻璃材质和安全区行为，减少对Material默认外观的依赖。官方示例本身没有真实模态行为，需要维护焦点、关闭和采样隔离。仅单台Android13不能证明Android12、平板或帧率表现。
+
+## Verification
+
+组件单元 Kotlin 编译通过，输出 `artifacts/modal-component-build.txt`。设置页接入和真机验收属于后续单元，此时尚未验证模态行为。
