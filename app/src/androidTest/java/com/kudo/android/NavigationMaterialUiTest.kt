@@ -1,6 +1,7 @@
 package com.kudo.android
 
 import android.graphics.Bitmap
+import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -103,6 +104,38 @@ class NavigationMaterialUiTest {
             assertEquals("取消后恢复原材质", resting, panelWhitening(), 0.03f)
             compose.mainClock.autoAdvance = true
         }
+    }
+
+    @Test fun stoppedDragLensKeepsItsProtrusion() {
+        compose.setContent {
+            KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+                val backdrop = rememberLayerBackdrop()
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(Color.White))
+                    GlassNavigation(0, {}, {}, backdrop, GlassMode.LIQUID,
+                        Modifier.align(Alignment.BottomCenter).padding(20.dp).fillMaxWidth().testTag("navigation"))
+                }
+            }
+        }
+        val navigation = compose.onNodeWithTag("navigation")
+        compose.mainClock.autoAdvance = false
+        navigation.performTouchInput { down(Offset(width * 0.1f, centerY)) }
+        for (fraction in listOf(0.3f, 0.7f, 0.9f, 0.1f)) {
+            navigation.performTouchInput { moveTo(Offset(width * fraction, centerY), delayMillis = 300) }
+            // The upstream velocity tracker uses wall time, so settling needs real frames.
+            repeat(60) {
+                compose.mainClock.advanceTimeByFrame()
+                SystemClock.sleep(16)
+            }
+            compose.waitForIdle()
+            val lens = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
+            val panel = compose.onNodeWithTag("navigation-surface").fetchSemanticsNode().boundsInRoot
+            assertTrue("手指停下后镜片不能被速度形变压进底栏：$fraction / $lens / $panel", lens.height > panel.height)
+            assertTrue("停下后仍只略微凸出：$fraction / $lens / $panel", lens.height < panel.height * 1.15f)
+        }
+        navigation.performTouchInput { cancel() }
+        compose.mainClock.advanceTimeBy(900)
+        compose.mainClock.autoAdvance = true
     }
 
     private fun panelWhitening(): Float {

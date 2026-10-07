@@ -20,6 +20,8 @@ Status: implemented
 
 隐藏采样标签使用品牌黄，中央发布保留黄底黑色加号；不对整层使用官方的 accent ColorFilter，以免发布图标和黄底变为同色。增加官方相同版本的 `shapes:1.2.0` 编译依赖使用 Capsule，原依赖只作为 Backdrop 的 runtime 依赖可用。兼容模式遵守现有 API 33折射、31模糊、26半透明边界。
 
+系统动画时长缩放为0时，镜片停用速度附加拉伸，基础按压放大与折射保留。动画瞬移仍会进入官方按墙钟计算的速度估计，残留正/负速度会使停下的镜片压扁或过高。观察系统 ANIMATOR_DURATION_SCALE 并读取作用域 MotionDurationScale，任一为0时不使用速度形变；ContentObserver 随组件释放，后台改变设置后也能更新，正常动画沿用官方参数。
+
 ## Interaction boundary
 
 页面选择与滑动预选分离：松手才切页；取消或在发布入口松手返回原页；中央发布仅通过点击触发。隐藏采样层不能接收点击或暴露重复可访问节点。手势放到固定外容器以覆盖所有入口，移动越过系统触摸阈值后消费事件，阻止拖动误触发布。
@@ -47,6 +49,8 @@ Status: implemented
 - 继续微调手写采样中心缩放：文件少且前轮行为与几何已通过，但用户确认官方 demo 已符合目标；不断推测私有效果会增加不必要分歧，改用示例实际图层和动作。
 - 直接使用最新 KMP 2.0.1 示例：可以对齐上游最新代码，但其 Kotlin 2.4.10、Compose 1.12.0 和平台 Shader API 超出当前工具链；Android 1.0.6 示例已有相同 LiquidBottomTabs 结构，可避免无关升级。
 - 继续给详情操作栏调旧 glass 参数：可沿用现有 TextButton / IconButton，改动少，但用户已指定官方 Surface 样式，旧材质还有独立边框、浓表面和缺少真实触点形变的问题；直接接入 LiquidButton，并保留原有业务回调。
+- 放宽关闭动画时的镜片高度测试：最少改动即可通过，但实际镜片会被残留瞬移速度压进底栏或拉得过高；停用零时长下的速度形变，继续检查稳定几何。
+- 仅读取作用域 MotionDurationScale：纯Compose、能尊重自定义缩放且无需系统观察，但作用域并不保证提供系统当前值，仪器测试上下文也由测试框架控制；系统关闭动画后独立复现仍失败，增加系统设置观察，并保留作用域检查。
 
 ## Consequences
 
@@ -60,7 +64,17 @@ Status: implemented
 
 静止边距与透明度先在真机复现两项失败：首个灰面左边距为0、上下12px（4dp），黑色背景下底栏白面为0.4。输出 `artifacts/navigation-insets-repro.txt`。NavigationMaterialUiTest 检查首尾边距与上下相同、两种宽度/字号和三种材质；黑底实际根画面采样检查静止与按压透色，允许官方按压高光并检查取消恢复。
 
-参数修正后两项真机回归通过，11.246秒，输出 `artifacts/navigation-insets-fixed.txt`。Debug / 测试APK与Lint通过，仍为0 errors / 27 warnings。正常动画完整27项通过，54.887秒，输出 `navigation-insets-final.txt`。动态透色采样随后补强为实际拖动、冻结时钟推进并断言底栏已放大，两项再次通过，11.07秒，输出 `navigation-insets-motion.txt`；系统关闭动画与真实背景观感继续独立验收。
+参数修正后两项真机回归通过，11.246秒，输出 `artifacts/navigation-insets-fixed.txt`。Debug / 测试APK与Lint通过，仍为0 errors / 27 warnings。正常动画完整27项通过，54.887秒，输出 `navigation-insets-final.txt`。动态透色采样随后补强为实际拖动、冻结时钟推进并断言底栏已放大，两项再次通过，11.07秒，输出 `navigation-insets-motion.txt`。
+
+关闭系统动画后的27项初轮26项通过，镜片高度为175.65px、放大底栏为176.40px，低于应有凸出高度。新增停在多个位置的复现也检测到反向速度令镜片过高，输出 `navigation-insets-reduced-motion.txt` / `navigation-low-motion-repro.txt`；失败后系统缩放均恢复1。
+
+系统设置观察修复后，关闭动画的独立复现通过，2.051秒，输出 `navigation-low-motion-fixed.txt`。新增多位置测试的正常动画初轮因测试时钟瞬间推进900ms、而官方速度估计使用墙钟，未给速度采样同等停顿；原有27项通过，输出 `navigation-material-initial.txt`。该测试按实际16ms间隔逐帧推进，保持原几何断言，使动画时钟和速度采样经历相同停顿；独立测试通过，6.939秒，输出 `navigation-material-clock-fixed.txt`。
+
+最终28项正常动画63.441秒、关闭系统动画51.013秒全部通过，输出 `navigation-material-final.txt` / `navigation-material-reduced-motion.txt`，结束三项缩放恢复1。新增3项覆盖首尾等边、两种宽度/字号及三种材质、真实按压透色与多个拖动停顿位置；原有25项导航、详情按钮和模态回归完整保留。
+
+最终安装后真实首页、滚动图片、拖动双高亮和末端静止分别为 `navigation-material-real-home.png` / `-real-scrolled.png` / `-real-drag.png` / `-real-last-tab.png`，均已人工检查：背景随滚动改变，首尾留白一致，黄色标签清晰，边缘折射和放大保留。实景与黑底材质夹具分别判断；黑底只测白面遮盖，不用于声称浅色主题在纯黑底的可读性。此机没有 screenrecord 可执行文件，本轮保留慢拖中截图及此前同机录屏，不提供新帧率结论。
+
+分发APK覆盖安装成功，24.94MiB；构建、分发和设备安装包SHA256均为 `bbc58255d62b6bfc660be459d0b5a77d9f2f60f731f6927e86bc23eb0754f519`，完整上游Apache-2.0许可与assets一致，Lint仍为0 errors / 27 warnings，输出 `navigation-insets-apk-verification.txt`。
 
 Surface Liquid Button 的编译、Debug / 测试 APK、Lint 通过，0 errors / 27 warnings。新增5项 SurfaceLiquidUiTest 与原有13项合计18项真机回归通过，28.73秒，输出为 `artifacts/surface-final-instrumentation.txt`。检查真实触摸的四个独立动作、容器无多余点击入口、关闭/忙碌/缺主帖禁用、按压内容放大、取消复位、按下期间禁用再启用，以及深色130%下三种材质。
 

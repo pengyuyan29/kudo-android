@@ -9,6 +9,10 @@
 package com.kudo.android.ui.components.liquid
 
 import android.os.Build
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.EaseOut
 import androidx.compose.animation.core.spring
@@ -17,12 +21,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.testTag
@@ -65,6 +71,20 @@ internal fun LiquidBottomTabs(
     val canBlur = mode != GlassMode.TRANSLUCENT && Build.VERSION.SDK_INT >= 31
     val canRefract = mode == GlassMode.LIQUID && Build.VERSION.SDK_INT >= 33
     val containerColor = surface.copy(alpha = if (canBlur) 0.2f else 0.94f)
+    val resolver = LocalContext.current.contentResolver
+    val systemMotionEnabled by produceState(
+        initialValue = Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f,
+        resolver,
+    ) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                value = Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+            }
+        }
+        resolver.registerContentObserver(Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE), false, observer)
+        value = Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
+        awaitDispose { resolver.unregisterContentObserver(observer) }
+    }
     val tabsBackdrop = rememberLayerBackdrop()
     val selectedIndex by rememberUpdatedState(selectedTabIndex)
     val selectTab by rememberUpdatedState(onTabSelected)
@@ -233,7 +253,9 @@ internal fun LiquidBottomTabs(
                         layerBlock = {
                             scaleX = dampedDragAnimation.scaleX
                             scaleY = dampedDragAnimation.scaleY
-                            val velocity = dampedDragAnimation.velocity / 10f
+                            // A zero-duration position jump is not a physical drag velocity.
+                            val velocity = if (!systemMotionEnabled || animationScope.coroutineContext[MotionDurationScale]?.scaleFactor == 0f) 0f
+                                else dampedDragAnimation.velocity / 10f
                             scaleX /= 1f - (velocity * 0.75f).fastCoerceIn(-0.2f, 0.2f)
                             scaleY *= 1f - (velocity * 0.25f).fastCoerceIn(-0.2f, 0.2f)
                         },
