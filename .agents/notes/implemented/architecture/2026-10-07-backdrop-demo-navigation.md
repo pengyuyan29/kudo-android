@@ -10,7 +10,7 @@ Status: implemented
 
 ## Decision
 
-`ui/components/liquid/` 接入 AndroidLiquidGlass 的 Android 1.0.6 catalog 五份源码，来源提交 `896a94a3ade1cc1a940b92365f942a34971fecda`，与现有 Backdrop 1.0.6 依赖保持一致。GlassNavigation 只提供酷DO入口内容；LiquidBottomTabs 采用官方可见底栏、隐藏放大采样层、组合镜片，DampedDragAnimation 与 InteractiveHighlight 提供官方阻尼、速度拉伸和触点高光。源码保留来源、Apache-2.0 许可和修改说明；完整许可随 APK 放入 assets。
+`ui/components/liquid/` 接入 AndroidLiquidGlass 的 Android 1.0.6 catalog 六份源码，来源提交 `896a94a3ade1cc1a940b92365f942a34971fecda`，与现有 Backdrop 1.0.6 依赖保持一致。GlassNavigation 只提供酷DO入口内容；LiquidBottomTabs 采用官方可见底栏、隐藏放大采样层、组合镜片，DampedDragAnimation 与 InteractiveHighlight 提供官方阻尼、速度拉伸和触点高光。源码保留来源、Apache-2.0 许可和修改说明；完整许可随 APK 放入 assets。
 
 位置、速度、按压进度和横纵缩放沿用官方弹簧，分别为 (1,1000)、(0.5,300)、(1,1000)、(0.6,250)、(0.7,250)。整栏运动比例为 `1 + 16dp / 宽度`，隐藏标签从1放大到1.2；只在隐藏采样层放大内容，不使用手写 onDrawBackdrop 中心缩放。
 
@@ -53,7 +53,11 @@ Status: implemented
 
 ## Verification
 
-Surface Liquid Button 接入单元的 `:app:compileDebugKotlin` 通过；其动作隔离、禁用、按压/取消和材质模式在后续真机单元检查，不以编译通过代替视觉验收。
+Surface Liquid Button 的编译、Debug / 测试 APK、Lint 通过，0 errors / 27 warnings。新增5项 SurfaceLiquidUiTest 与原有13项合计18项真机回归通过，28.73秒，输出为 `artifacts/surface-final-instrumentation.txt`。检查真实触摸的四个独立动作、容器无多余点击入口、关闭/忙碌/缺主帖禁用、按压内容放大、取消复位、按下期间禁用再启用，以及深色130%下三种材质。
+
+初轮5项中4项通过，字号检查因 `TextLayoutResult.didOverflowWidth` 比较段落可用宽222px与实际文本宽168px而报错，截图文案完整。断言改读每个字符的实际边界，检查一行、未省略及全部字形在文本尺寸内；不修改已正确显示的布局来绕过测试。测试截图等待400ms让系统涟漪退出，冻结Compose时钟的按压截图仍保留按下状态。初轮与排查输出为 `surface-button-instrumentation.txt` / `surface-overflow-repro.txt`。
+
+调整截图等待后，5项按钮测试再次独立通过，10.258秒，输出为 `surface-screenshot-instrumentation.txt`；浅色静止按钮没有残留涟漪圆，深色130%文字和三个动作完整，按压/静止的条纹夹具截图显示真实边缘折射与表面形变。
 
 辅助代码的 Kotlin 编译通过。替换后初次12项回归有3项失败：10%静止灰令黄色图标像素变暗；两项几何断言仍读取未缩放的布局边界。颜色改为6%灰后通过；几何改用 boundsInRoot，镜片高度与可见整栏比较，中心位置允许官方弹性偏移，不再断言手写动画的绝对触点坐标。
 
