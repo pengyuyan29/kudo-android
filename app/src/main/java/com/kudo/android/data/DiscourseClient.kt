@@ -53,7 +53,7 @@ class DiscourseClient(
         return request(method, path, body = body ?: FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build(), token = token)
     }
 
-    private suspend fun request(method: String, path: String, query: Map<String, String> = emptyMap(), body: RequestBody? = null, token: String? = null): JSONObject {
+    private suspend fun request(method: String, path: String, query: Map<String, String> = emptyMap(), body: RequestBody? = null, token: String? = null, redirects: Int = 0): JSONObject {
         val url = resolve(path).newBuilder().apply { query.forEach { (key, value) -> addQueryParameter(key, value) } }.build()
         val request = Request.Builder().url(url).method(method, body)
             .header("Accept", "application/json").header("X-Requested-With", "XMLHttpRequest")
@@ -67,6 +67,14 @@ class DiscourseClient(
         }
         response.use {
             it.headers("Set-Cookie").forEach { cookie -> cookies.set(url.toString(), cookie) }
+            if (method == "GET" && it.code in setOf(301, 302, 303, 307, 308) && redirects < 3) {
+                val target = it.header("Location")?.let(url::resolve)
+                if (target != null) {
+                    resolve(target.toString())
+                    it.close()
+                    return request("GET", target.toString(), redirects = redirects + 1)
+                }
+            }
             val text = it.body?.string().orEmpty()
             val json = runCatching { JSONObject(text) }.getOrNull()
             val reason = json?.optJSONArray("errors")?.strings()?.joinToString("\n")?.take(500)

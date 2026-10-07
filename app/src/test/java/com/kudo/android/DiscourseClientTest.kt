@@ -54,4 +54,23 @@ class DiscourseClientTest {
         assertTrue(runCatching { client.get("/latest.json") }.isFailure)
         assertEquals(1, server.requestCount)
     }
+    @Test fun categoryCanonicalRedirectFollowsOnlySameOriginGet() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(301).setHeader("Location", "/c/develop/4/l/latest.json"))
+        server.enqueue(MockResponse().setBody("""{"topic_list":{"topics":[{"id":42,"title":"分类话题"}]}}"""))
+        val page = CommunityRepository(client).topics(categoryId = 4)
+        assertEquals(42, page.topics.single().id)
+        assertEquals("/c/4/l/latest.json", server.takeRequest().path)
+        assertEquals("/c/develop/4/l/latest.json", server.takeRequest().path)
+    }
+    @Test fun writeRedirectIsNeverReplayed() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"csrf":"test-token"}"""))
+        server.enqueue(MockResponse().setResponseCode(307).setHeader("Location", "/posts.json"))
+        assertTrue(runCatching { client.write("POST", "/posts", mapOf("raw" to "测试")) }.isFailure)
+        assertEquals(2, server.requestCount)
+    }
+    @Test fun sameOriginRedirectLoopStopsAfterThreeHops() = runBlocking {
+        repeat(4) { server.enqueue(MockResponse().setResponseCode(301).setHeader("Location", "/loop")) }
+        assertTrue(runCatching { client.get("/loop") }.isFailure)
+        assertEquals(4, server.requestCount)
+    }
 }
