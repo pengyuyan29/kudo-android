@@ -2,10 +2,12 @@ package com.kudo.android.ui.theme
 
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -56,6 +58,10 @@ fun KudoTheme(settings: DisplaySettings, content: @Composable () -> Unit) {
     }
     val density = LocalDensity.current
     CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale * settings.fontScale)) {
-        MaterialTheme(colorScheme = if (dark) Dark else Light, typography = KudoTypography, content = content)
+        MaterialTheme(colorScheme = if (dark) Dark else Light, typography = KudoTypography) {
+            Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
+                content()
+            }
+        }
     }
 }

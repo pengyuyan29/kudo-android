@@ -84,7 +84,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                                 4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) })
                             }
                         }
-                        GlassNavigation(selected, { selected = it }, { editor() }, backdrop, display.glass, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp).widthIn(max = 530.dp).fillMaxWidth())
+                        GlassNavigation(selected, { selected = it }, { editor() }, backdrop, display.glass, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(20.dp).widthIn(max = 530.dp).fillMaxWidth())
                     }
                 }
                 composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->

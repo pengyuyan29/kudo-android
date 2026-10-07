@@ -21,10 +21,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -54,9 +58,10 @@ fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Uni
     val icons = listOf(Icons.Rounded.Home, Icons.Rounded.GridView, Icons.Rounded.Add, Icons.Rounded.Explore, Icons.Rounded.Person)
     val position by animateFloatAsState(selected.toFloat(), spring(dampingRatio = 0.78f, stiffness = 380f), label = "玻璃选中态")
     var dragPosition by remember { mutableStateOf<Float?>(null) }
-    BoxWithConstraints(modifier.height(72.dp).glass(backdrop, mode)) {
+    BoxWithConstraints(modifier.height(56.dp).glass(backdrop, mode)) {
         val slotWidth = maxWidth / 5
-        Box(Modifier.padding(5.dp).offset(x = slotWidth * position).width(slotWidth - 10.dp).fillMaxHeight()
+        val slotPixels = with(LocalDensity.current) { slotWidth.toPx() }
+        Box(Modifier.padding(4.dp).offset { IntOffset(((dragPosition?.let { it / slotPixels - 0.5f }?.coerceIn(0f, 4f) ?: position) * slotPixels).roundToInt(), 0) }.width(slotWidth - 8.dp).fillMaxHeight()
             .glass(backdrop, mode, tint = LogoYellow.copy(alpha = 0.2f)))
         Row(Modifier.fillMaxSize().pointerInput(selected) {
             detectHorizontalDragGestures(
@@ -76,12 +81,12 @@ fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Uni
                     .clickable(role = Role.Tab, onClickLabel = label) { if (index == 2) onCompose() else onSelect(index) },
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     if (index == 2) {
-                        Box(Modifier.size(48.dp).background(LogoYellow, CircleShape), contentAlignment = Alignment.Center) {
-                            Icon(icons[index], "发布话题", Modifier.size(31.dp), tint = Ink)
+                        Box(Modifier.size(width = 44.dp, height = 34.dp).background(LogoYellow, CircleShape), contentAlignment = Alignment.Center) {
+                            Icon(icons[index], "发布话题", Modifier.size(24.dp), tint = Ink)
                         }
                     } else {
-                        Icon(icons[index], null, Modifier.size(26.dp).graphicsLayer { scaleX = if (chosen) 1.05f else 1f; scaleY = scaleX }, tint = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-                        Text(label, style = MaterialTheme.typography.labelMedium, color = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        Icon(icons[index], null, Modifier.size(22.dp), tint = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
+                        Text(label, style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp, lineHeight = 14.sp), color = if (chosen) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
