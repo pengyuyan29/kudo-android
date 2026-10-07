@@ -16,6 +16,8 @@ Status: implemented
 
 正文按服务端 cooked HTML 解析为原生文字、引用、代码块、图片和链接；复杂嵌入提供浏览器入口。长帖按 post_stream 的 id 补齐，不能用首批返回数量冒充完整话题。
 
+Android 12+ 的 data_extraction_rules 明确排除账号数据的云备份和设备迁移。Activity 使用 singleTop 接收新话题链接；第三方客户端无法在 linux.do 发布域名关联文件，因此只声明普通链接入口，不声明 autoVerify。
+
 ## Research
 
 已检索仓库：无 .agents/notes 历史笔记。用户于 2026-10-07 批准完整基础范围和 Android 8.0 支持。
@@ -32,7 +34,7 @@ Status: implemented
 
 ## Verification
 
-TASKS.md 记录基础闭环；Gradle 生成 Debug APK；单元测试覆盖模型、分页、请求来源与写操作错误；模拟器检查玻璃和核心页面。真实账号写操作留给用户主动操作验收。
+TASKS.md 记录基础闭环；Gradle 生成 Debug APK；单元测试覆盖模型、分页、请求来源与写操作错误；按用户要求使用连接真机检查玻璃和核心页面。真实账号写操作留给用户主动操作验收。
 
 ## Consequences
 
