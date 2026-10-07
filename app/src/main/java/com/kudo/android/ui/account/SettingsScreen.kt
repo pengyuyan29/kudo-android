@@ -54,7 +54,7 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(when (dialog) {
                     "privacy" -> "酷DO 直接连接 Linux.do。登录在官网页面完成；应用不收集密码，不接入统计或广告服务。Cookie 与草稿保存在应用私有目录，禁用系统备份，退出登录后清除。帖子中的外部图片会向其来源站点发起请求。"
-                    "licenses" -> "Jetpack Compose、Backdrop（含官方底栏示例）、Shapes、OkHttp、Coil：Apache License 2.0。Jsoup：MIT。底部玻璃导航改编自 Backdrop catalog；接口行为参考 FluxDO，页面布局参考酷安。"
+                    "licenses" -> "Jetpack Compose、Backdrop（含官方玻璃示例）、Shapes、OkHttp、Coil：Apache License 2.0。Jsoup：MIT。底部导航与详情操作栏改编自 Backdrop catalog 的 LiquidBottomTabs / Surface Liquid Button；接口行为参考 FluxDO，页面布局参考酷安。"
                     else -> "用原生体验，连接值得交流的人与内容。\n\n酷DO 是独立的 Linux.do 第三方客户端。"
                 }, style = MaterialTheme.typography.bodyMedium)
                 if (dialog == "licenses") { TextButton(onClick = { openLink("https://github.com/Kyant0/AndroidLiquidGlass") }) { Text("Backdrop 项目与许可") }; TextButton(onClick = { openLink("https://github.com/Lingyan000/fluxdo") }) { Text("FluxDO 接口参考") } }
