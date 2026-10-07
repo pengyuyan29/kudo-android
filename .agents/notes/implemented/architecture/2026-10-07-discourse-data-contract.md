@@ -12,6 +12,8 @@ data 包分开模型解析、DiscourseClient 和 CommunityRepository。分页使
 
 真机验证发现 `/c/{id}/l/latest.json` 返回规范地址的 301。服务端可在规范地址中加入分类 slug 或父分类，故客户端接受服务端同源 Location，不在所有页面重复拼接和缓存路径。
 
+列表和搜索共用标签解析：兼容字符串与 `{id, name, slug}` 对象，只显示非空 name，跳过未知对象和 null。真机返回新版对象标签，不能以 optString 将它序列化后显示给用户。
+
 AndroidSessionCookies 与官网 WebView 共用 CookieManager。CSRF 通过互斥刷新；失败的写请求不自动重发。401、验证页、权限拒绝、429、服务端错误和网络错误分型。图片仅向 HTTPS linux.do 附加 Cookie，跨站图片不携带账号凭据。备份禁用，设置和草稿在应用私有目录；退出清除账号草稿。
 
 ## Alternatives considered

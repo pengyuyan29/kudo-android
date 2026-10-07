@@ -8,6 +8,10 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ContentParserTest {
+    @Test fun tagsAcceptNamesAndObjectsWithoutDisplayingRawJson() {
+        val page = DiscourseParser.topicPage(JSONObject("""{"topic_list":{"topics":[{"id":1,"title":"标签测试","tags":["Android",{"id":1461,"name":"纯水","slug":"1461-tag"},null,{"id":2},""]}]}}"""))
+        assertEquals(listOf("Android", "纯水"), page.topics.single().tags)
+    }
     @Test fun topicJoinsAuthorAndNormalizesNullFields() {
         val json = JSONObject("""{"users":[{"id":9,"username":"doer","name":null,"avatar_template":"/avatar/{size}.png"}],"topic_list":{"topics":[{"id":12,"title":"测试","posts_count":4,"image_url":null,"posters":[{"user_id":9}]}],"more_topics_url":"/latest.json?page=1"}}""")
         val page = DiscourseParser.topicPage(json)

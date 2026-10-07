@@ -27,6 +27,13 @@ data class PublishResult(val topicId: Int?, val queued: Boolean)
 
 internal fun JSONArray?.objects(): List<JSONObject> = if (this == null) emptyList() else (0 until length()).mapNotNull { optJSONObject(it) }
 internal fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else (0 until length()).mapNotNull { optString(it).takeIf(String::isNotBlank) }
+internal fun JSONArray?.tagNames(): List<String> = if (this == null) emptyList() else (0 until length()).mapNotNull {
+    when (val value = opt(it)) {
+        is String -> value
+        is JSONObject -> value.text("name")
+        else -> null
+    }?.takeIf(String::isNotBlank)
+}.distinct()
 internal fun JSONObject.text(key: String): String = if (isNull(key)) "" else optString(key, "")
 internal fun JSONObject.positiveInt(key: String): Int? = optInt(key).takeIf { it > 0 }
 fun plainText(html: String): String = Jsoup.parseBodyFragment(html).text()
@@ -51,7 +58,7 @@ object DiscourseParser {
             val author = posters.firstOrNull { it.text("description").contains("Original Poster", true) }
                 ?: posters.firstOrNull()
             Topic(item.getInt("id"), item.text("title"), plainText(item.text("excerpt")), users[author?.optInt("user_id")],
-                item.optInt("category_id"), item.optJSONArray("tags").strings(),
+                item.optInt("category_id"), item.optJSONArray("tags").tagNames(),
                 (item.optInt("posts_count", 1) - 1).coerceAtLeast(0), item.optInt("views"), item.optInt("like_count"),
                 item.text("image_url"), item.text("bumped_at"), item.optBoolean("pinned"), item.optBoolean("closed"))
         }

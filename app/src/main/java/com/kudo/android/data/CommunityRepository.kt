@@ -29,7 +29,7 @@ class CommunityRepository(val client: DiscourseClient) {
         val topics = json.optJSONArray("topics").objects().map { item ->
             val post = posts[item.optInt("id")]
             Topic(item.getInt("id"), item.text("title"), plainText(post?.text("blurb").orEmpty()),
-                post?.let(DiscourseParser::member), item.optInt("category_id"), item.optJSONArray("tags").strings(),
+                post?.let(DiscourseParser::member), item.optInt("category_id"), item.optJSONArray("tags").tagNames(),
                 (item.optInt("posts_count", 1) - 1).coerceAtLeast(0), item.optInt("views"), item.optInt("like_count"),
                 item.text("image_url"), item.text("last_posted_at"))
         }
