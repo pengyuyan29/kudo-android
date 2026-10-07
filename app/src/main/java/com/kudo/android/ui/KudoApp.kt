@@ -2,6 +2,12 @@ package com.kudo.android.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -64,7 +70,9 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
             }
         }
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.TopCenter) {
-            NavHost(nav, "root", Modifier.widthIn(max = 840.dp).fillMaxSize()) {
+            NavHost(nav, "root", Modifier.widthIn(max = 840.dp).fillMaxSize(),
+                enterTransition = { fadeIn(tween(280)) }, exitTransition = { fadeOut(tween(180)) },
+                popEnterTransition = { fadeIn(tween(220)) }, popExitTransition = { fadeOut(tween(220)) }) {
                 composable("root") {
                     val feed = model("feed") { FeedViewModel(app.repository) }
                     val state by feed.state.collectAsStateWithLifecycle()
@@ -98,7 +106,11 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                     val state by vm.state.collectAsStateWithLifecycle()
                     SearchScreen(state, vm::search, { nav.popBackStack() }, { topic(it) }, ::user, ::login)
                 }
-                composable("topic/{id}?post={post}", arguments = listOf(navArgument("id") { type = NavType.IntType }, navArgument("post") { type = NavType.IntType; defaultValue = 0 })) { entry ->
+                composable("topic/{id}?post={post}",
+                    arguments = listOf(navArgument("id") { type = NavType.IntType }, navArgument("post") { type = NavType.IntType; defaultValue = 0 }),
+                    enterTransition = { fadeIn(tween(280)) + scaleIn(tween(280, easing = FastOutSlowInEasing), initialScale = 0.97f) },
+                    popEnterTransition = { fadeIn(tween(220)) + scaleIn(tween(220, easing = FastOutSlowInEasing), initialScale = 0.98f) },
+                    popExitTransition = { fadeOut(tween(220)) + scaleOut(tween(220, easing = FastOutSlowInEasing), targetScale = 0.98f) }) { entry ->
                     val id = entry.arguments!!.getInt("id")
                     val number = entry.arguments!!.getInt("post").takeIf { it > 0 }
                     val vm = model("topic-$id-$number") { TopicViewModel(app.repository, id, number) }

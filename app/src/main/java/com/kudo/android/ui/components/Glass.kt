@@ -3,10 +3,14 @@ package com.kudo.android.ui.components
 import android.os.Build
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,7 +60,7 @@ fun Modifier.glass(backdrop: Backdrop, mode: GlassMode, shape: Shape = RoundedCo
 fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Unit, backdrop: Backdrop, mode: GlassMode, modifier: Modifier = Modifier) {
     val labels = listOf("首页", "分类", "发布", "消息", "我的")
     val icons = listOf(Icons.Rounded.Home, Icons.Rounded.GridView, Icons.Rounded.Add, Icons.Rounded.Explore, Icons.Rounded.Person)
-    val position by animateFloatAsState(selected.toFloat(), spring(dampingRatio = 0.78f, stiffness = 380f), label = "玻璃选中态")
+    val position by animateFloatAsState(selected.toFloat(), spring(dampingRatio = 0.9f, stiffness = 650f), label = "玻璃选中态")
     var dragPosition by remember { mutableStateOf<Float?>(null) }
     BoxWithConstraints(modifier.height(56.dp).glass(backdrop, mode)) {
         val slotWidth = maxWidth / 5
@@ -76,9 +80,13 @@ fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Uni
         }, verticalAlignment = Alignment.CenterVertically) {
             labels.forEachIndexed { index, label ->
                 val chosen = selected == index
+                val interaction = remember { MutableInteractionSource() }
+                val pressed by interaction.collectIsPressedAsState()
+                val pressScale by animateFloatAsState(if (pressed) 0.94f else 1f, tween(100), label = "导航按压")
                 Column(Modifier.weight(1f).fillMaxHeight().clip(CircleShape)
                     .semantics { this.selected = chosen }
-                    .clickable(role = Role.Tab, onClickLabel = label) { if (index == 2) onCompose() else onSelect(index) },
+                    .clickable(interactionSource = interaction, indication = LocalIndication.current, role = Role.Tab, onClickLabel = label) { if (index == 2) onCompose() else onSelect(index) }
+                    .graphicsLayer { scaleX = pressScale; scaleY = pressScale },
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     if (index == 2) {
                         Box(Modifier.size(width = 44.dp, height = 34.dp).background(LogoYellow, CircleShape), contentAlignment = Alignment.Center) {
