@@ -29,8 +29,12 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
                 val page = withContext(Dispatchers.IO) { repository.topics(filter, categoryId) }
                 _state.update { it.copy(topics = page.topics.distinctBy(Topic::id), next = page.next, loading = false) }
                 if (_state.value.categories.isEmpty()) {
-                    val categories = withContext(Dispatchers.IO) { repository.categories() }
-                    _state.update { it.copy(categories = categories) }
+                    try {
+                        val categories = withContext(Dispatchers.IO) { repository.categories() }
+                        _state.update { it.copy(categories = categories) }
+                    } catch (e: CancellationException) { throw e } catch (_: Exception) {
+                        // Category metadata is optional: keep successfully loaded topics readable.
+                    }
                 }
             } catch (e: CancellationException) { throw e } catch (e: Exception) { _state.update { it.copy(loading = false, error = e) } }
         }
