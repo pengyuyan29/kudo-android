@@ -12,6 +12,8 @@ AccountViewModel 通过 /session/current.json 确认用户，LoginScreen 提供 
 
 设置页持久化主题、材质和字号，并解释兼容材质。个人主页显示实际账号资料。
 
+EditorViewModel 按用户 id、话题和回复楼层隔离持久草稿。上传限制 10 MB 和明确图片 MIME 类型，成功后插入 Markdown。发送期间禁止再次发送；未知网络结果不重试，草稿保留，返回待审核则明确提示。只有服务端确认接收才删除草稿。
+
 ## Alternatives considered
 
 - 在原生表单收集密码：交互可以统一，但需要自行处理 MFA、OAuth 和站点验证变化；采用官网流程。
