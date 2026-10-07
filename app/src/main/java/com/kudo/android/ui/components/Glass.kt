@@ -1,25 +1,17 @@
 package com.kudo.android.ui.components
 
-import android.os.Build
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
 import com.kudo.android.data.GlassMode
 import com.kudo.android.ui.components.liquid.LiquidBottomTab
 import com.kudo.android.ui.components.liquid.LiquidBottomTabs
@@ -27,20 +19,6 @@ import com.kudo.android.ui.components.liquid.LocalLiquidBottomTabSampling
 import com.kudo.android.ui.theme.Ink
 import com.kudo.android.ui.theme.LogoYellow
 
-@Composable
-fun Modifier.glass(backdrop: Backdrop, mode: GlassMode, shape: Shape = RoundedCornerShape(50), tint: Color? = null): Modifier {
-    val surface = MaterialTheme.colorScheme.surface
-    val opaque = mode == GlassMode.TRANSLUCENT || Build.VERSION.SDK_INT < 31
-    val overlay = tint ?: surface.copy(alpha = if (opaque) 0.94f else 0.62f)
-    return this.drawBackdrop(
-        backdrop = backdrop, shape = { shape },
-        effects = {
-            if (!opaque) blur(8.dp.toPx())
-            if (mode == GlassMode.LIQUID && Build.VERSION.SDK_INT >= 33) lens(18.dp.toPx(), 28.dp.toPx(), true)
-        },
-        onDrawSurface = { drawRect(overlay) },
-    ).border(0.7.dp, surface.copy(alpha = 0.8f), shape)
-}
 @Composable
 fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Unit, backdrop: Backdrop, mode: GlassMode, modifier: Modifier = Modifier) {
     val labels = listOf("首页", "分类", "发布", "消息", "我的")

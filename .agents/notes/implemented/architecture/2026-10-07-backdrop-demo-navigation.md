@@ -30,6 +30,8 @@ Status: implemented
 
 组件适配 enabled 和 nullable onClick：左侧作为独立按钮，话题关闭时不能回复；右侧只是玻璃容器，三个子按钮分别可点击，空白处不能产生第四个点击入口。缺失主帖或请求忙碌时保持点赞/收藏禁用，分享仍可用。停用或更改交互模式时重建高光状态，避免在按下过程中禁用后留下放大。最小48dp高度保留大字号增高能力；左右胶囊保留现有宽度比例、边距和22dp图标。兼容模式继续遵守现有API边界。
 
+详情操作栏迁移后，旧 `Modifier.glass` 已无调用，从 Glass.kt 移除。该文件只保留导航入口适配，实际材质由官方 LiquidBottomTabs / LiquidButton 负责，避免后续页面误用旧的浓表面参数。
+
 ## Existing note audit
 
 - [玻璃与原生阅读](../feature/2026-10-07-liquid-glass-ui.md)：部分重叠，本篇接管导航渲染决策；该篇保留主题、阅读、网络和历史取舍，双方互链，不整篇归档。
@@ -58,6 +60,8 @@ Surface Liquid Button 的编译、Debug / 测试 APK、Lint 通过，0 errors / 
 初轮5项中4项通过，字号检查因 `TextLayoutResult.didOverflowWidth` 比较段落可用宽222px与实际文本宽168px而报错，截图文案完整。断言改读每个字符的实际边界，检查一行、未省略及全部字形在文本尺寸内；不修改已正确显示的布局来绕过测试。测试截图等待400ms让系统涟漪退出，冻结Compose时钟的按压截图仍保留按下状态。初轮与排查输出为 `surface-button-instrumentation.txt` / `surface-overflow-repro.txt`。
 
 调整截图等待后，5项按钮测试再次独立通过，10.258秒，输出为 `surface-screenshot-instrumentation.txt`；浅色静止按钮没有残留涟漪圆，深色130%文字和三个动作完整，按压/静止的条纹夹具截图显示真实边缘折射与表面形变。
+
+2026-10-08：详情按钮加入后，通过无障碍界面关闭系统动画，确认三项缩放为0，完整18项测试通过，25.076秒，输出为 `artifacts/surface-reduced-motion.txt`。结束通过系统界面恢复三项缩放为1。
 
 辅助代码的 Kotlin 编译通过。替换后初次12项回归有3项失败：10%静止灰令黄色图标像素变暗；两项几何断言仍读取未缩放的布局边界。颜色改为6%灰后通过；几何改用 boundsInRoot，镜片高度与可见整栏比较，中心位置允许官方弹性偏移，不再断言手写动画的绝对触点坐标。
 
