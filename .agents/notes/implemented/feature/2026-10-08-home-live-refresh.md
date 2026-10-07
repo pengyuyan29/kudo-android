@@ -29,7 +29,7 @@ Linux.do 使用 ping.ldstatic.com 的 HTTP MessageBus 长轮询，非 WebSocket�
 
 ## Testing
 
-MessageBusTest 的5项测试通过：无 Cookie、共享密钥、游标初始化/重置/去重、重定向拒绝、限流退避与取消，日志 artifacts/live-refresh-transport.txt。传输单元已实现；首页状态及界面接入为下一独立单元，状态竞态和真机验收尚未完成。
+MessageBusTest 的5项测试通过：无 Cookie、共享密钥、游标初始化/重置/去重、重定向拒绝、限流退避与取消，日志 artifacts/live-refresh-transport.txt。FeedUpdatesTest 的5项测试通过：合并20次提示、忽略仅浏览量变化、切换筛选、失败保留与成功清除、刷新期间更新遗漏/已包含两条路径、后台停止/恢复、换号撤销在途检查，日志 artifacts/live-refresh-state.txt。界面接入和真机验收尚未完成。
 
 ## Consequences
 
