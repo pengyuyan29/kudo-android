@@ -26,6 +26,8 @@ Discourse 的 JSON 403 若携带 `error_type: not_logged_in`，按未登录处�
 
 ## Consequences
 
+[首页推送](../feature/2026-10-08-home-live-refresh.md)使用固定推送域名的独立无 Cookie 客户端；主站 HTML 引导仍复用本篇同源验证，只提取 shared_session_key，不放宽常规 API 的地址边界。
+
 接口错误可以在原生界面提供具体恢复入口。直接 HTTP 仍可能遇到 Cloudflare 指纹限制，网页验证成功不保证 OkHttp 在所有网络可用。复杂 JSON 插件数据不在首版模型内，正文保留网页入口。
 
 ## Verification

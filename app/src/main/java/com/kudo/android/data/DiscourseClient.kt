@@ -14,6 +14,7 @@ import okhttp3.RequestBody
 import okhttp3.Response
 import org.json.JSONObject
 import org.json.JSONArray
+import org.jsoup.Jsoup
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -47,6 +48,9 @@ class DiscourseClient(
 
     suspend fun get(path: String, query: Map<String, String> = emptyMap()): JSONObject = request("GET", path, query)
     suspend fun getArray(path: String): JSONArray = request("GET", path, arrayResponse = true).getJSONArray("items")
+    internal suspend fun sharedSessionKey(): String = Jsoup.parse(request("GET", "/latest", htmlResponse = true).getString("html"))
+        .selectFirst("meta[name=shared_session_key]")?.attr("content")?.takeIf { it.isNotBlank() }
+        ?: throw ApiFailure(FailureKind.SIGN_IN, "推送会话暂不可用")
     suspend fun write(method: String, path: String, fields: Map<String, String> = emptyMap(), body: RequestBody? = null): JSONObject {
         val token = csrfMutex.withLock {
             csrf ?: get("/session/csrf").optString("csrf").takeIf { it.isNotBlank() && it != "null" }
@@ -55,12 +59,13 @@ class DiscourseClient(
         return request(method, path, body = body ?: FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build(), token = token)
     }
 
-    private suspend fun request(method: String, path: String, query: Map<String, String> = emptyMap(), body: RequestBody? = null, token: String? = null, redirects: Int = 0, arrayResponse: Boolean = false): JSONObject {
+    private suspend fun request(method: String, path: String, query: Map<String, String> = emptyMap(), body: RequestBody? = null, token: String? = null, redirects: Int = 0, arrayResponse: Boolean = false, htmlResponse: Boolean = false): JSONObject {
         val url = resolve(path).newBuilder().apply { query.forEach { (key, value) -> addQueryParameter(key, value) } }.build()
         val request = Request.Builder().url(url).method(method, body)
-            .header("Accept", "application/json").header("X-Requested-With", "XMLHttpRequest")
+            .header("Accept", if (htmlResponse) "text/html" else "application/json")
             .header("User-Agent", userAgent()).header("Referer", baseUrl.toString())
             .apply {
+                if (!htmlResponse) header("X-Requested-With", "XMLHttpRequest")
                 cookies.get(url.toString()).takeIf(String::isNotBlank)?.let { header("Cookie", it) }
                 token?.let { header("X-CSRF-Token", it); header("Origin", baseUrl.toString().trimEnd('/')) }
             }.build()
@@ -74,7 +79,7 @@ class DiscourseClient(
                 if (target != null) {
                     resolve(target.toString())
                     it.close()
-                    return request("GET", target.toString(), redirects = redirects + 1, arrayResponse = arrayResponse)
+                    return request("GET", target.toString(), redirects = redirects + 1, arrayResponse = arrayResponse, htmlResponse = htmlResponse)
                 }
             }
             val text = it.body?.string().orEmpty()
@@ -87,6 +92,7 @@ class DiscourseClient(
                 it.header("cf-mitigated") == "challenge" || (it.code == 403 && json == null) -> throw ApiFailure(FailureKind.VERIFICATION, "需要完成 Linux.do 的网页验证")
                 it.code == 403 -> { csrf = null; throw ApiFailure(FailureKind.FORBIDDEN, reason ?: "当前账号没有权限，或登录状态需要刷新") }
                 !it.isSuccessful -> throw ApiFailure(FailureKind.SERVER, reason ?: "社区暂时无法处理请求（${it.code}）")
+                htmlResponse -> return JSONObject().put("html", text)
                 it.code == 204 || text.isBlank() -> return JSONObject()
                 arrayResponse && it.isSuccessful -> {
                     val array = runCatching { JSONArray(text) }.getOrNull()
