@@ -12,6 +12,8 @@ Linux.do 社区的 Android 原生第三方客户端。Kotlin + Jetpack Compose�
 
 Android 13+ 使用完整液态玻璃；Android 12 使用背景模糊；Android 8–11 使用半透明。底部导航为 56dp 高、22dp 图标，中央发布按钮采用横向胶囊。设置中可以主动切换兼容材质。
 
+同机对照酷安调整字号和间距：列表摘要为 14sp / 22sp，长文正文为 16sp / 32sp；首页标签为 19 / 16sp，详情操作栏最小 48dp。底栏胶囊跟随拖动并从松手位置吸附，帖子进入 / 返回使用 280 / 220ms 淡变与轻微缩放；动画遵循系统时长设置。
+
 ## 构建与安装
 
 需要 JDK 17+、Android SDK Platform 36，首次构建需要访问 Google Maven、Maven Central 和 Gradle。设置 `ANDROID_HOME` 或在未入库的 `local.properties` 中填写 `sdk.dir`。仓库包含 Gradle Wrapper，不需要全局安装 Gradle。
@@ -36,7 +38,7 @@ adb -s <真机序列号> shell am force-stop com.android.cli.interact.instrument
 adb -s <真机序列号> shell am instrument -w -r -e class com.kudo.android.CommunityUiTest com.kudo.android.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-2026-10-07：18 项 JVM 测试、5 项 RMX2202 / Android 13 真机界面测试通过，Lint 无错误。测试覆盖请求来源、CSRF、失败不重发、重定向、解析、退出竞争，以及玻璃导航、帖子动作、主题、字号和深色文字可读性。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。只在真实社区做只读检查，自动化中的帖子与互动是测试夹具。
+2026-10-07：18 项 JVM 测试、6 项 RMX2202 / Android 13 真机界面测试通过，Lint 无错误。关闭系统动画时 6 项界面测试同样通过。测试覆盖请求来源、CSRF、失败不重发、重定向、解析、退出竞争，以及玻璃导航点击与松手吸附、帖子动作、主题、字号和深色文字可读性；同机截图与录屏已人工检查。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。只在真实社区做只读检查，自动化中的帖子与互动是测试夹具。
 
 ## 使用边界
 
