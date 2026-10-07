@@ -8,7 +8,17 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 
-class AccountViewModel(val app: AppContainer) : ViewModel() {
+class AccountViewModel(
+    private val repository: CommunityRepository,
+    private val resetSession: () -> Unit,
+    private val clearSession: suspend () -> Unit,
+) : ViewModel() {
+    constructor(app: AppContainer) : this(app.repository, app.client::resetSession, {
+        app.cookies.clear()
+        app.client.resetSession()
+        app.settings.clearAccountData()
+        android.webkit.WebStorage.getInstance().deleteAllData()
+    })
     var user by mutableStateOf<Member?>(null); private set
     var checkingSession by mutableStateOf(false); private set
     var sessionError by mutableStateOf<Throwable?>(null); private set
@@ -33,21 +43,24 @@ class AccountViewModel(val app: AppContainer) : ViewModel() {
 
     suspend fun checkSession(): Boolean {
         if (checkingSession) return false
+        val epoch = sessionEpoch
         checkingSession = true; sessionError = null
         return try {
-            app.client.resetSession()
-            user = withContext(Dispatchers.IO) { app.repository.currentUser() }
-            user != null
+            resetSession()
+            val receivedUser = withContext(Dispatchers.IO) { repository.currentUser() }
+            if (epoch != sessionEpoch) false else { user = receivedUser; receivedUser != null }
         } catch (e: CancellationException) { throw e } catch (e: Exception) {
-            if ((e as? ApiFailure)?.kind == FailureKind.SIGN_IN) user = null else sessionError = e
+            if (epoch == sessionEpoch) {
+                if ((e as? ApiFailure)?.kind == FailureKind.SIGN_IN) user = null else sessionError = e
+            }
             false
-        } finally { checkingSession = false }
+        } finally { if (epoch == sessionEpoch) checkingSession = false }
     }
     fun loadCategories() {
         if (categoriesLoading) return
         categoriesLoading = true; categoryError = null
         viewModelScope.launch {
-            try { categories = withContext(Dispatchers.IO) { app.repository.categories() } }
+            try { categories = withContext(Dispatchers.IO) { repository.categories() } }
             catch (e: CancellationException) { throw e } catch (e: Exception) { categoryError = e }
             finally { categoriesLoading = false }
         }
@@ -59,7 +72,7 @@ class AccountViewModel(val app: AppContainer) : ViewModel() {
         val offset = if (more) noticeOffset else 0
         viewModelScope.launch {
             try {
-                val result = withContext(Dispatchers.IO) { app.repository.notifications(offset) }
+                val result = withContext(Dispatchers.IO) { repository.notifications(offset) }
                 if (epoch == sessionEpoch) { notices = (if (more) notices + result else result).distinctBy(Notice::id); hasMoreNotices = result.size == 30; noticeOffset = offset + result.size }
             } catch (e: CancellationException) { throw e } catch (e: Exception) { if (epoch == sessionEpoch) noticesError = e }
             finally { if (epoch == sessionEpoch) noticesLoading = false }
@@ -69,7 +82,7 @@ class AccountViewModel(val app: AppContainer) : ViewModel() {
         val epoch = sessionEpoch
         viewModelScope.launch {
             try {
-                withContext(Dispatchers.IO) { app.repository.readNotification(id) }
+                withContext(Dispatchers.IO) { repository.readNotification(id) }
                 if (epoch == sessionEpoch) notices = notices.map { if (id == null || it.id == id) it.copy(read = true) else it }
             } catch (e: CancellationException) { throw e } catch (e: Exception) { messages.send(e.message ?: "标记失败") }
         }
@@ -82,7 +95,7 @@ class AccountViewModel(val app: AppContainer) : ViewModel() {
         val page = if (more) savedPage + 1 else 0
         viewModelScope.launch {
             try {
-                val (result, hasMore) = withContext(Dispatchers.IO) { app.repository.bookmarks(username, page) }
+                val (result, hasMore) = withContext(Dispatchers.IO) { repository.bookmarks(username, page) }
                 if (epoch == sessionEpoch) { saved = (if (more) saved + result else result).distinctBy(SavedTopic::id); hasMoreSaved = hasMore; savedPage = page }
             } catch (e: CancellationException) { throw e } catch (e: Exception) { if (epoch == sessionEpoch) savedError = e }
             finally { if (epoch == sessionEpoch) savedLoading = false }
@@ -91,15 +104,15 @@ class AccountViewModel(val app: AppContainer) : ViewModel() {
     fun logout() {
         val name = user?.username
         sessionEpoch++
+        checkingSession = true
         user = null; notices = emptyList(); saved = emptyList(); sessionError = null
         noticesError = null; savedError = null; noticesLoading = false; savedLoading = false
         viewModelScope.launch {
             if (name != null) withTimeoutOrNull(5000) {
-                try { withContext(Dispatchers.IO) { app.client.write("DELETE", "/session/${android.net.Uri.encode(name)}") } }
+                try { withContext(Dispatchers.IO) { repository.client.write("DELETE", "/session/${android.net.Uri.encode(name)}") } }
                 catch (e: CancellationException) { throw e } catch (_: Exception) { }
             }
-            app.cookies.clear(); app.client.resetSession(); app.settings.clearAccountData()
-            android.webkit.WebStorage.getInstance().deleteAllData()
+            try { clearSession() } finally { checkingSession = false }
             messages.send("已退出登录并清除本机账号数据")
         }
     }
