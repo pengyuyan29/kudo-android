@@ -8,6 +8,8 @@ Status: implemented
 
 用户补充拖动截图指出：运动中的胶囊应透明，手指经过的标签应与当前标签同时高亮。原实现的黄色填充在运动中仍保留，标签颜色只读取 selected，没有体现拖动预选。本轮先补真机复现测试，验证预选颜色与页面选择相互独立。
 
+随后用户明确高亮文字和图标应为品牌黄、静止选中背景应为透明灰，拖动镜片应高于底栏且呈现前景边缘折射。此处的“选中”指页面状态，“高亮”还包含预选，两者继续分离；材质细节由[玻璃导航与原生阅读界面](2026-10-07-liquid-glass-ui.md)维护。
+
 ## Decision
 
 列表、长文和导航分别控制字号与节奏。首页介绍区与搜索框使用最小高度而非固定高度；搜索框和缩小的头像外保留 48dp 点击区，帖子作者行整体可点击。
@@ -18,7 +20,7 @@ Status: implemented
 
 胶囊位置由 Animatable 保存。拖动时布局直接读取手指绝对坐标；松手先 snapTo 当前可见位置，再清除拖动覆盖并吸附到目标。目标改变由 selected 的 LaunchedEffect 驱动；释放到原标签、发布入口或取消拖动时，在原位置动画回原标签。发布入口不参与拖动切页。真机录屏发现旧的 animateFloatAsState 从原 selected 重新起步；先用冻结 Compose 时钟的仪器测试复现 282.3dp→20dp 跳回，再修改位置交接。同一测试继续复现首个拖动事件重复累加位移，导致在发布入口松手却选择首页；坐标直接取 change.position.x，避免把拖动起点的已移动距离算两次。
 
-运动中的胶囊不叠加黄色填充，保留背景采样、模糊、折射和高光边框；停止运动后恢复黄色选中底色。previewSlot 与 selected 分离：拖动按手指所在格计算，点击后的吸附动画按胶囊中心所在格计算；原标签与经过标签的图标和文字同时使用选中色。页面与 selected 语义只在实际切页时改变，松手或取消后预选高亮随吸附收敛。发布格不作为预选标签，经过时不会发布。derivedStateOf 只在跨格或运动开始 / 结束时刷新颜色，位置继续在布局阶段读取。
+运动中的镜片不叠加黄色填充，停止运动后恢复透明中性灰选中面；高亮图标和文字直接用 LogoYellow。镜片使用底栏前景采样与边缘折射，运动高度为 68dp，允许凸出 56dp 底栏，中心不增加模糊。previewSlot 与 selected 分离：拖动按手指所在格计算，点击后的吸附动画按镜片中心所在格计算；原标签与经过标签同时高亮。页面与 selected 语义只在实际切页时改变，松手或取消后预选高亮随吸附收敛。发布格不作为预选标签，经过时不会发布。derivedStateOf 只在跨格或运动开始 / 结束时刷新颜色，位置继续在布局阶段读取；尺寸变化不改命中格。具体渲染参数见玻璃材质笔记。
 
 ## Evidence
 
@@ -50,7 +52,7 @@ Status: implemented
 - 精确复制酷安所有布局与动画参数：观感可能最接近，但论坛话题、楼层和社区权限流程不同，XML 也不能证明运行时所有设置；使用可验证的比例并独立实现。
 - 继续用 animateFloatAsState 驱动选中位置：声明式代码更少，点击切页已经流畅，但拖动时位置是独立覆盖值，松手不能把这个值交给旧动画；使用 Animatable 的 snapTo 明确交接位置。
 - 拖动经过哪个标签就立即切换页面：视觉和页面状态可共用一个变量，但连续拖动会频繁加载页面，也无法同时保持当前标签高亮；预选单独计算，页面在松手后切换。
-- 全程保留黄色填充：选中区域一直明显，但遮住移动胶囊下的内容，也与用户给出的透明过渡不同；仅静止时使用黄色选中底色。
+- 保留黄色选中填充：选中区域明显且延续品牌，但用户明确静止选中面也应为透明中性灰，黄色覆盖还会改变镜片下的颜色；品牌黄用于图标、文字与发布按钮。
 
 ## Verification
 
@@ -60,9 +62,11 @@ Status: implemented
 
 前轮录屏确认胶囊松手连续、底部内容直接替换、帖子进入 / 返回淡变正常，无明显白屏或玻璃闪动；网络等待显示加载指示，正文在请求完成后出现。正常动画与关闭动画的仪器输出分别为 artifacts/realme-density-instrumentation-final.txt 和 realme-density-reduced-motion.txt，录屏为 density-motion-final.mp4，同机对照为 density-home-comparison.png / density-topic-comparison.png。60fps 录制以 20fps 拼图观察动作，重点事件另取 60fps 帧检查；不据此宣称稳定帧率。测试只覆盖交互缺陷，不对样式常量镜像断言。
 
-透明预选修正后，同一真机正常动画下的 7 项 Compose 测试全部通过，耗时 11.95 秒；Debug APK、测试 APK 与 Lint 通过（0 errors / 26 warnings）。draggingHighlightsCurrentAndPreviewWithoutSwitchingPage 在修改前因分类仍为未选中色而失败；修正后验证当前标签与经过标签同时高亮、松手前不切页、发布格不触发发布、取消后清除预选，以及深色 130% 字号下的双高亮。复现与完整回归输出为 artifacts/navigation-preview-repro.txt 和 navigation-preview-instrumentation.txt，截图为 navigation-drag-clear.png / navigation-drag-dark-large.png，均已人工检查。本轮未重跑关闭系统动画的 7 项测试。
+前轮透明预选修正后，同一真机正常动画下的 7 项 Compose 测试全部通过，耗时 11.95 秒；Debug APK、测试 APK 与 Lint 通过（0 errors / 26 warnings）。draggingHighlightsCurrentAndPreviewWithoutSwitchingPage 在修改前因分类仍为未选中色而失败；修正后验证当前标签与经过标签同时高亮、松手前不切页、发布格不触发发布、取消后清除预选，以及深色 130% 字号下的双高亮。复现与完整回归输出为 artifacts/navigation-preview-repro.txt 和 navigation-preview-instrumentation.txt，截图为 navigation-drag-clear.png / navigation-drag-dark-large.png，均已人工检查。
 
-本轮真实慢拖录屏 navigation-preview-motion.mp4 确认首页→分类→消息→首页的胶囊在运动中透明、当前与经过标签同时高亮，松手后只保留目标标签高亮并恢复黄色底色；结束留在真实首页。60fps 录制以 10fps 拼图观察，属于动作验证，不作为帧率基准。
+前轮真实慢拖录屏 navigation-preview-motion.mp4 确认首页→分类→消息→首页的胶囊在运动中透明、当前与经过标签同时高亮，松手后只保留目标标签高亮；当时的静止黄底已由后续材质修正替换。结束留在真实首页。60fps 录制以 10fps 拼图观察，属于动作验证，不作为帧率基准。
+
+材质修正后的最新 10 项真机测试通过，新增品牌黄、选中面中性色与抬升高度的测试均先失败再修复。navigation-glass-coolapk-motion.mp4 / navigation-glass-kudo-motion.mp4 同机慢拖已确认前景折射、中心清晰、上下凸出和收回；浅色与深色 130% 截图已人工检查。输出为 artifacts/navigation-material-instrumentation.txt / navigation-material-repro.txt。本轮未重跑关闭系统动画的 10 项测试，详细边界和材料路径见玻璃材质笔记。
 
 ## Consequences
 
