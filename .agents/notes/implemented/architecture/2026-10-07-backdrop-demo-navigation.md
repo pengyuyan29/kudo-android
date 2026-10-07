@@ -37,6 +37,7 @@ Status: implemented
 - [玻璃与原生阅读](../feature/2026-10-07-liquid-glass-ui.md)：部分重叠，本篇接管导航渲染决策；该篇保留主题、阅读、网络和历史取舍，双方互链，不整篇归档。
 - [酷安密度与过渡](../feature/2026-10-07-coolapk-density-and-motion.md)：部分重叠，保留文字与页面过渡；导航动画和图层的后续事实由本篇维护。
 - [客户端验证](../testing/2026-10-07-client-verification.md)：部分重叠，继续保留真实渲染、只用真机、夹具不写社区的验证契约；本篇记录源码来源和接入验证。
+- [设置玻璃模态](../feature/2026-10-08-glass-settings-modals.md)：复用相同版本的官方Dialog材质，另记同窗口采样、可访问隔离与关闭契约；本篇继续负责底栏和详情按钮，互不覆盖。
 - Android 构建与原生社区架构：无关，不改变工具链、网络或整体导航结构。检索时活跃 proposed / rejected 无其他同主题提案。
 
 ## Alternatives considered

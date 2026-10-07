@@ -44,3 +44,5 @@ SettingsScreen 用独立目标内容和 MutableTransitionState 控制模态，�
 新增键盘焦点测试时需显式请求 InputMode.Keyboard；测试合成Tab不会自动将手机从触摸模式切到键盘模式。初次完整25项有1项焦点误报；键盘模式下的独立测试通过，2.03秒，输出 `modal-focus-repro-keyboard.txt`。浅色选项与深色130%说明截图已人工检查。
 
 RMX2202 / Android13 的完整25项回归全部通过，正常动画45.988秒、系统关闭动画38.548秒，输出 `artifacts/modal-final-instrumentation.txt` / `modal-reduced-motion.txt`。三项全局缩放通过无障碍界面关闭并恢复1；首次系统页面尚未就绪导致找不到视觉标签，没有改变设置，脚本增加布局等待后完成。新7项覆盖选择、关闭、背景与空白隔离、退出、焦点、三种材质深色130%和短窗口滚动，原有18项保留。截图 `settings-sheet-light.png`、`settings-dialog-light.png`、`settings-sheet-liquid-dark-large.png`、`settings-dialog-liquid-dark-large.png` 与兼容材质已检查，玻璃真实采样且内容可读。
+
+同机官方Dialog页面 `artifacts/modal-demo-dialog.png` 已检查，复用其轻表面与弧面高光，主题色和圆角按本应用适配。完整上游许可随APK保留；最终构建、分发和设备包SHA256一致，为 `ae4fbab19e410962474bf69734097226f626667d16f715db26287d2594331326`，验证为 `artifacts/modal-apk-verification.txt`。
