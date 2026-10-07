@@ -50,7 +50,9 @@ Status: implemented
 
 三个单元的 Kotlin 编译、Debug APK、18 项 JVM 测试与 Lint 通过（0 errors / 26 warnings）。同机原始截图实测摘要基线间隔为 22.0 / 21.8dp，详情正文为 32.0dp。浅色与深色 130% 字号下的首页、长标题和正文已人工检查，搜索提示允许单行省略，介绍区随内容增高。
 
-RMX2202 / Android 13 的 6 项 Compose 测试通过。新增 glassSelectionContinuesFromReleasePosition 先失败，再验证松手位置连续、发布入口吸附回原标签、取消拖动回原标签；原有导航点击与拖动不发布测试保留。系统“关闭动态效果”开启时，三项动画缩放值为 0，6 项测试也全部通过；结束后恢复系统动画开启状态。修复后的最终录屏与只读页面复查仍在收尾。新增测试只覆盖交互缺陷，不对样式常量镜像断言。
+RMX2202 / Android 13 的 6 项 Compose 测试通过。新增 glassSelectionContinuesFromReleasePosition 先失败，再验证松手位置连续、发布入口吸附回原标签、取消拖动回原标签；原有导航点击与拖动不发布测试保留。系统“关闭动态效果”开启时，三项动画缩放值为 0，6 项测试也全部通过；真实分类切页、进入帖子加载正文与返回可用。结束后恢复系统动画开启状态，以及应用的跟随系统主题和字号。
+
+最终录屏确认胶囊松手连续、底部内容直接替换、帖子进入 / 返回淡变正常，无明显白屏或玻璃闪动；网络等待显示加载指示，正文在请求完成后出现。正常动画与关闭动画的仪器输出分别为 artifacts/realme-density-instrumentation-final.txt 和 realme-density-reduced-motion.txt，录屏为 density-motion-final.mp4，同机对照为 density-home-comparison.png / density-topic-comparison.png。60fps 录制以 20fps 拼图观察动作，重点事件另取 60fps 帧检查；不据此宣称稳定帧率。新增测试只覆盖交互缺陷，不对样式常量镜像断言。
 
 ## Consequences
 
