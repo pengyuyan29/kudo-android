@@ -82,7 +82,7 @@ fun SectionLabel(text: String, trailing: String? = null) {
 
 @Composable
 fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (String) -> Unit) {
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick = onClick).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick = onClick).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Avatar(topic.author, 35.dp) { topic.author?.username?.let(onUser) }
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
@@ -93,7 +93,7 @@ fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (S
             else Icon(Icons.Rounded.MoreHoriz, null, Modifier.size(19.dp), MaterialTheme.colorScheme.outline)
         }
         Text(topic.title, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-        if (topic.excerpt.isNotBlank()) Text(topic.excerpt, style = MaterialTheme.typography.bodyLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        if (topic.excerpt.isNotBlank()) Text(topic.excerpt, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
         if (topic.image.isNotBlank()) AsyncImage(mediaUrl(topic.image), "话题图片", Modifier.fillMaxWidth().heightIn(max = 190.dp).aspectRatio(1.9f).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             category?.let { Text(it.name, Modifier.clip(RoundedCornerShape(5.dp)).background(LogoYellow.copy(alpha = 0.13f)).padding(horizontal = 7.dp, vertical = 3.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1) }

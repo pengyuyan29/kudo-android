@@ -35,11 +35,11 @@ private val Dark = darkColorScheme(
 )
 private val KudoTypography = Typography(
     headlineLarge = TextStyle(fontSize = 30.sp, lineHeight = 39.sp, fontWeight = FontWeight.Bold),
-    headlineSmall = TextStyle(fontSize = 23.sp, lineHeight = 32.sp, fontWeight = FontWeight.Bold),
-    titleLarge = TextStyle(fontSize = 21.sp, lineHeight = 29.sp, fontWeight = FontWeight.Bold),
-    titleMedium = TextStyle(fontSize = 17.sp, lineHeight = 25.sp, fontWeight = FontWeight.SemiBold),
+    headlineSmall = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold),
+    titleLarge = TextStyle(fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
+    titleMedium = TextStyle(fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold),
     titleSmall = TextStyle(fontSize = 15.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium),
-    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 27.sp),
+    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 32.sp),
     bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 22.sp),
     bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 18.sp),
     labelLarge = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight.Medium),
