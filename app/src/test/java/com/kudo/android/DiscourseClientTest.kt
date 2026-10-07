@@ -49,6 +49,10 @@ class DiscourseClientTest {
         server.enqueue(MockResponse().setResponseCode(401).setBody("{}"))
         assertEquals(FailureKind.SIGN_IN, (runCatching { client.get("/notifications") }.exceptionOrNull() as ApiFailure).kind)
     }
+    @Test fun discourseNotLoggedIn403RequiresLoginInsteadOfRetry() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(403).setBody("""{"errors":["您需要登录才能执行此操作。"],"error_type":"not_logged_in"}"""))
+        assertEquals(FailureKind.SIGN_IN, (runCatching { client.get("/search.json") }.exceptionOrNull() as ApiFailure).kind)
+    }
     @Test fun redirectDoesNotForwardRequestAutomatically() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(302).setHeader("Location", "https://example.com/"))
         assertTrue(runCatching { client.get("/latest.json") }.isFailure)

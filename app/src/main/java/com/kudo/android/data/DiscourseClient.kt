@@ -80,7 +80,7 @@ class DiscourseClient(
             val reason = json?.optJSONArray("errors")?.strings()?.joinToString("\n")?.take(500)
                 ?: json?.text("error")?.takeIf(String::isNotBlank)?.take(500)
             when {
-                it.code == 401 -> throw ApiFailure(FailureKind.SIGN_IN, "请先登录 Linux.do")
+                it.code == 401 || (it.code == 403 && json?.text("error_type") == "not_logged_in") -> throw ApiFailure(FailureKind.SIGN_IN, "请先登录 Linux.do")
                 it.code == 429 -> throw ApiFailure(FailureKind.RATE_LIMIT, reason ?: "请求较频繁，请稍后再试", it.header("Retry-After")?.toIntOrNull())
                 it.header("cf-mitigated") == "challenge" || (it.code == 403 && json == null) -> throw ApiFailure(FailureKind.VERIFICATION, "需要完成 Linux.do 的网页验证")
                 it.code == 403 -> { csrf = null; throw ApiFailure(FailureKind.FORBIDDEN, reason ?: "当前账号没有权限，或登录状态需要刷新") }
