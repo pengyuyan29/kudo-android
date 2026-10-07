@@ -39,13 +39,11 @@ import com.kudo.android.ui.components.*
 import com.kudo.android.ui.theme.LogoYellow
 import kotlin.math.roundToInt
 
-val FeedFilters = listOf("latest" to "最新", "hot" to "热门", "top" to "精华", "new" to "新帖", "unread" to "未读")
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit, search: () -> Unit, login: () -> Unit, categories: () -> Unit, modifier: Modifier = Modifier, categoryTitle: String? = null, back: () -> Unit = {}) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    Column(modifier.fillMaxSize().then(if (categoryTitle == null) Modifier.statusBarsPadding().nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier)) {
+    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).then(if (categoryTitle == null) Modifier.statusBarsPadding().nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier)) {
         if (categoryTitle != null) PageTopBar(categoryTitle, back)
         else Row(Modifier.fillMaxWidth().clipToBounds().layout { measurable, constraints ->
             val placeable = measurable.measure(constraints)
@@ -64,12 +62,15 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
                 }
             }
         }
-        FeedTabBar(FeedFilters, state.filter, select)
+        val tabs = FeedFilter.available(user != null, categoryTitle != null).map {
+            it.value to if (it == FeedFilter.NEW && state.newCount != null) "新 (${state.newCount})" else it.label
+        } + if (categoryTitle == null) listOf("categories" to "类别") else emptyList()
+        key(user?.id) { FeedTabBar(tabs, state.filter) { if (it == "categories") categories() else select(it) } }
         val listState = rememberLazyListState()
-        LaunchedEffect(state.filter) { listState.scrollToItem(0) }
+        LaunchedEffect(state.filter, state.accountId) { listState.scrollToItem(0) }
         val nearEnd by remember { derivedStateOf { val info = listState.layoutInfo; info.totalItemsCount > 3 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 3 } }
         LaunchedEffect(nearEnd, state.next) { if (nearEnd && state.next != null && state.moreError == null) more() }
-        PullToRefreshBox(isRefreshing = state.loading && state.topics.isNotEmpty(), onRefresh = refresh, modifier = Modifier.weight(1f)) {
+        PullToRefreshBox(isRefreshing = state.loading && state.topics.isNotEmpty(), onRefresh = refresh, modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.background)) {
             LazyColumn(state = listState, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
                 if (state.loading && state.topics.isEmpty()) item { LoadingRow() }
                 if (state.error != null) item { ErrorState(state.error, refresh, login) }

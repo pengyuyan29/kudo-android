@@ -8,47 +8,78 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-data class FeedState(val topics: List<Topic> = emptyList(), val categories: List<Category> = emptyList(), val filter: String = "latest", val loading: Boolean = true, val loadingMore: Boolean = false, val next: String? = null, val error: Throwable? = null, val moreError: Throwable? = null)
+data class FeedState(val topics: List<Topic> = emptyList(), val categories: List<Category> = emptyList(), val filter: String = "latest", val loading: Boolean = true, val loadingMore: Boolean = false, val next: String? = null, val error: Throwable? = null, val moreError: Throwable? = null, val accountId: Int? = null, val newCount: Int? = null) {
+    fun forUser(user: Member?, inCategory: Boolean = false): FeedState =
+        if (accountId == user?.id) this else FeedState(filter = defaultFeedFilter(user, inCategory), accountId = user?.id)
+}
 
-class FeedViewModel(private val repository: CommunityRepository, private val categoryId: Int? = null) : ViewModel() {
-    private val _state = MutableStateFlow(FeedState())
+private fun defaultFeedFilter(user: Member?, inCategory: Boolean) = if (user != null && !inCategory) "unread" else "latest"
+
+class FeedViewModel(private val repository: CommunityRepository, private val categoryId: Int? = null, initialUser: Member? = null) : ViewModel() {
+    private var user = initialUser
+    private val _state = MutableStateFlow(FeedState(filter = defaultFeedFilter(user, categoryId != null), accountId = user?.id))
     val state = _state.asStateFlow()
     private var job: Job? = null
+    private var moreJob: Job? = null
+    private var generation = 0L
     init { refresh() }
+    fun setUser(value: Member?): Boolean {
+        if (value?.id == user?.id && value?.unifiedNew == user?.unifiedNew) return false
+        user = value
+        _state.value = FeedState(filter = defaultFeedFilter(value, categoryId != null), accountId = value?.id)
+        refresh()
+        return true
+    }
     fun select(filter: String) {
+        if (FeedFilter.available(user != null, categoryId != null).none { it.value == filter }) return
         if (filter == _state.value.filter) return
-        _state.value = FeedState(categories = _state.value.categories, filter = filter)
+        _state.value = FeedState(categories = _state.value.categories, filter = filter, accountId = user?.id)
         refresh()
     }
     fun refresh() {
         job?.cancel()
+        moreJob?.cancel()
+        val token = ++generation
+        val account = user
         val filter = _state.value.filter
-        _state.update { it.copy(loading = true, loadingMore = false, error = null, moreError = null) }
+        _state.update { it.copy(loading = true, loadingMore = false, error = null, moreError = null, newCount = null) }
         job = viewModelScope.launch {
             try {
                 val page = withContext(Dispatchers.IO) { repository.topics(filter, categoryId) }
+                if (token != generation) return@launch
                 _state.update { it.copy(topics = page.topics.distinctBy(Topic::id), next = page.next, loading = false) }
-                if (_state.value.categories.isEmpty()) {
-                    try {
-                        val categories = withContext(Dispatchers.IO) { repository.categories() }
-                        _state.update { it.copy(categories = categories) }
-                    } catch (e: CancellationException) { throw e } catch (_: Exception) {
-                        // Category metadata is optional: keep successfully loaded topics readable.
+                coroutineScope {
+                    if (_state.value.categories.isEmpty()) launch {
+                        try {
+                            val categories = withContext(Dispatchers.IO) { repository.categories() }
+                            if (token == generation) _state.update { it.copy(categories = categories) }
+                        } catch (e: CancellationException) { throw e } catch (_: Exception) {
+                            // Optional metadata must not replace a successful feed with an error.
+                        }
+                    }
+                    if (account != null && categoryId == null) launch {
+                        try {
+                            val count = withContext(Dispatchers.IO) { repository.newTopicCount(account) }
+                            if (token == generation) _state.update { it.copy(newCount = count) }
+                        } catch (e: CancellationException) { throw e } catch (_: Exception) {
+                            // Unknown is different from zero; leave the badge absent.
+                        }
                     }
                 }
-            } catch (e: CancellationException) { throw e } catch (e: Exception) { _state.update { it.copy(loading = false, error = e) } }
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { if (token == generation) _state.update { it.copy(loading = false, error = e) } }
         }
     }
     fun more() {
         val snapshot = _state.value
         val next = snapshot.next ?: return
         if (snapshot.loading || snapshot.loadingMore) return
+        val token = generation
         _state.update { it.copy(loadingMore = true, moreError = null) }
-        job = viewModelScope.launch {
+        moreJob = viewModelScope.launch {
             try {
                 val page = withContext(Dispatchers.IO) { repository.topics(snapshot.filter, categoryId, next) }
-                _state.update { it.copy(topics = (it.topics + page.topics).distinctBy(Topic::id), next = page.next?.takeUnless { path -> path == next }, loadingMore = false) }
-            } catch (e: CancellationException) { throw e } catch (e: Exception) { _state.update { it.copy(loadingMore = false, moreError = e) } }
+                if (token == generation) _state.update { it.copy(topics = (it.topics + page.topics).distinctBy(Topic::id), next = page.next?.takeUnless { path -> path == next }, loadingMore = false) }
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { if (token == generation) _state.update { it.copy(loadingMore = false, moreError = e) } }
         }
     }
 }

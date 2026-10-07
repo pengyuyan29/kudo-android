@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -38,6 +40,17 @@ import kotlinx.coroutines.launch
 
 @Composable
 private inline fun <reified T : ViewModel> model(key: String, noinline create: () -> T): T = viewModel(key = key, factory = viewModelFactory { initializer { create() } })
+
+@Composable
+private fun RefreshFeedOnResume(feed: FeedViewModel, user: Member?) {
+    var resumed by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(user?.id, user?.unifiedNew) { feed.setUser(user) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        val changedAccount = feed.setUser(user)
+        if (resumed && !changedAccount) feed.refresh()
+        resumed = true
+    }
+}
 
 @Composable
 fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
@@ -74,10 +87,11 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                 enterTransition = { fadeIn(tween(280)) }, exitTransition = { fadeOut(tween(180)) },
                 popEnterTransition = { fadeIn(tween(220)) }, popExitTransition = { fadeOut(tween(220)) }) {
                 composable("root") {
-                    val feed = model("feed") { FeedViewModel(app.repository) }
+                    val feed = model("feed") { FeedViewModel(app.repository, initialUser = account.user) }
                     val state by feed.state.collectAsStateWithLifecycle()
                     var selected by rememberSaveable { mutableIntStateOf(0) }
                     val backdrop = rememberLayerBackdrop()
+                    RefreshFeedOnResume(feed, account.user)
                     LaunchedEffect(refreshEpoch) { if (refreshEpoch > 0) feed.refresh() }
                     LaunchedEffect(selected, account.user?.id) {
                         if (selected == 1 && account.categories.isEmpty()) account.loadCategories()
@@ -86,7 +100,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                     Box(Modifier.fillMaxSize()) {
                         Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.background)) {
                             when (selected) {
-                                0 -> FeedScreen(state, account.user, feed::select, feed::refresh, feed::more, { topic(it) }, ::user, { nav.navigate("search") }, { if (account.user == null) login() else user(account.user!!.username) }, { selected = 1 })
+                                0 -> FeedScreen(state.forUser(account.user), account.user, feed::select, feed::refresh, feed::more, { topic(it) }, ::user, { nav.navigate("search") }, { if (account.user == null) login() else user(account.user!!.username) }, { selected = 1 })
                                 1 -> CategoriesScreen(account.categories, account.categoriesLoading, account.categoryError, account::loadCategories, ::login) { nav.navigate("category/${it.id}") }
                                 3 -> NotificationsScreen(account, ::login, ::topic)
                                 4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) })
@@ -97,9 +111,10 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                 }
                 composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
                     val id = entry.arguments!!.getInt("id")
-                    val vm = model("category-$id") { FeedViewModel(app.repository, id) }
+                    val vm = model("category-$id") { FeedViewModel(app.repository, id, account.user) }
                     val state by vm.state.collectAsStateWithLifecycle()
-                    FeedScreen(state, account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, categoryTitle = account.categories.firstOrNull { it.id == id }?.name ?: "社区分类", back = { nav.popBackStack() })
+                    RefreshFeedOnResume(vm, account.user)
+                    FeedScreen(state.forUser(account.user, inCategory = true), account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, categoryTitle = account.categories.firstOrNull { it.id == id }?.name ?: "社区分类", back = { nav.popBackStack() })
                 }
                 composable("search") {
                     val vm = model("search") { SearchViewModel(app.repository) }

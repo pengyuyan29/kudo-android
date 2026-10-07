@@ -13,6 +13,7 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.Response
 import org.json.JSONObject
+import org.json.JSONArray
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -45,6 +46,7 @@ class DiscourseClient(
     }
 
     suspend fun get(path: String, query: Map<String, String> = emptyMap()): JSONObject = request("GET", path, query)
+    suspend fun getArray(path: String): JSONArray = request("GET", path, arrayResponse = true).getJSONArray("items")
     suspend fun write(method: String, path: String, fields: Map<String, String> = emptyMap(), body: RequestBody? = null): JSONObject {
         val token = csrfMutex.withLock {
             csrf ?: get("/session/csrf").optString("csrf").takeIf { it.isNotBlank() && it != "null" }
@@ -53,7 +55,7 @@ class DiscourseClient(
         return request(method, path, body = body ?: FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build(), token = token)
     }
 
-    private suspend fun request(method: String, path: String, query: Map<String, String> = emptyMap(), body: RequestBody? = null, token: String? = null, redirects: Int = 0): JSONObject {
+    private suspend fun request(method: String, path: String, query: Map<String, String> = emptyMap(), body: RequestBody? = null, token: String? = null, redirects: Int = 0, arrayResponse: Boolean = false): JSONObject {
         val url = resolve(path).newBuilder().apply { query.forEach { (key, value) -> addQueryParameter(key, value) } }.build()
         val request = Request.Builder().url(url).method(method, body)
             .header("Accept", "application/json").header("X-Requested-With", "XMLHttpRequest")
@@ -72,7 +74,7 @@ class DiscourseClient(
                 if (target != null) {
                     resolve(target.toString())
                     it.close()
-                    return request("GET", target.toString(), redirects = redirects + 1)
+                    return request("GET", target.toString(), redirects = redirects + 1, arrayResponse = arrayResponse)
                 }
             }
             val text = it.body?.string().orEmpty()
@@ -86,6 +88,11 @@ class DiscourseClient(
                 it.code == 403 -> { csrf = null; throw ApiFailure(FailureKind.FORBIDDEN, reason ?: "当前账号没有权限，或登录状态需要刷新") }
                 !it.isSuccessful -> throw ApiFailure(FailureKind.SERVER, reason ?: "社区暂时无法处理请求（${it.code}）")
                 it.code == 204 || text.isBlank() -> return JSONObject()
+                arrayResponse && it.isSuccessful -> {
+                    val array = runCatching { JSONArray(text) }.getOrNull()
+                        ?: throw ApiFailure(FailureKind.SERVER, "服务器未返回话题跟踪列表")
+                    return JSONObject().put("items", array)
+                }
                 json == null -> throw ApiFailure(FailureKind.VERIFICATION, "社区返回了网页，请完成验证后重试")
                 json.optBoolean("success", true).not() -> throw ApiFailure(FailureKind.SERVER, reason ?: "操作未成功，请稍后重试")
                 else -> return json

@@ -6,7 +6,7 @@ import org.jsoup.Jsoup
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-data class Member(val id: Int, val username: String, val name: String, val avatar: String, val bio: String = "", val trustLevel: Int = 0) {
+data class Member(val id: Int, val username: String, val name: String, val avatar: String, val bio: String = "", val trustLevel: Int = 0, val unifiedNew: Boolean = false) {
     val displayName get() = name.ifBlank { username }
 }
 data class Category(val id: Int, val name: String, val slug: String, val color: String, val description: String, val count: Int)
@@ -16,6 +16,18 @@ data class Topic(
     val bumpedAt: String, val pinned: Boolean = false, val closed: Boolean = false,
 )
 data class TopicPage(val topics: List<Topic>, val next: String?)
+
+enum class FeedFilter(val value: String, val label: String, val personal: Boolean = false) {
+    UNREAD("unread", "未读", true), LATEST("latest", "最新"), NEW("new", "新", true),
+    HOT("hot", "热门"), TOP("top", "排行榜"), POSTED("posted", "我的帖子", true),
+    READ("read", "已读", true), BOOKMARKS("bookmarks", "书签", true);
+
+    companion object {
+        fun available(loggedIn: Boolean, inCategory: Boolean = false): List<FeedFilter> = entries.filter {
+            (loggedIn || !it.personal) && (!inCategory || it !in listOf(POSTED, READ, BOOKMARKS))
+        }
+    }
+}
 data class Post(
     val id: Int, val number: Int, val author: Member, val cooked: String, val createdAt: String,
     val likes: Int, val liked: Boolean, val bookmarkId: Int?, val replyTo: Int?, val canLike: Boolean,
@@ -41,7 +53,7 @@ fun plainText(html: String): String = Jsoup.parseBodyFragment(html).text()
 object DiscourseParser {
     fun member(json: JSONObject): Member = Member(
         json.optInt("id"), json.text("username"), json.text("name"), json.text("avatar_template"),
-        plainText(json.text("bio_cooked")), json.optInt("trust_level"),
+        plainText(json.text("bio_cooked")), json.optInt("trust_level"), json.optBoolean("unified_new_enabled"),
     )
 
     fun categories(json: JSONObject): List<Category> =

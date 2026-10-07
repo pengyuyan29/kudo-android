@@ -6,9 +6,21 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 class CommunityRepository(val client: DiscourseClient) {
     suspend fun topics(filter: String = "latest", categoryId: Int? = null, next: String? = null): TopicPage {
-        require(filter in setOf("latest", "hot", "top", "new", "unread"))
+        require(FeedFilter.entries.any { it.value == filter })
         val path = next ?: if (categoryId == null) "/$filter.json" else "/c/$categoryId/l/$filter.json"
         return DiscourseParser.topicPage(client.get(path))
+    }
+    suspend fun newTopicCount(user: Member): Int {
+        val url = client.baseUrl.newBuilder().addPathSegment("u").addPathSegment(user.username)
+            .addPathSegment("topic-tracking-state.json").build()
+        return client.getArray(url.toString()).objects().distinctBy { it.getInt("topic_id") }.count { topic ->
+            val level = if (topic.isNull("notification_level")) null else topic.getInt("notification_level")
+            val unread = !topic.isNull("last_read_post_number") &&
+                topic.getInt("last_read_post_number") < topic.optInt("highest_post_number") && (level ?: 0) >= 2
+            val new = topic.isNull("last_read_post_number") && (level == null || level >= 2) &&
+                topic.optBoolean("created_in_new_period") && !topic.optBoolean("is_seen")
+            !topic.optBoolean("deleted") && (new || (user.unifiedNew && unread))
+        }
     }
     suspend fun categories() = DiscourseParser.categories(client.get("/site.json"))
     suspend fun currentUser(): Member? = client.get("/session/current.json").optJSONObject("current_user")?.let(DiscourseParser::member)

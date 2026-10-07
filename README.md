@@ -14,6 +14,8 @@ Android 13+ 使用完整液态玻璃；Android 12 使用背景模糊；Android 8
 
 同机对照酷安调整字号和间距：列表摘要为 14sp / 22sp，长文正文为 16sp / 32sp；首页标签为 19 / 16sp，详情操作栏最小 48dp。底栏胶囊运动时透明，当前标签与经过标签同时高亮；拖动时页面保持不变，松手后切换并从当前位置吸附，只保留目标标签高亮。帖子进入 / 返回使用 280 / 220ms 淡变与轻微缩放；动画遵循系统时长设置。
 
+首页移除社区横幅和快捷入口；顶部 Tab 普通字号高40dp，上滑收起头像搜索行并吸顶在状态栏下，反向滑动重新展开。未登录显示“最新、热门、排行榜、类别”；登录后显示“未读、最新、新、热门、排行榜、我的帖子、已读、书签、类别”，默认未读，支持横向滑动。“新”显示服务端跟踪结果计算的数量，未知时省略数字；退出或换号清空旧列表、计数和分页。
+
 详情页“写回复”和“赞 / 收藏 / 分享”两块胶囊直接采用官方 `Surface Liquid Button` 样式：30%主题表面色、2dp模糊、12 / 24dp边缘折射、触点高光及按压放大；四个操作保持独立，关闭、请求忙碌与缺失主帖时的权限不变。
 
 设置页选项使用底部 ActionSheet，当前项以黄色勾选标记；关于、隐私、致谢与退出确认采用官方 Dialog 材质。模态支持遮罩与返回键关闭、背景可访问隔离、键盘焦点、小窗口滚动和系统安全区，替代默认 Material AlertDialog。
@@ -39,15 +41,16 @@ npm run verify-notes
 adb -s <真机序列号> install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # 使用 Android CLI 检查过布局时，先停止它的辅助测试进程，避免 UiAutomation 冲突。
 adb -s <真机序列号> shell am force-stop com.android.cli.interact.instrumentation
-adb -s <真机序列号> shell am instrument -w -r -e class 'com.kudo.android.CommunityUiTest,com.kudo.android.SurfaceLiquidUiTest,com.kudo.android.SettingsModalUiTest,com.kudo.android.NavigationMaterialUiTest' com.kudo.android.test/androidx.test.runner.AndroidJUnitRunner
+adb -s <真机序列号> shell am instrument -w -r -e class 'com.kudo.android.FeedHeaderUiTest,com.kudo.android.CommunityUiTest,com.kudo.android.SurfaceLiquidUiTest,com.kudo.android.SettingsModalUiTest,com.kudo.android.NavigationMaterialUiTest' com.kudo.android.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-2026-10-08：本轮28项 RMX2202 / Android13 真机界面测试通过，正常动画63.441秒、系统关闭动画51.013秒，结束恢复三项动画缩放为1。Debug / 测试 APK、Lint 与笔记检查通过，Lint 为0 errors / 27 warnings；此前18项 JVM 测试已通过。保留导航、详情按钮与设置模态25项回归，新增首尾等边留白、实际按压透色和多个拖动停顿位置3项测试。真实首页、图片经过底栏、双黄色高亮和末端静止截图已人工检查。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。真实社区只做只读检查，自动化帖子与互动使用夹具。
+2026-10-08：首页调整后24项 JVM 测试、32项 RMX2202 / Android13 真机界面测试通过（68.994秒），包括4项新增首页测试与此前28项回归。Debug / 测试 APK、Lint 与笔记检查通过，Lint 为0 errors / 27 warnings。真实首页、排行榜、吸顶与反向展开截图已检查；登录态使用夹具验证。此前关闭动画的28项测试结果保留，本轮未重复修改系统动画设置。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。真实社区只做只读检查，自动化帖子与互动使用夹具。
 
 ## 使用边界
 
 - 首次访问可能需要在应用的官网页面手动完成 Cloudflare 验证；完成后返回并刷新。登录后点“完成登录”，由 `/session/current.json` 确认账号。代理、站点风控和客户端指纹仍可能影响部分请求。
 - 当前站点搜索要求登录。尚未用真实账号验收搜索结果、发帖、回复、上传、点赞、收藏、通知与重启恢复；代码已接入，但接口模拟和界面测试不等于完整线上验收。
+- 个人首页列表及新话题数量通过接口模拟与界面夹具验证，仍需真实账号验收。数量在刷新及返回首页时更新；“已读”显示服务器已有阅读记录，本次未增加原生阅读进度上报。
 - 复杂 Discourse 插件、数学公式、音视频和部分富文本格式请通过详情页的浏览器入口阅读。
 - 网络结果不明的写请求不会自动重试；请先刷新社区确认是否成功，避免重复提交。
 - Cookie 与草稿存放在应用私有目录，禁用备份与设备迁移，退出会清除本机账号数据。外部图片向其来源站点直接发起请求。

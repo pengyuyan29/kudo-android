@@ -14,6 +14,8 @@ Status: implemented
 
 标签横向滚动，选中项通过 BringIntoViewRequester 保持可见；标签文字与指示器共用 40dp 最小布局，不叠加 Material Tab 默认文本内边距。字号增大时布局随字形增高。
 
+账号变化时重建横向标签滚动位置，避免退出后保留在个人标签末端。两组顺序、计数、分类动作和列表会话隔离由[登录态筛选](2026-10-08-session-feed-filters.md)维护。
+
 ## Related decisions
 
 已检索 proposed / implemented / rejected 的首页、Feed、Tab、吸顶关键词。与[密度与节奏](../../implemented/feature/2026-10-07-coolapk-density-and-motion.md)和[玻璃界面](../../implemented/feature/2026-10-07-liquid-glass-ui.md)部分重叠，仅取代其中首页介绍区和顶部标签布局，保留其余排版、导航和材质决定。与[原生架构](../../implemented/architecture/2026-10-07-native-community-client.md)和[验证边界](../../implemented/testing/2026-10-07-client-verification.md)兼容；设置模态、底栏官方示例与本次顶部改动无关。
@@ -26,7 +28,7 @@ Status: implemented
 
 ## Testing
 
-FeedHeaderUiTest 在 RMX2202 / Android13 先复现两个失败：上滑后 Tab 位置不变、横幅仍存在。修复后 2 项通过（4.1秒），验证连续上滑吸顶稳定、反向滑动搜索展开、首屏直接显示话题。日志为 artifacts/home-tabs-repro.txt 与 home-tabs-layout-test.txt；Debug / 测试 APK 构建通过。完整回归与视觉检查随账号 Tab 单元统一完成。
+FeedHeaderUiTest 在 RMX2202 / Android13 先复现两个失败：上滑后 Tab 位置不变、横幅仍存在。修复后 2 项通过（4.1秒），验证连续上滑吸顶稳定、反向滑动搜索展开、首屏直接显示话题。日志为 artifacts/home-tabs-repro.txt 与 home-tabs-layout-test.txt。最终24项JVM及32项真机界面回归通过（68.994秒），构建与Lint通过（0错误/27警告）。真实首页、排行榜吸顶与反向展开截图分别为 home-tabs-real-top.png、home-tabs-real-pinned.png、home-tabs-real-expanded.png，已人工检查；吸顶Tab位于状态栏107px下方，40dp高，与同机酷安一致。
 
 ## Consequences
 
