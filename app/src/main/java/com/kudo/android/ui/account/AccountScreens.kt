@@ -1,0 +1,136 @@
+package com.kudo.android.ui.account
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.kudo.android.data.*
+import com.kudo.android.ui.components.*
+import com.kudo.android.ui.theme.Ink
+import com.kudo.android.ui.theme.LogoYellow
+
+@Composable
+fun RootHeading(title: String, action: @Composable RowScope.() -> Unit = {}) {
+    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).statusBarsPadding().padding(start = 20.dp, end = 12.dp).heightIn(min = 62.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+        action()
+    }
+}
+
+@Composable
+fun CategoriesScreen(categories: List<Category>, loading: Boolean, error: Throwable?, refresh: () -> Unit, login: () -> Unit, select: (Category) -> Unit) {
+    Column {
+        RootHeading("发现社区") { IconButton(onClick = refresh) { Icon(Icons.Rounded.Refresh, "刷新分类") } }
+        LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item { Text("找到你的同好", Modifier.padding(start = 6.dp, bottom = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (loading && categories.isEmpty()) item { LoadingRow() }
+            if (error != null) item { ErrorState(error, refresh, login) }
+            items(categories, key = { it.id }) { category ->
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).clickable { select(category) }.padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    val color = runCatching { Color(android.graphics.Color.parseColor("#${category.color}")) }.getOrDefault(LogoYellow)
+                    Box(Modifier.size(45.dp).background(color.copy(alpha = 0.14f), RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Tag, null, tint = color) }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text(category.name, style = MaterialTheme.typography.titleMedium)
+                        Text(category.description.ifBlank { "${compactNumber(category.count)} 个话题" }, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp), MaterialTheme.colorScheme.outline)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookmarks: () -> Unit, profile: () -> Unit) {
+    Column {
+        RootHeading("我的") { IconButton(onClick = settings) { Icon(Icons.Rounded.Settings, "设置") } }
+        LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            item {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(LogoYellow).clickable(onClick = if (user == null) login else profile).padding(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Avatar(user, 60.dp)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(user?.displayName ?: "你好，DO 友", style = MaterialTheme.typography.headlineSmall, color = Ink)
+                            Text(user?.let { "@${it.username}  ·  Lv.${it.trustLevel}" } ?: "登录，加入每一次精彩讨论", style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = 0.7f))
+                        }
+                        Icon(Icons.Rounded.ChevronRight, null, tint = Ink)
+                    }
+                    Text(if (user == null) "登录 Linux.do  →" else "查看个人主页  →", style = MaterialTheme.typography.labelLarge, color = Ink)
+                }
+            }
+            item {
+                Column(Modifier.clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)) {
+                    MenuRow(Icons.Rounded.BookmarkBorder, "我的收藏", "留住值得再次阅读的内容", bookmarks)
+                    HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    MenuRow(Icons.Rounded.Palette, "界面与显示", "主题、字号与液态玻璃", settings)
+                    HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    MenuRow(Icons.Rounded.Info, "关于酷DO", "一个用心的 Linux.do 原生客户端", settings)
+                }
+            }
+            item { Text("真诚 · 友善 · 团结 · 专业", Modifier.fillMaxWidth().padding(18.dp), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+    }
+}
+
+@Composable
+fun MenuRow(icon: ImageVector, title: String, subtitle: String, click: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = click).padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(title, style = MaterialTheme.typography.bodyLarge); Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(19.dp))
+    }
+}
+
+@Composable
+fun NotificationsScreen(vm: AccountViewModel, login: () -> Unit, open: (Int, Int?) -> Unit) {
+    Column {
+        RootHeading("消息") { IconButton(onClick = { vm.loadNotices() }) { Icon(Icons.Rounded.Refresh, "刷新通知") }; TextButton(onClick = { vm.markRead() }, enabled = vm.user != null) { Text("全部已读") } }
+        LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            if (vm.user == null) item { EmptyState("不错过每一份回应", "登录后查看回复、提及和点赞通知。", Icons.Rounded.NotificationsNone, "登录 Linux.do", login) }
+            if (vm.noticesLoading && vm.notices.isEmpty()) item { LoadingRow() }
+            items(vm.notices, key = { it.id }) { notice ->
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).clickable { vm.markRead(notice.id); notice.topicId?.let { open(it, notice.postNumber) } }.padding(17.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) { if (!notice.read) { Box(Modifier.size(7.dp).background(LogoYellow, RoundedCornerShape(50))); Spacer(Modifier.width(7.dp)) }; Text(notice.description, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary); Text(relativeTime(notice.time), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Text(notice.title, style = MaterialTheme.typography.titleSmall)
+                }
+            }
+            vm.noticesError?.let { item { ErrorState(it, { vm.loadNotices() }, login) } }
+            if (vm.user != null && !vm.noticesLoading && vm.notices.isEmpty() && vm.noticesError == null) item { EmptyState("暂时没有新消息", "有人回应你时，会出现在这里。", Icons.Rounded.NotificationsNone) }
+            if (vm.notices.isNotEmpty() && vm.hasMoreNotices) item { TextButton(onClick = { vm.loadNotices(true) }, enabled = !vm.noticesLoading, modifier = Modifier.fillMaxWidth()) { Text(if (vm.noticesLoading) "加载中…" else "加载更多") } }
+        }
+    }
+}
+
+@Composable
+fun BookmarksScreen(vm: AccountViewModel, back: () -> Unit, login: () -> Unit, open: (Int, Int?) -> Unit) {
+    Column {
+        PageTopBar("我的收藏", back) { IconButton(onClick = { vm.loadSaved() }) { Icon(Icons.Rounded.Refresh, "刷新收藏") } }
+        LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (vm.user == null) item { EmptyState("把好内容留在这里", "登录后查看你的社区收藏。", Icons.Rounded.BookmarkBorder, "登录", login) }
+            if (vm.savedLoading) item { LoadingRow() }
+            items(vm.saved, key = { it.id }) { topic ->
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp)).background(MaterialTheme.colorScheme.surface).clickable { open(topic.topicId, topic.postNumber) }.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(topic.title, style = MaterialTheme.typography.titleMedium)
+                    if (topic.excerpt.isNotBlank()) Text(topic.excerpt, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            vm.savedError?.let { item { ErrorState(it, { vm.loadSaved() }, login) } }
+            if (vm.user != null && !vm.savedLoading && vm.saved.isEmpty() && vm.savedError == null) item { EmptyState("还没有收藏", "在帖子下方点星标，保存想再看的内容。", Icons.Rounded.BookmarkBorder) }
+            if (vm.hasMoreSaved && !vm.savedLoading) item { TextButton(onClick = { vm.loadSaved(true) }, modifier = Modifier.fillMaxWidth()) { Text("加载更多收藏") } }
+        }
+    }
+}
