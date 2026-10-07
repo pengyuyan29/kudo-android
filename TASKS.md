@@ -23,6 +23,7 @@
 - [x] F7 凸面玻璃：整栏抬升放大、镜片中心放大与弧面边缘折射、收窄镜片凸出高度、静止高光归零；两项新回归和同机动静对照。
 - [x] F8 官方示例：直接复用 Backdrop LiquidBottomTabs 的图层、阻尼、速度拉伸和触点高光，微调主题与胶囊比例；正常/关闭系统动画各13项真机回归，同机 demo 慢拖对照，保留完整许可。
 - [x] F9 详情操作栏：采用官方 Surface Liquid Button 的轻表面、边缘折射、触点高光与按压放大，保留四个独立动作和权限；正常/关闭系统动画各18项真机回归，官方按钮动静对照及真实详情滚动检查，移除旧 glass。
+- [x] F10 设置模态：主题/材质/字号用底部ActionSheet，说明与退出确认用官方玻璃Dialog；取消/遮罩/返回、背景隔离、焦点与短窗口滚动，正常/关闭系统动画各25项真机回归，保留来源许可并安装交付。
 
 各单元继续按构建配置、数据契约、页面组件等小批次实施，每个小功能连同笔记中文提交。功能开发优先，集中运行完整检查；发现缺陷先补复现测试。
 
@@ -43,6 +44,7 @@
 13. 高亮图标和文字均为品牌黄，静止选中面为透明中性灰。采用官方示例后整栏放大比例为 `1 + 16dp / 宽度`，RMX2202 上约1.05倍；镜片稳定运动约93.9×64dp，略高于58.8dp底栏，并叠加官方速度形变。镜片中心图标和文字放大，弧面边缘折射、压缩和色散，经过发布按钮时能看到轮廓折射。松手与取消后平滑收回，静止时关闭镜片高光。以同机 demo 对照和录屏判断材质，慢拖两端不得裁切；位置保留阻尼跟随与少量弹性偏移。
 14. 使用实际触摸点按分类与发布；分别从发布入口、未选中标签开始拖动，在发布格松手不发布、不切页。无障碍和布局树中每个入口唯一，隐藏采样层不暴露第二份入口。普通与关闭系统动画下分别验证。
 15. 详情两块胶囊使用官方 Surface 样式，按压内容放大，取消后复位且不触发动作；右组赞、收藏、分享分别触发一次，空白容器无多余点击。话题关闭时禁用写回复，忙碌或缺主帖时禁用赞/收藏，分享仍可用。按住后停用再启用不残留放大；深色130%和三种材质下文字完整、图标可读，正文滚动改变真实玻璃背景。互动只在夹具中验证。
+16. 设置选项从底部进入，当前项有黄色勾；点击选项保存一次，取消/遮罩/返回不保存也不退出页面。说明完整可滚动，点圆角内部空白不关闭；弹窗打开时背景入口隐藏且不能触发。退出只确认一次，动画中重复点击不再次退出。连续Tab焦点留在模态，深色130%和三种材质可读，短窗口仍能滚动到致谢链接且固定操作可见；关闭系统动画后仍可操作。
 
 ## 验证记录
 
@@ -54,23 +56,26 @@
 | Android Lint | 0 errors；27 项依赖升级 / API 使用建议等 warnings，新增 Shapes 升级建议 |
 | Debug APK | 构建成功，0.1.0，约 25 MiB，已覆盖安装到新真机 |
 | RMX2202 真机 | Android 13 / API 33，WebView 153，1080×2400 |
-| Compose 界面 | 18项通过，正常动画28.73秒、关闭系统动画25.076秒：新增详情按钮的独立触摸、权限、按压取消、禁用恢复和三种材质深色130%；原13项完整保留 |
+| Compose 界面 | 25项通过，正常动画45.988秒、关闭系统动画38.548秒：新增7项设置模态回归，原有导航和详情18项完整保留 |
 | 真实只读浏览 | 首页及图片、分类、分类规范地址跳转、帖子与多楼层正文均已加载 |
 | 网页验证 | 用户手动完成人机验证，官网登录表单成功加载；部分接口仍可能再次验证 |
 | 搜索 | 已发送真实查询，站点要求登录；已补 `not_logged_in` 回归与登录引导 |
 | 视觉对比 | 对照同机酷安，导航为 56dp / 22dp 图标 / 横向发布胶囊；顶部标签为 19 / 16sp，卡片内边距为 12dp，详情操作栏最小 48dp |
 | 字号与行距 | PNG 实测摘要基线间距 22.0 / 21.8dp，详情正文 32.0dp；作者 15sp / 时间 12sp 保留；浅色与深色 130% 首页、长标题和正文无裁切 |
-| 动画与低动态 | 官方底栏慢拖与按钮动静对照已检查；系统关闭动态效果后确认三项缩放为0，18项测试通过，结束恢复三项缩放为1；此前帖子过渡与真实阅读结果保留 |
+| 动画与低动态 | 官方底栏慢拖、按钮动静与Dialog材质已检查；系统关闭动态效果后确认三项缩放为0，25项测试通过，结束恢复三项缩放为1；此前帖子过渡与真实阅读结果保留 |
 | 首页顶栏 | slogan 完整、未登录 Logo 正确、搜索栏扩宽；搜索与登录入口可用，已看普通字号与深色 130% 截图；登录头像分支使用测试夹具检查 |
 | 玻璃与双高亮 | 本轮浅色/深色130%与动静截图、同机官方 demo / 酷DO 慢拖已人工检查；中心内容放大、弧面折射、速度拉伸、扁胶囊、透明双高亮及收回正常，慢拖两端轮廓可见 |
 | 来源与交付 | 应用开源致谢显示官方示例与 Shapes；完整 Apache-2.0 许可已核实进入 APK；构建、分发与设备安装 APK 的 SHA256 一致 |
+| 设置模态 | ActionSheet黄色勾选、玻璃Dialog、实际触摸与背景隔离、三种材质深色130%与短窗口滚动均通过；连续Tab测试显式键盘模式 |
 | 旧机兼容 | MI 6X / Android 9 安装与半透明材质正常，当时网络失败，未完成在线验收 |
 
 仪器测试通过 adb 指定新真机执行，保留应用数据；本轮13项输出为 `artifacts/backdrop-final-instrumentation.txt` / `backdrop-reduced-motion.txt`。初次回归为 `backdrop-initial-instrumentation.txt`：10%灰令黄色像素变暗，改为6%后通过；两项几何测试改读实际图层边界后通过。新的实际触摸与几何三项先独立通过，输出为 `backdrop-touch-repro.txt`。此前自绘底栏的失败与回归日志仍留在 `navigation-scale-*`、`navigation-center-*`、`navigation-material-*`、`navigation-preview-*` 和 `realme-density-*`。测试前停止 `com.android.cli.interact.instrumentation`，避免 UI 自动化争用。
 
 详情按钮加入后的18项输出为 `surface-final-instrumentation.txt` / `surface-reduced-motion.txt`；5项按钮截图复查为 `surface-screenshot-instrumentation.txt`，10.258秒。初轮字号误报为 `surface-button-instrumentation.txt` / `surface-overflow-repro.txt`，文案未裁切，改用字形边界断言后通过。按钮浅/深色130%截图为 `topic-surface-light.png` / `topic-surface-liquid-dark-large.png`；官方 demo 与夹具动静图为 `surface-demo-resting.png` / `surface-demo-pressed.png` 和 `surface-button-resting.png` / `surface-button-pressed.png`；最终安装后的真实详情与滚动为 `surface-real-topic.png` / `surface-real-topic-scrolled.png`，均已人工检查。
 
-导航同机录像为 `backdrop-demo-motion.mp4` / `navigation-glass-backdrop-kudo-motion.mp4`，对照图为 `backdrop-demo-kudo-comparison-00.png` / `-01.png`；动静图为 `backdrop-kudo-scale-comparison.png`，最终首页为 `backdrop-kudo-home.png`。普通动画测试截图位于 `artifacts/backdrop-ui-tests/ui-tests/`。最终 APK 为 `artifacts/Kudo-0.1.0-debug.apk`，24.94MiB；SHA256 为 `9dce24461f7ca685c385af57546cab79649ca355a371f100151e489ca97f2bb1`，与构建和设备安装包一致。最新许可与哈希验证输出为 `surface-apk-verification.txt`，应用致谢已显示 Surface Liquid Button，检查为 `surface-credits-verification.txt`。
+设置模态加入后的25项输出为 `modal-final-instrumentation.txt` / `modal-reduced-motion.txt`，构建为 `modal-integration-build.txt` / `modal-final-build.txt`。初轮6项3个测试条件误报见 `modal-initial-instrumentation.txt`，补滚动/等待/有效空白坐标后6项通过；键盘模式独立通过见 `modal-focus-repro-keyboard.txt`。材料为 `settings-sheet-light.png` / `settings-dialog-light.png`、`settings-sheet-liquid-dark-large.png` / `settings-dialog-liquid-dark-large.png` 与其他材质截图；官方Dialog为 `modal-demo-dialog.png`，最终安装的选项面板为 `modal-final-sheet.png`，均已人工检查。
+
+导航同机录像为 `backdrop-demo-motion.mp4` / `navigation-glass-backdrop-kudo-motion.mp4`，对照图为 `backdrop-demo-kudo-comparison-00.png` / `-01.png`；动静图为 `backdrop-kudo-scale-comparison.png`，最终首页为 `backdrop-kudo-home.png`。普通动画测试截图位于 `artifacts/backdrop-ui-tests/ui-tests/`。最终 APK 为 `artifacts/Kudo-0.1.0-debug.apk`，24.94MiB；SHA256 为 `ae4fbab19e410962474bf69734097226f626667d16f715db26287d2594331326`，与构建和设备安装包一致。最新许可与哈希验证输出为 `modal-apk-verification.txt`；此前详情按钮致谢检查为 `surface-credits-verification.txt`，本轮致谢另说明Dialog材质来源。
 
 本轮材质截图为 `navigation-glass-home.png`、`navigation-raised-lens.png` / `navigation-material-dark-large.png`，动静对照为 `navigation-scale-resting.png` / `navigation-scale-center.png` / `navigation-scale-before-after.png`；同机慢拖为 `navigation-glass-coolapk-motion.mp4` / `navigation-glass-kudo-motion.mp4`，逐帧对照为 `navigation-glass-comparison-00.png` 至 `-02.png`。首页顶栏截图为 `home-header-light.png` / `home-header-dark-large.png`。此前字号 / 帖子对照为 `density-home-comparison.png` 和 `density-topic-comparison.png`，帖子过渡录屏为 `density-motion-final.mp4`。录屏用于动作与材质检查，不作为正式帧率基准。所有 artifacts 均为本地产物，不提交 Git。
 
