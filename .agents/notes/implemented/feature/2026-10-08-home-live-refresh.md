@@ -29,8 +29,20 @@ Linux.do 使用 ping.ldstatic.com 的 HTTP MessageBus 长轮询，非 WebSocket�
 
 ## Testing
 
-MessageBusTest 的5项测试通过：无 Cookie、共享密钥、游标初始化/重置/去重、重定向拒绝、限流退避与取消，日志 artifacts/live-refresh-transport.txt。FeedUpdatesTest 的5项测试通过：合并20次提示、忽略仅浏览量变化、切换筛选、失败保留与成功清除、刷新期间更新遗漏/已包含两条路径、后台停止/恢复、换号撤销在途检查，日志 artifacts/live-refresh-state.txt。界面接入和真机验收尚未完成。
+MessageBusTest 的5项测试通过：无 Cookie、共享密钥、游标初始化/重置/去重、重定向拒绝、限流退避与取消，日志 artifacts/live-refresh-transport.txt。FeedUpdatesTest 的5项测试通过：合并20次提示、忽略仅浏览量变化、切换筛选、失败保留与成功清除、刷新期间更新遗漏/已包含两条路径、后台停止/恢复、换号撤销在途检查，日志 artifacts/live-refresh-state.txt。
+
+完整35项 JVM 回归、Debug构建和Lint通过（0 errors / 27 warnings），见 artifacts/live-refresh-final-build.txt。35项真机界面测试通过（74.976秒），见 artifacts/live-refresh-ui-tests.txt；新增3项验证推送保持位置、真实触摸点击回顶、成功后恢复首页文案、三种材质深色130%唯一黄色入口、从其他Tab切回和离开/恢复阅读位置。旧的 LaunchedEffect 每次重建都会回顶：先用旧逻辑复现返回后第13条消失，再仅在筛选/账号变化或显式刷新回顶请求时滚动；失败日志 live-refresh-scroll-repro.txt，修复包含在35项回归中。
+
+登录/发布的 refreshEpoch 在返回 root 后会重新执行同值效果；先用 FeedSessionTest 复现同一事件产生第二次列表请求（live-refresh-epoch-repro.txt），再由 FeedViewModel 消费每个非零 epoch 一次。epoch 使用 rememberSaveable 保留配置重建后的序号，避免新事件与旧已消费序号冲突。这项回归包含在最终35项JVM内；最终包的7项首页界面回归再次通过（16.218秒），见 live-refresh-final-home-ui.txt。
+
+首页吸顶及刷新图标夹具截图 home-refresh-scrolled.png / home-refresh-top.png / home-refresh-liquid-dark.png 已人工查看，图标与文案使用 LogoYellow，采样层同步更新且无重复操作。
+
+真机线上访客探针 LiveUpdatesProbeTest 通过（21.297秒）：收到3次真实通知后 FeedState.hasUpdates 为真，日志 live-refresh-online-probe.txt / live-refresh-online-events.txt。探针只在 instrumentation 参数 liveReadOnlyProbe=true 时运行，默认跳过，等待最多60秒的可见更新，不纳入离线回归。随后正式首页观察到图标及文字从首页变刷新，同一可见话题边界仍为 [60,627][588,690]；点击后回顶并成功恢复首页，回复数1175→1176。截图 live-refresh-real-prompt.png / live-refresh-real-clicked.png 与布局快照已检查。没有向社区发帖或进行互动。
+
+材质观察独立于测试结果：本机静止截图与12秒慢拖录屏 live-refresh-material-motion.mp4 检查了黄色高亮、静止透明中性灰、镜片凸出且不裁切、经过发布按钮的真实前景折射；抽帧 live-refresh-material-rest.png / -drag.png / -end.png。手机没有 screenrecord，复用 scrcpy 无窗口录屏；解码器的 ycgco 标记导致首次抽帧失败，按既有工具设置 bt709 后取得可查看帧。录屏不作为帧率性能结论。
+
+分发 APK 已保留数据覆盖安装，构建/分发/设备包 SHA256 均为 cab9cc981232c221f7ede530e4e3ce8cf9927f149b7cb1a1e170adeaf1631d91，见 live-refresh-apk-verification.txt。
 
 ## Consequences
 
-共享会话凭据或 HTML、推送主机配置可能变化；站点验证和断网会暂停提示，但手动刷新继续可用。合并检查有最多约15秒延迟。真实账号与其私有频道需要独立线上验收，模拟协议不证明账号链路。
+共享会话凭据或 HTML、推送主机配置可能变化；站点验证和断网会暂停提示，但手动刷新继续可用。检查合并约15秒，并叠加网络和站点数据可见性延迟。真实账号与其私有频道需要独立线上验收，模拟协议不证明账号链路。

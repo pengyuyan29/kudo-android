@@ -20,9 +20,9 @@ import com.kudo.android.ui.theme.Ink
 import com.kudo.android.ui.theme.LogoYellow
 
 @Composable
-fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Unit, backdrop: Backdrop, mode: GlassMode, modifier: Modifier = Modifier) {
-    val labels = listOf("首页", "分类", "发布", "消息", "我的")
-    val icons = listOf(Icons.Rounded.Home, Icons.Rounded.GridView, Icons.Rounded.Add, Icons.Rounded.Explore, Icons.Rounded.Person)
+fun GlassNavigation(selected: Int, onSelect: (Int) -> Unit, onCompose: () -> Unit, backdrop: Backdrop, mode: GlassMode, modifier: Modifier = Modifier, homeHasUpdates: Boolean = false) {
+    val labels = listOf(if (homeHasUpdates) "刷新" else "首页", "分类", "发布", "消息", "我的")
+    val icons = listOf(if (homeHasUpdates) Icons.Rounded.Refresh else Icons.Rounded.Home, Icons.Rounded.GridView, Icons.Rounded.Add, Icons.Rounded.Explore, Icons.Rounded.Person)
     LiquidBottomTabs({ selected }, onSelect, backdrop, mode, labels.size, actionIndex = 2, modifier) { previewIndex ->
         val sampling = LocalLiquidBottomTabSampling.current
         labels.forEachIndexed { index, label ->

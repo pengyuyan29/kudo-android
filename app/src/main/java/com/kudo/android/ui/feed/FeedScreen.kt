@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,7 +68,18 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
         } + if (categoryTitle == null) listOf("categories" to "类别") else emptyList()
         key(user?.id) { FeedTabBar(tabs, state.filter) { if (it == "categories") categories() else select(it) } }
         val listState = rememberLazyListState()
-        LaunchedEffect(state.filter, state.accountId) { listState.scrollToItem(0) }
+        val scrollContext = "${state.accountId}:${state.filter}"
+        var previousContext by rememberSaveable { mutableStateOf(scrollContext) }
+        var consumedScrollRequest by rememberSaveable { mutableLongStateOf(0L) }
+        LaunchedEffect(scrollContext, state.scrollToTopRequest) {
+            if (previousContext != scrollContext || consumedScrollRequest != state.scrollToTopRequest) {
+                listState.scrollToItem(0)
+                scrollBehavior.state.heightOffset = 0f
+                scrollBehavior.state.contentOffset = 0f
+                previousContext = scrollContext
+                consumedScrollRequest = state.scrollToTopRequest
+            }
+        }
         val nearEnd by remember { derivedStateOf { val info = listState.layoutInfo; info.totalItemsCount > 3 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 3 } }
         LaunchedEffect(nearEnd, state.next) { if (nearEnd && state.next != null && state.moreError == null) more() }
         PullToRefreshBox(isRefreshing = state.loading && state.topics.isNotEmpty(), onRefresh = refresh, modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.background)) {

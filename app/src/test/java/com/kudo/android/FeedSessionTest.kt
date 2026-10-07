@@ -130,4 +130,29 @@ class FeedSessionTest {
         assertEquals(listOf("unread", "latest", "new", "hot", "top", "posted", "read", "bookmarks"), FeedFilter.available(true).map { it.value })
         assertFalse(FeedFilter.available(true, true).any { it == FeedFilter.POSTED || it == FeedFilter.READ || it == FeedFilter.BOOKMARKS })
     }
+
+    @Test fun loginOrPublishRefreshIsConsumedOnceAcrossRootReentry() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val server = MockWebServer()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = if (request.path == "/site.json")
+                MockResponse().setBody("""{"categories":[{"id":1,"name":"分类"}]}""") else page(1)
+        }
+        server.start()
+        val vm = FeedViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))))
+        try {
+            vm.idle()
+            val initial = server.requestCount
+            vm.refreshIfRequested(0); vm.idle()
+            assertEquals(initial, server.requestCount)
+            vm.refreshIfRequested(1); vm.idle()
+            val afterLogin = server.requestCount
+            assertEquals(initial + 1, afterLogin)
+            // Returning from a topic recreates the root effect with the same login/publish epoch.
+            vm.refreshIfRequested(1); vm.idle()
+            assertEquals("返回首页不得重新消费已完成的登录刷新", afterLogin, server.requestCount)
+            vm.refreshIfRequested(2); vm.idle()
+            assertEquals(afterLogin + 1, server.requestCount)
+        } finally { vm.viewModelScope.cancel(); server.shutdown(); Dispatchers.resetMain() }
+    }
 }

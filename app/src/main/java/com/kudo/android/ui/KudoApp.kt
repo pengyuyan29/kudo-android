@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -53,6 +54,16 @@ private fun RefreshFeedOnResume(feed: FeedViewModel, user: Member?) {
 }
 
 @Composable
+private fun ObserveHomeUpdates(feed: FeedViewModel, user: Member?) {
+    LaunchedEffect(user?.id, user?.unifiedNew) { feed.setUser(user) }
+    LifecycleResumeEffect(feed, user?.id, user?.unifiedNew) {
+        feed.setUser(user)
+        feed.setUpdatesActive(true)
+        onPauseOrDispose { feed.setUpdatesActive(false) }
+    }
+}
+
+@Composable
 fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
     val display by app.settings.display.collectAsStateWithLifecycle()
     KudoTheme(display) {
@@ -61,7 +72,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
         val snackbar = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
-        var refreshEpoch by remember { mutableIntStateOf(0) }
+        var refreshEpoch by rememberSaveable { mutableIntStateOf(0) }
         fun openLink(url: String) {
             if (Uri.parse(url).scheme != "https") return
             try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
@@ -87,12 +98,12 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                 enterTransition = { fadeIn(tween(280)) }, exitTransition = { fadeOut(tween(180)) },
                 popEnterTransition = { fadeIn(tween(220)) }, popExitTransition = { fadeOut(tween(220)) }) {
                 composable("root") {
-                    val feed = model("feed") { FeedViewModel(app.repository, initialUser = account.user) }
+                    val feed = model("feed") { FeedViewModel(app.repository, initialUser = account.user, updates = DiscourseMessageBus(app.client, userAgent = app.userAgent)) }
                     val state by feed.state.collectAsStateWithLifecycle()
                     var selected by rememberSaveable { mutableIntStateOf(0) }
                     val backdrop = rememberLayerBackdrop()
-                    RefreshFeedOnResume(feed, account.user)
-                    LaunchedEffect(refreshEpoch) { if (refreshEpoch > 0) feed.refresh() }
+                    ObserveHomeUpdates(feed, account.user)
+                    LaunchedEffect(refreshEpoch) { feed.refreshIfRequested(refreshEpoch) }
                     LaunchedEffect(selected, account.user?.id) {
                         if (selected == 1 && account.categories.isEmpty()) account.loadCategories()
                         if (selected == 3) account.loadNotices()
@@ -106,7 +117,10 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                                 4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) })
                             }
                         }
-                        GlassNavigation(selected, { selected = it }, { editor() }, backdrop, display.glass, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(20.dp).widthIn(max = 530.dp).fillMaxWidth())
+                        GlassNavigation(selected, {
+                            selected = it
+                            if (it == 0 && state.forUser(account.user).hasUpdates) feed.refreshFromNavigation()
+                        }, { editor() }, backdrop, display.glass, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(20.dp).widthIn(max = 530.dp).fillMaxWidth(), homeHasUpdates = state.forUser(account.user).hasUpdates)
                     }
                 }
                 composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->

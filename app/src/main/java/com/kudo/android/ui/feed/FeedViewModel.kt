@@ -30,6 +30,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
     private var arrivalRevision = 0L
     private var baseline: Map<Int, Topic>? = null
     private var acknowledgeOnProbe = false
+    private var lastRefreshEpoch = 0
     init { refresh() }
     fun setUser(value: Member?): Boolean {
         if (value?.id == user?.id && value?.unifiedNew == user?.unifiedNew) return false
@@ -53,6 +54,12 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
     fun refreshFromNavigation() {
         _state.update { it.copy(scrollToTopRequest = it.scrollToTopRequest + 1) }
         if (!_state.value.loading) refresh()
+    }
+
+    fun refreshIfRequested(epoch: Int) {
+        if (epoch <= 0 || epoch == lastRefreshEpoch) return
+        lastRefreshEpoch = epoch
+        refresh()
     }
 
     fun setUpdatesActive(active: Boolean) {
