@@ -298,9 +298,15 @@ class CommunityUiTest {
         val resting = compose.onNodeWithText("我的").fetchSemanticsNode().boundsInRoot
         val navigation = compose.onNodeWithTag("navigation")
         val touchBounds = navigation.getUnclippedBoundsInRoot()
+        compose.mainClock.autoAdvance = false
         navigation.performTouchInput {
             down(Offset(width * 0.1f, centerY))
             moveTo(Offset(width * 0.3f, centerY), delayMillis = 300)
+        }
+        // Upstream velocity samples use wall time; let the gesture settle on real frames.
+        repeat(60) {
+            compose.mainClock.advanceTimeByFrame()
+            android.os.SystemClock.sleep(16)
         }
         compose.waitForIdle()
         val moving = compose.onNodeWithText("我的").fetchSemanticsNode().boundsInRoot
@@ -315,6 +321,8 @@ class CommunityUiTest {
         val lensHeight = lens.height
         assertTrue("镜片仅略高于放大后的底栏：$lensHeight / $tabHeight", lensHeight > tabHeight && lensHeight < tabHeight * 1.15f)
         navigation.performTouchInput { cancel() }
+        compose.mainClock.advanceTimeBy(900)
+        compose.mainClock.autoAdvance = true
         compose.waitForIdle()
         val returned = compose.onNodeWithText("我的").fetchSemanticsNode().boundsInRoot
         assertEquals("取消后恢复原宽度", resting.width, returned.width, 1f)

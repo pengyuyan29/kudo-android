@@ -32,6 +32,8 @@ JUnit 与 MockWebServer 检查请求来源、CSRF、失败不重试、JSON 与 H
 
 NavigationMaterialUiTest 检查首尾灰面外侧与上下的实际留白相等，覆盖两种宽度/字号和三种材质。黑底根画面采样判断白面强度，真实移动并确认整栏放大后采样动态透色，取消恢复；黑底不作为浅色标签可读性验证。新增多位置停顿几何检查时，逐帧推进Compose时钟并等待真实16ms，因为官方VelocityTracker使用墙钟；瞬间推进虚拟900ms不代表速度采样经历了停顿。保留原凸出范围断言，系统关闭动画单独复现速度形变后再修复，材质判断仍结合真实正文和图片。
 
+CommunityUiTest 的整栏抬升与取消复位检查同样按真实16ms间隔推进60帧后读取几何。只用 waitForIdle 加速动画会在很短墙钟内输入整段位置序列，使速度形变残留，偶发把稳定镜片误测为低于底栏。测试统一时钟后继续沿用原位置、凸出上下限与恢复尺寸断言，不改变生产动画或放宽验收范围。
+
 ## Alternatives considered
 
 - 只在真实站点自动化：最贴近线上，但会受到限流和会话影响，也可能发出真实社区写操作；真实请求仅做只读验证。
@@ -43,6 +45,8 @@ NavigationMaterialUiTest 检查首尾灰面外侧与上下的实际留白相等�
 网络错误可稳定复现，仪器测试可以生成可视化检查材料。真实账号、Cloudflare 和真机帧率仍需独立验收；不能用模拟测试通过来宣称其已验证。
 
 ## Verification
+
+2026-10-09 导航几何测试时钟：18项导航回归中旧抬升检查失败，镜片171.05px低于底栏176.40px，日志 `artifacts/navigation-rims-regression.txt`。该检查改为与既有多位置停顿测试一致的真实逐帧等待后，独立用例通过，2.985秒，日志 `navigation-rims-clock-fixed.txt`；原尺寸上下限与取消恢复断言全部保留。
 
 2026-10-08 动态头像与角标：57项JVM及46项真机回归通过（101.177秒），Debug / 测试APK与Lint通过，0 errors / 28 warnings。头像后台未停和全局加载器初始化顺序崩溃先复现，再由9项专测及完整回归确认修复。输出为 avatar-ui-instrumentation.txt / avatar-lifecycle-instrumentation.txt / avatar-final-build.txt / avatar-final-instrumentation.txt。真实头像形状、资质和透明原图另行核查，APNG/GIF/WebP换帧使用确定性样本证明；设备、图片来源和兼容性边界见头像笔记。
 
