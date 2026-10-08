@@ -1,7 +1,9 @@
 package com.kudo.android
 
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.SystemClock
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -9,6 +11,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
@@ -23,6 +27,7 @@ import com.kudo.android.ui.theme.LogoYellow
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -66,6 +71,57 @@ class NavigationMaterialUiTest {
                 }
             }
             assertTrue("灰底不能压暗前景的 LogoYellow：$material / $brandPixels", brandPixels > 30)
+        }
+    }
+
+    @Test fun draggedLensKeepsBothRefractedRimsVisible() {
+        assumeTrue("完整折射需要 Android 13 及以上", Build.VERSION.SDK_INT >= 33)
+        compose.setContent {
+            KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+                val backdrop = rememberLayerBackdrop()
+                Box(Modifier.fillMaxSize()) {
+                    Canvas(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
+                        drawRect(Brush.horizontalGradient(listOf(Color(0xFF16BBAA), Color(0xFF147EDE))))
+                    }
+                    GlassNavigation(0, {}, {}, backdrop, GlassMode.LIQUID,
+                        Modifier.align(Alignment.Center).padding(20.dp).fillMaxWidth().testTag("navigation"))
+                }
+            }
+        }
+        val navigation = compose.onNodeWithTag("navigation")
+        compose.mainClock.autoAdvance = false
+        navigation.performTouchInput {
+            down(Offset(width * 0.1f, centerY))
+            moveTo(Offset(width * 0.3f, centerY), delayMillis = 300)
+        }
+        repeat(60) { compose.mainClock.advanceTimeByFrame(); SystemClock.sleep(16) }
+        compose.waitForIdle()
+        val lens = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
+        val panel = compose.onNodeWithTag("navigation-surface").fetchSemanticsNode().boundsInRoot
+        val image = compose.onRoot().captureToImage()
+        val directory = File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "ui-tests").apply { mkdirs() }
+        File(directory, "navigation-rims-root.png").outputStream().use {
+            image.asAndroidBitmap().compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        val pixels = image.toPixelMap()
+        val centerX = lens.center.x.toInt()
+        val band = (lens.height * 0.17f).toInt()
+        fun rimProfile(top: Boolean): List<Float> {
+            val start = if (top) lens.top.toInt() + 2 else lens.bottom.toInt() - band
+            return (start until start + band - 2).map { pixels[centerX, it].red }
+        }
+        val upper = rimProfile(true)
+        val lower = rimProfile(false)
+        val backgroundRed = pixels[centerX, (lens.top - with(compose.density) { 18.dp.toPx() }).toInt()].red
+        File(directory, "navigation-rims-bounds.txt").writeText(
+            "lens=$lens\npanel=$panel\nupper=${upper.min()}..${upper.max()}\nlower=${lower.min()}..${lower.max()}\n")
+        navigation.performTouchInput { cancel() }
+        compose.mainClock.advanceTimeBy(900)
+        compose.mainClock.autoAdvance = true
+        for ((edge, values) in listOf("上缘" to upper, "下缘" to lower)) {
+            assertTrue("$edge 需要可辨识的内凹折射带：$values", values.max() - values.min() > 0.22f)
+            // Both folds must reach the darker external backdrop, not just contain a yellow glyph fragment.
+            assertTrue("$edge 应折回底栏外的背景颜色：$values", values.min() < backgroundRed + 0.12f)
         }
     }
 

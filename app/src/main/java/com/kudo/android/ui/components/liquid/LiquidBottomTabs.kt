@@ -66,6 +66,8 @@ internal fun LiquidBottomTabs(
     modifier: Modifier = Modifier,
     content: @Composable RowScope.(previewIndex: Int?) -> Unit,
 ) {
+    val navigationHeight = 56.dp
+    val restingLensHeight = navigationHeight - 8.dp
     val surface = MaterialTheme.colorScheme.surface
     val isLightTheme = surface.luminance() > 0.5f
     val canBlur = mode != GlassMode.TRANSLUCENT && Build.VERSION.SDK_INT >= 31
@@ -89,9 +91,11 @@ internal fun LiquidBottomTabs(
     val selectedIndex by rememberUpdatedState(selectedTabIndex)
     val selectTab by rememberUpdatedState(onTabSelected)
 
-    BoxWithConstraints(modifier.height(56.dp), contentAlignment = Alignment.CenterStart) {
+    BoxWithConstraints(modifier.height(navigationHeight), contentAlignment = Alignment.CenterStart) {
         val density = LocalDensity.current
         val tabWidth = with(density) { (constraints.maxWidth - 8.dp.toPx()) / tabsCount }
+        // Scale the optical profile together with the demo's 56dp resting lens.
+        val lensProfileScale = restingLensHeight / 56.dp
         val touchSlop = LocalViewConfiguration.current.touchSlop
         val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
         val animationScope = rememberCoroutineScope()
@@ -116,7 +120,7 @@ internal fun LiquidBottomTabs(
                 valueRange = 0f..(tabsCount - 1).toFloat(),
                 visibilityThreshold = 0.001f,
                 initialScale = 1f,
-                pressedScale = 64f / 48f,
+                pressedScale = 78f / 56f,
                 onDragStarted = { position ->
                     dragDistance = 0f
                     val physicalIndex = (position.x - with(density) { 4.dp.toPx() }) / tabWidth - 0.5f
@@ -194,7 +198,7 @@ internal fun LiquidBottomTabs(
                     )
                     .then(interactiveHighlight.modifier)
                     .testTag("navigation-surface")
-                    .height(56.dp).fillMaxWidth().padding(4.dp),
+                    .height(navigationHeight).fillMaxWidth().padding(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 content = { content(previewIndex) },
             )
@@ -227,7 +231,7 @@ internal fun LiquidBottomTabs(
                             },
                         )
                         .then(interactiveHighlight.modifier)
-                        .height(48.dp).fillMaxWidth().padding(horizontal = 4.dp),
+                        .height(restingLensHeight).fillMaxWidth().padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     content = { content(previewIndex) },
                 )
@@ -247,13 +251,14 @@ internal fun LiquidBottomTabs(
                         shape = { Capsule() },
                         effects = {
                             val progress = dampedDragAnimation.pressProgress
-                            if (canRefract) lens(10.dp.toPx() * progress, 14.dp.toPx() * progress, chromaticAberration = true)
+                            if (canRefract) lens(10.dp.toPx() * lensProfileScale * progress,
+                                14.dp.toPx() * lensProfileScale * progress, chromaticAberration = true)
                         },
                         highlight = { Highlight.Default.copy(alpha = dampedDragAnimation.pressProgress) },
                         shadow = { Shadow(alpha = dampedDragAnimation.pressProgress) },
                         innerShadow = {
                             val progress = dampedDragAnimation.pressProgress
-                            InnerShadow(radius = 8.dp * progress, alpha = progress)
+                            InnerShadow(radius = 8.dp * lensProfileScale * progress, alpha = progress)
                         },
                         layerBlock = {
                             scaleX = dampedDragAnimation.scaleX
@@ -271,7 +276,7 @@ internal fun LiquidBottomTabs(
                     )
                     .testTag("navigation-selection")
                     // Resting end caps share the bar's 4dp inset; dragging restores the wider lens.
-                    .height(48.dp).width(with(density) { tabWidth.toDp() } + 8.dp * dampedDragAnimation.pressProgress),
+                    .height(restingLensHeight).width(with(density) { tabWidth.toDp() } + 8.dp * dampedDragAnimation.pressProgress),
             )
         }
     }
