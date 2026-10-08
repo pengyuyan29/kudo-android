@@ -10,6 +10,8 @@ Status: implemented
 
 采用 Kotlin、Jetpack Compose、单 Activity 和按功能分包的单应用模块。ViewModel 持有界面状态，Repository 负责 Discourse 契约，OkHttp 负责请求，Coil 负责图片。应用名酷DO，包名 com.kudo.android，最低 API 26。品牌黄为参考项目 Logo 中的 #FFB003，文字采用深色或可读的深琥珀色。
 
+Coil 3.3.0 的全局 ImageLoader 注册 GIF/动态 WebP 解码；APNG 及 API 26/27 的 WebP 由 APNG4Android 3.0.5 补齐，两模块使用 Java 帧解码，不引入本地二进制。按内容识别 PNG acTL / WebP VP8X，绝不只判断后缀。APNG/WebP 补充解码限制 16 MiB、4096 边长、4M 像素和 1000 帧，按目标尺寸在分配画布前采样。返回不可共享 Drawable，避免多个头像抢同一动画回调；磁盘图片缓存与既有 Cookie 同源边界保持一致。APNG4Android 许可随 APK 收录，头像语义由[头像方案](../../proposed/feature/2026-10-08-avatar-presentation.md)管理。
+
 玻璃用 Apache-2.0 的 Kyant Backdrop 1.0.6，封装背景采样、模糊、折射、高光和胶囊选中动画。此版本使用 Android Compose，避免为客户端引入跨平台工程。API 33+ 支持完整玻璃，API 31–32 模糊，较旧系统半透明；用户也能手动选择材质。
 
 官网 WebView 仅用于登录和网页验证，原生请求与其共享受限于 linux.do 的 Cookie。以 /session/current.json 验证会话；写请求附带 /session/csrf 获取的令牌，不使用站点管理员 API Key。只允许可信 HTTPS 来源进入带会话的请求层。写请求不自动重试，避免重复发帖；401、403 验证、429 与一般网络失败有不同反馈。
@@ -37,5 +39,7 @@ Android 12+ 的 data_extraction_rules 明确排除账号数据的云备份和设
 TASKS.md 记录基础闭环；Gradle 生成 Debug APK；单元测试覆盖模型、分页、请求来源与写操作错误；按用户要求使用连接真机检查玻璃和核心页面。真实账号写操作留给用户主动操作验收。
 
 ## Consequences
+
+动图解码的 3 项头部边界测试及 3 项真机测试通过（artifacts/avatar-animation-build.txt、avatar-animation-instrumentation.txt）。真实 ImageLoader 的 APNG 静态首帧复现先失败；注册解码器后 APNG、GIF、动态 WebP 都在 32px 画布上实际渲染红绿蓝三帧。真机 API 33 另强制执行旧版 WebP 分支；这不代替 API 26/27 真机验收。停止测试等待后台线程移除渲染监听，首轮同步断言失败属于测试时序，产品解码未为该误报改动。组合可见性与后台暂停由头像组件另行验收。
 
 原生页面使用统一的主题、网络契约和错误入口。Cloudflare 验证可能对 HTTP 客户端指纹敏感；即使网页验证成功也不能承诺所有网络环境均可原生访问。复杂帖子插件可能需要外部网页。实时折射的帧率必须在真机上确认；模拟器只能确认渲染和交互正确。

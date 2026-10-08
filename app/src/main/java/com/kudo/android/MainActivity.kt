@@ -12,6 +12,7 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.kudo.android.data.AppContainer
+import com.kudo.android.media.communityAnimations
 import com.kudo.android.ui.KudoApp
 
 class MainActivity : ComponentActivity() {
@@ -20,7 +21,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val app = AppContainer(applicationContext)
-        SingletonImageLoader.setSafe { context -> ImageLoader.Builder(context).components { add(OkHttpNetworkFetcherFactory(callFactory = { app.imageHttpClient })) }.build() }
+        SingletonImageLoader.setSafe { context -> ImageLoader.Builder(context).components { add(OkHttpNetworkFetcherFactory(callFactory = { app.imageHttpClient })) }.communityAnimations().build() }
         incomingUrl = intent?.dataString
         setContent { KudoApp(app, incomingUrl) }
     }

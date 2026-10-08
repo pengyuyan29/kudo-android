@@ -113,13 +113,14 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
             } else {
                 Text(when (dialog) {
                     "privacy" -> "酷DO 直接连接 Linux.do。登录在官网页面完成；应用不收集密码，不接入统计或广告服务。Cookie 与草稿保存在应用私有目录，禁用系统备份，退出登录后清除。帖子中的外部图片会向其来源站点发起请求。"
-                    "licenses" -> "Jetpack Compose、Backdrop（含官方玻璃示例）、Shapes、OkHttp、Coil：Apache License 2.0。Jsoup：MIT。分类图标采用 Font Awesome Free 6.7.2，© 2024 Fonticons, Inc.，CC BY 4.0；原始矢量路径不变，适配原生尺寸与分类颜色。底部导航与详情操作栏改编自 Backdrop catalog 的 LiquidBottomTabs / Surface Liquid Button，弹窗材质改编自官方 Dialog；接口行为参考 FluxDO，页面布局参考酷安。"
+                    "licenses" -> "Jetpack Compose、Backdrop（含官方玻璃示例）、Shapes、OkHttp、Coil、APNG4Android：Apache License 2.0。Jsoup：MIT。分类与资质图标采用 Font Awesome Free 6.7.2，© 2024 Fonticons, Inc.，CC BY 4.0；原始矢量路径不变，适配原生尺寸与颜色。底部导航与详情操作栏改编自 Backdrop catalog 的 LiquidBottomTabs / Surface Liquid Button，弹窗材质改编自官方 Dialog；接口行为参考 FluxDO，页面布局参考酷安。"
                     "logout" -> "本机登录状态和编辑草稿将被清除，社区内容与收藏不会删除。"
                     else -> "用原生体验，连接值得交流的人与内容。\n\n酷DO 是独立的 Linux.do 第三方客户端。"
                 }, style = MaterialTheme.typography.bodyMedium, color = LocalContentColor.current.copy(alpha = 0.8f))
                 if (dialog == "licenses") {
                     ModalLink("Backdrop 项目与许可") { openLink("https://github.com/Kyant0/AndroidLiquidGlass") }
                     ModalLink("Font Awesome 图标与许可") { openLink("https://fontawesome.com/license/free") }
+                    ModalLink("APNG4Android 动图支持与许可") { openLink("https://github.com/penfeizhou/APNG4Android") }
                     ModalLink("FluxDO 接口参考") { openLink("https://github.com/Lingyan000/fluxdo") }
                 }
             }
