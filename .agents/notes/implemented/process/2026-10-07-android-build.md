@@ -10,7 +10,7 @@ Status: implemented
 
 工程采用 Gradle Wrapper 8.13、AGP 8.13.2 和 Kotlin 2.3.10，compileSdk / targetSdk 36、minSdk 26。Kotlin 使用 compilerOptions 声明 JVM 17。根 package.json 暴露 verify-notes，调用现有技能脚本并锁定 tsx 版本。local.properties、构建输出和签名文件不入库。
 
-私有签名由 scripts/generate_signing.py 一次性生成独立的 RSA 4096 / PKCS12 Debug、Release 密钥库、公开证书和指纹；已有 signing/ 或 signing.properties 时拒绝覆盖。Gradle 读取根目录 signing.properties，DEBUG_* / RELEASE_* 环境变量优先，也支持 signingPropertiesFile 属性指定其他配置。未提供私有配置时源码克隆仍可使用 Android 默认 Debug 签名；自定义 Debug 配置不完整、Release 缺少签名或密钥库不存在时明确失败。Release 使用独立正式证书，不回退到 Debug。签名与后续发布契约见[Tag 发布方案](../../proposed/process/2026-10-08-signing-and-tag-releases.md)。
+私有签名由 scripts/generate_signing.py 一次性生成独立的 RSA 4096 / PKCS12 Debug、Release 密钥库、公开证书和指纹；已有 signing/ 或 signing.properties 时拒绝覆盖。Gradle 读取根目录 signing.properties，DEBUG_* / RELEASE_* 环境变量优先，也支持 signingPropertiesFile 属性指定其他配置。未提供私有配置时源码克隆仍可使用 Android 默认 Debug 签名；自定义 Debug 配置不完整、Release 缺少签名或密钥库不存在时明确失败。Release 使用独立正式证书，不回退到 Debug。签名与发布契约见[Tag 发布](2026-10-08-signing-and-tag-releases.md)。
 
 ## Alternatives considered
 

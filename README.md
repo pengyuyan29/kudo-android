@@ -51,7 +51,7 @@ python scripts/generate_signing.py
 
 请把 **`signing/` 与 `signing.properties` 一起私密备份**。其中 `kudo-debug.p12` / `kudo-release.p12` 是密钥库，`.pem` 是公开证书，`certificates.json` 记录 SHA256 指纹。密码只保存在本机配置中；这些文件均被 Git 忽略。正式签名丢失后无法继续覆盖更新相同签名的已安装应用。
 
-已有密钥可参考 [signing.properties.example](signing.properties.example) 填写；路径相对仓库根目录，也可使用绝对路径。`-PsigningPropertiesFile=<路径>` 可切换配置文件。环境变量优先于配置文件，Debug / Release 分别支持以下同名后缀：
+已有密钥可参考 [signing.properties.example](signing.properties.example) 填写；路径相对仓库根目录，也可使用绝对路径。`"-PsigningPropertiesFile=<路径>"` 可切换配置文件，PowerShell 中请对整个参数加引号。环境变量优先于配置文件，Debug / Release 分别支持以下同名后缀：
 
 | 配置项 | Debug 环境变量 | Release 环境变量 |
 | --- | --- | --- |
@@ -62,6 +62,45 @@ python scripts/generate_signing.py
 | 格式（默认 PKCS12） | `DEBUG_KEYSTORE_TYPE` | `RELEASE_KEYSTORE_TYPE` |
 
 Debug 与 Release 保持相同包名、使用不同签名，不能互相覆盖安装。新生成的 Debug 证书也与此前机器默认签名不同；需要保留手机数据时，请继续使用原签名构建，不要直接卸载旧应用。
+
+### Tag 自动发布
+
+[release.yml](.github/workflows/release.yml) 在推送 `vMAJOR.MINOR.PATCH` 时运行：脚本测试、笔记检查、JVM 测试和 Lint 通过后恢复正式签名，构建 Release，核对证书、包名、版本及不可调试标记，生成 SHA256 文件，再发布 GitHub Release。构建作业只有仓库读取权限；独立发布作业使用 `GITHUB_TOKEN` 写入 Release，无需额外的长期发布令牌。
+
+仓库建好后，在 **Settings → Secrets and variables → Actions** 添加以下 Repository secrets；本地与 Actions 应使用同一套 Release 证书：
+
+| Secret | 本地来源 |
+| --- | --- |
+| `RELEASE_KEYSTORE_BASE64` | `signing/kudo-release.p12` 的 Base64 内容 |
+| `RELEASE_STORE_PASSWORD` | `signing.properties` 的 `release.storePassword` |
+| `RELEASE_KEY_ALIAS` | `release.keyAlias`（生成器默认 `kudo-release`） |
+| `RELEASE_KEY_PASSWORD` | `release.keyPassword` |
+
+Windows 可将密钥库 Base64 直接复制到剪贴板，再粘贴到对应 Secret，避免把私钥输出到终端或写入仓库：
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path 'signing/kudo-release.p12').Path)) | Set-Clipboard
+```
+
+将包含工作流的代码推送到仓库、配置好 Secrets 后，推送新版本 Tag：
+
+```powershell
+git tag -a v0.1.0 -m '发布 0.1.0'
+git push origin v0.1.0
+```
+
+示例产物为 `Kudo-0.1.0-release.apk` 和 `Kudo-0.1.0-release.apk.sha256`，发布说明由 GitHub 自动生成。工作流先准备草稿、上传完整产物后再公开；上传失败留下的草稿可以重跑恢复，已经公开的同名 Release 不会被覆盖，应使用新版本 Tag。
+
+版本名为 Tag 去掉 `v`；`versionCode = major × 1000000 + minor × 1000 + patch + 1`。例如 `v1.2.3` 对应 `1.2.3` / `1002004`，`v0.1.0` 对应 `0.1.0` / `1001`。minor、patch 限制为 0–999，总值不超过 2100000000；前导零、`-rc`、`-beta` 等格式会失败。每次升级请使用更大的版本号。
+
+普通本地构建保留 `0.1.0` / `1` 默认值，也可按 Tag 值构建相同版本：
+
+```powershell
+python scripts/release_version.py v0.1.0
+.\gradlew.bat :app:assembleRelease "-PversionName=0.1.0" "-PversionCode=1001"
+```
+
+发布验收用例：有效 Tag 应产生版本和签名一致的 APK；非法 Tag、缺失 Secret、签名错误、APK 被修改或版本不符均应停止发布。仓库尚未连接时，可运行下方脚本测试，并在本地执行签名构建；线上 Tag 触发和 Release 上传需在仓库建立后验证。
 
 ## 验证
 

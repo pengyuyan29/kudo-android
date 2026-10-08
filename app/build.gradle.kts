@@ -52,8 +52,10 @@ android {
         applicationId = "com.kudo.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = providers.gradleProperty("versionCode").orElse("1").get()
+            .toIntOrNull()?.takeIf { it in 1..2_100_000_000 }
+            ?: throw GradleException("versionCode must be an integer between 1 and 2100000000.")
+        versionName = providers.gradleProperty("versionName").orElse("0.1.0").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {
