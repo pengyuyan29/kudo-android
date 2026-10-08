@@ -20,6 +20,8 @@ GitHub Actions 在 v 开头的 Tag 推送时校验 Tag、执行脚本测试、�
 
 发布作业仅下载这两个产物并复查 SHA256，使用目标仓库的 GITHUB_TOKEN 写 Release，不需要额外长期发布令牌。它先创建草稿、上传完整文件后再公开；同 Tag 遗留草稿可重试，已公开版本拒绝覆盖。检查或构建失败不会进入发布作业，上传失败不会公开不完整草稿。Actions 中转产物保留 14 天，公开 Release 附件不受此限制。
 
+本机 Git 认证使用 Git Credential Manager 的 Windows Credential Manager 存储（wincredman），origin 仅保存不含凭据的 HTTPS 地址。读取远程或认证信息时先在进程内脱敏，不能直接输出带凭据的 URL 或 credential fill 的原始结果。GitHub Secrets 由 GitHub CLI 加密提交，密钥及密码通过标准输入传递，GitHub 访问令牌只进入子进程环境。
+
 ## Related decisions
 
 检索现有笔记：[构建入口](2026-10-07-android-build.md)部分重叠，保留 Wrapper、AGP、JDK 与签名不入库的决定并互链；[客户端验证](../testing/2026-10-07-client-verification.md)部分重叠，保留真机与测试夹具边界。其他 UI、账号与头像笔记不承载发布流程，不归档或覆盖旧决策。
@@ -43,8 +45,17 @@ GitHub Actions 在 v 开头的 Tag 推送时校验 Tag、执行脚本测试、�
 - release.yml 通过 actionlint 1.7.12。提取真实发布 shell、用本地 gh 替身验证新版本、遗留草稿、已公开版本、上传失败及校验失败五条路径；没有调用远程 GitHub。日志在 artifacts/publish-validation/。
 - PowerShell 中包含路径的 -P 参数须整体加引号；未引用的路径在测试命令中被拆分，修正调用后通过。README 示例保留整体引号。
 
+2026-10-08 远程接入验证：
+
+- 私有仓库 woliubang256/kudo-android 已连接，main 包含发布工作流；GitHub API 确认 Actions 已启用，Android Release 工作流处于 active。
+- GitHub CLI 2.102.0（下载包经官方 SHA256 校验）写入四个 Repository Secrets。写入前重新导出并核对本地正式证书，写入后通过 API 确认四项 Secret 名称均存在；没有输出密钥、密码或 Secret 值。实际云端取用与签名仍待首次 Tag 构建验证。
+- origin 内嵌凭据已迁至 Windows Credential Manager，存储后的回读比对与私有仓库 ls-remote 认证均通过，fetch / push URL 均不再包含用户信息。最初远程检查曾意外输出内嵌令牌，已告知用户撤销并更换；文档和提交不保存该令牌。
+- 当前没有创建版本 Tag、触发发布运行或创建 GitHub Release；仓库接入与 Secrets 配置不等于线上发布验收。
+
 ## Consequences
 
 签名与版本检查使发布包能保持更新身份并对应 Tag；代价是开发者必须备份 signing/ 和 signing.properties。丢失正式证书或密码后无法使用原签名更新已安装应用。Debug 和 Release 保持相同包名、使用不同签名，不能互相覆盖安装；当前手机仍保留旧 Debug 签名应用，本次未卸载或替换，也未把构建和验签当成真机运行验收。
 
-当前仓库没有远程地址，用户明确暂缓远程仓库与 Secrets 配置；本次完成本地证书、Gradle 和工作流，未创建 Tag、远程 Release 或线上运行记录。仓库建立后须配置四个 Secrets 并真实推送 Tag，才能验证云端环境、权限与上传。关闭共享缓存使首次云端构建更慢，且依赖 Google Maven、Maven Central、Android SDK 及 GitHub 服务。稳定三段版本暂不支持 alpha/beta/rc；需要这些通道时须先设计安装升级顺序。
+远程仓库为 [woliubang256/kudo-android](https://github.com/woliubang256/kudo-android)，用户已恢复此前暂缓的远程接入。私有仓库的 main 已包含工作流，GitHub Actions 已启用，Android Release 工作流处于 active；接入使用本地已生成的正式证书配置四个 Repository Secrets。首次真实 Tag 推送、云端构建与 Release 上传仍需单独验收；不能把本地或模拟检查当成线上运行记录。
+
+关闭共享缓存使首次云端构建更慢，且依赖 Google Maven、Maven Central、Android SDK 及 GitHub 服务。稳定三段版本暂不支持 alpha/beta/rc；需要这些通道时须先设计安装升级顺序。
