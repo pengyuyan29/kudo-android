@@ -16,7 +16,7 @@ data 包分开模型解析、DiscourseClient 和 CommunityRepository。分页使
 
 分类沿用 /site.json，icon 仅接受字符串，空白、null和异常类型归为空；名称与ID不参与图标推断。[分类图标](../feature/2026-10-08-category-web-icons.md)使用此名称索引官网一致的本地矢量目录，不把远程字段当作图形代码执行。
 
-Member 保留独立 animated_avatar、资质 flair_* 和状态。账号/用户资料使用 status，帖子使用 user_status；完整响应中状态缺失与列表中状态未知分开表示，防止旧缓存恢复已清除的状态。帖子与搜索结果的作者使用 user_id，缺失时为 0，绝不把帖子 id 当作用户身份。新增字段只接受字符串，错误类型不转成图片地址；非法结束时间不转成永久状态。表情目录按分组解析 name / url，保留自定义上传地址。展示语义见[头像方案](../../proposed/feature/2026-10-08-avatar-presentation.md)。
+Member 保留独立 animated_avatar、资质 flair_* 和状态。账号/用户资料使用 status，帖子使用 user_status；完整响应中状态缺失与列表中状态未知分开表示，防止旧缓存恢复已清除的状态。帖子与搜索结果的作者使用 user_id，缺失时为 0，绝不把帖子 id 当作用户身份。新增字段只接受字符串，错误类型不转成图片地址；非法结束时间不转成永久状态。表情目录按分组解析 name / url，保留自定义上传地址。展示语义见[头像方案](../feature/2026-10-08-avatar-presentation.md)。
 
 AvatarMetadataCache 合并 40ms 内的可见作者请求，每批最多 50 个 ID，使用 /user-cards.json?user_ids= 读取完整角标。只补齐无资质且状态未知的作者；ID 与用户名都匹配才应用结果。缓存最多 256 人、有效 60 秒，失败退避 15 秒，单次辅助请求最多 5 秒；失败不传播为页面错误。/emojis.json 目录在缓存生命周期内复用，支持官网自定义表情地址。缓存拥有独立可取消任务，账号切换时调用 close，旧请求不能进入新账号实例。
 

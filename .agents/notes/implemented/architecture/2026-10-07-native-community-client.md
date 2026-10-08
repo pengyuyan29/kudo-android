@@ -10,7 +10,7 @@ Status: implemented
 
 采用 Kotlin、Jetpack Compose、单 Activity 和按功能分包的单应用模块。ViewModel 持有界面状态，Repository 负责 Discourse 契约，OkHttp 负责请求，Coil 负责图片。应用名酷DO，包名 com.kudo.android，最低 API 26。品牌黄为参考项目 Logo 中的 #FFB003，文字采用深色或可读的深琥珀色。
 
-Coil 3.3.0 的全局 ImageLoader 注册 GIF/动态 WebP 解码；APNG 及 API 26/27 的 WebP 由 APNG4Android 3.0.5 补齐，两模块使用 Java 帧解码，不引入本地二进制。按内容识别 PNG acTL / WebP VP8X，绝不只判断后缀。APNG/WebP 补充解码限制 16 MiB、4096 边长、4M 像素和 1000 帧，按目标尺寸在分配画布前采样。返回不可共享 Drawable，避免多个头像抢同一动画回调；磁盘图片缓存与既有 Cookie 同源边界保持一致。APNG4Android 许可随 APK 收录，头像语义由[头像方案](../../proposed/feature/2026-10-08-avatar-presentation.md)管理。
+Coil 3.3.0 的全局 ImageLoader 注册 GIF/动态 WebP 解码；APNG 及 API 26/27 的 WebP 由 APNG4Android 3.0.5 补齐，两模块使用 Java 帧解码，不引入本地二进制。按内容识别 PNG acTL / WebP VP8X，绝不只判断后缀。APNG/WebP 补充解码限制 16 MiB、4096 边长、4M 像素和 1000 帧，按目标尺寸在分配画布前采样。返回不可共享 Drawable，避免多个头像抢同一动画回调；磁盘图片缓存与既有 Cookie 同源边界保持一致。APNG4Android 许可随 APK 收录，头像语义由[头像方案](../feature/2026-10-08-avatar-presentation.md)管理。
 
 网络抓取器和 communityAnimations 必须在同一个 components 配置块中注册。动画扩展定义在 ComponentRegistry.Builder 上；重复调用 ImageLoader.Builder.components 会替换先前配置，导致测试抓取器及生产的受限 Cookie 客户端被默认抓取器取代。AvatarUiTest 的真实图片夹具先复现加载失败，再验证同一注册块保留两类组件。
 
@@ -45,6 +45,6 @@ TASKS.md 记录基础闭环；Gradle 生成 Debug APK；单元测试覆盖模型
 
 ## Consequences
 
-动图解码的 3 项头部边界测试及 3 项真机测试通过（artifacts/avatar-animation-build.txt、avatar-animation-instrumentation.txt）。真实 ImageLoader 的 APNG 静态首帧复现先失败；注册解码器后 APNG、GIF、动态 WebP 都在 32px 画布上实际渲染红绿蓝三帧。真机 API 33 另强制执行旧版 WebP 分支；这不代替 API 26/27 真机验收。停止测试等待后台线程移除渲染监听，首轮同步断言失败属于测试时序，产品解码未为该误报改动。组合可见性与后台暂停由头像组件另行验收。
+动图解码的 3 项头部边界测试及初轮 3 项真机测试通过（artifacts/avatar-animation-build.txt、avatar-animation-instrumentation.txt）。真实 ImageLoader 的 APNG 静态首帧复现先失败；注册解码器后 APNG、GIF、动态 WebP 都在 32px 画布上实际渲染红绿蓝三帧。真机 API 33 另强制执行旧版 WebP 分支；这不代替 API 26/27 真机验收。停止测试等待后台线程移除渲染监听，首轮同步断言失败属于测试时序，产品解码未为该误报改动。后续9项真机测试通过，包含组件可见性、后台暂停和加载器重建，结果见头像笔记。
 
 原生页面使用统一的主题、网络契约和错误入口。Cloudflare 验证可能对 HTTP 客户端指纹敏感；即使网页验证成功也不能承诺所有网络环境均可原生访问。复杂帖子插件可能需要外部网页。实时折射的帧率必须在真机上确认；模拟器只能确认渲染和交互正确。

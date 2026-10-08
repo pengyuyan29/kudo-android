@@ -128,3 +128,22 @@ Linux.do 实际使用 MessageBus 长轮询。当前筛选有新话题或内容�
 截图 `categories-icons-light.png` / `categories-icons-dark-large.png` / `categories-real-top.png` 已查看。真实分类页显示对应图标并移除顶部区域，点击开发调优成功加载分类列表，随后返回分类页；记录 `categories-real-open.json` / `categories-real-loaded.json`。本轮未改底栏材质，不重复慢拖录屏。
 
 新版 `artifacts/Kudo-0.1.0-debug.apk` 已保留数据覆盖安装，构建/分发/设备包 SHA256 均为 `36ea572348457d2ed16e44f2c1e2f02302ad3a2ee5a1cf836b56950702f8d4d1`，见 `categories-apk-verification.txt`。19,484字节的完整 CC BY 4.0 许可已核实进入 APK。官网以后新增未收录的图标时会回退默认图标，需要更新本地图形目录。
+
+## 动态头像与状态资质验收（2026-10-08）
+
+统一头像读取官网 animated_avatar 与 avatar_template，支持APNG、GIF和动态WebP，原动图失败时回退静态头像。Neo在所有原生入口使用10%圆角方形，其余用户圆形；只有头像本身裁切，右下角角标保持完整。首页账户入口和“我的”只显示有效状态，公开内容优先资质，没有资质才显示状态；自己的帖子与公开个人页也遵循公开规则。
+
+手动用例：
+
+1. 在首页列表、帖子楼层和个人页查看Neo与普通作者，检查形状一致，图片资质或图标位于右下角且不被裁切。查看同一动图头像一段时间，应能换帧；原动图资源失效时应继续显示静态头像。
+2. 使用同时设置状态与资质的账号登录，在首页头像和“我的”查看状态，再打开自己的公开个人页与帖子查看资质。公开作者没有资质时才显示状态；到期状态应消失，无状态时账户入口不补显示资质。
+3. 自定义表情应从官网表情目录加载；滚动折叠首页头部、离开页面和退后台时停止动画，返回可见处恢复。换号或退出后不沿用上一个账号的角标缓存；弱网时头像与列表仍可阅读。
+4. 检查浅色、深色130%字号下的角标、长昵称与点击范围。完整透明的原图显示底色属于正常内容，不应误报为动图解码失败。
+
+新增20项JVM与9项头像真机用例，最终共57项JVM、46项真机测试全部通过，真机耗时101.177秒；Lint为0 errors / 28 warnings。自制APNG/GIF/WebP在实际ImageLoader里输出红绿蓝三帧，并在API33强制验证旧版WebP解码路径。后台未停和图片加载器初始化顺序崩溃先复现后修复，日志为 `avatar-ui-instrumentation.txt` / `avatar-lifecycle-instrumentation.txt`；完整结果为 `avatar-final-build.txt` / `avatar-final-instrumentation.txt`。
+
+`avatar-light-gallery.png` / `avatar-dark-large-fallback.png` 的夹具截图与 `avatar-real-home.png` / `avatar-real-topic.png` / `avatar-real-neo-profile.png` / `avatar-real-list-frame-a.png` 的真实页面已人工检查，真实首页刷新提示仍正常。线上只读核对发现一位作者使用全透明静态PNG，源文件118字节、Alpha全为0，见 `avatar-blank-source.json`，无需产品修复。临时网页检查页已关闭。
+
+当前手机为访客；本人账号入口优先级以测试夹具验证，登录后的真实账号、API26/27真机与真实站点APNG样本仍未验收。未知资质图标名显示通用认证图标，辅助用户卡片请求受站点权限和网络影响。状态更新在重新进入页面与缓存刷新时读取，不单独订阅状态推送。实现边界与备选理由见[头像笔记](.agents/notes/implemented/feature/2026-10-08-avatar-presentation.md)。
+
+新版 `artifacts/Kudo-0.1.0-debug.apk` 为22,870,695字节，已保留数据安装；构建、分发与设备包SHA256均为 `c1b8c09ae6411f3aeb9408a5609fe2841afa5657753cabb4511d0a36eb04d5aa`，记录为 `avatar-apk-verification.txt`。

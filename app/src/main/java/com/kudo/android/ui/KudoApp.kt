@@ -93,88 +93,90 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                 }
             }
         }
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.TopCenter) {
-            NavHost(nav, "root", Modifier.widthIn(max = 840.dp).fillMaxSize(),
-                enterTransition = { fadeIn(tween(280)) }, exitTransition = { fadeOut(tween(180)) },
-                popEnterTransition = { fadeIn(tween(220)) }, popExitTransition = { fadeOut(tween(220)) }) {
-                composable("root") {
-                    val feed = model("feed") { FeedViewModel(app.repository, initialUser = account.user, updates = DiscourseMessageBus(app.client, userAgent = app.userAgent)) }
-                    val state by feed.state.collectAsStateWithLifecycle()
-                    var selected by rememberSaveable { mutableIntStateOf(0) }
-                    val backdrop = rememberLayerBackdrop()
-                    ObserveHomeUpdates(feed, account.user)
-                    LaunchedEffect(refreshEpoch) { feed.refreshIfRequested(refreshEpoch) }
-                    LaunchedEffect(selected, account.user?.id) {
-                        if (selected == 1 && account.categories.isEmpty()) account.loadCategories()
-                        if (selected == 3) account.loadNotices()
-                    }
-                    Box(Modifier.fillMaxSize()) {
-                        Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.background)) {
-                            when (selected) {
-                                0 -> FeedScreen(state.forUser(account.user), account.user, feed::select, feed::refresh, feed::more, { topic(it) }, ::user, { nav.navigate("search") }, { if (account.user == null) login() else user(account.user!!.username) }, { selected = 1 })
-                                1 -> CategoriesScreen(account.categories, account.categoriesLoading, account.categoryError, account::loadCategories, ::login) { nav.navigate("category/${it.id}") }
-                                3 -> NotificationsScreen(account, ::login, ::topic)
-                                4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) })
-                            }
+        AvatarEnvironment(app.repository, account.user?.id) {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.TopCenter) {
+                NavHost(nav, "root", Modifier.widthIn(max = 840.dp).fillMaxSize(),
+                    enterTransition = { fadeIn(tween(280)) }, exitTransition = { fadeOut(tween(180)) },
+                    popEnterTransition = { fadeIn(tween(220)) }, popExitTransition = { fadeOut(tween(220)) }) {
+                    composable("root") {
+                        val feed = model("feed") { FeedViewModel(app.repository, initialUser = account.user, updates = DiscourseMessageBus(app.client, userAgent = app.userAgent)) }
+                        val state by feed.state.collectAsStateWithLifecycle()
+                        var selected by rememberSaveable { mutableIntStateOf(0) }
+                        val backdrop = rememberLayerBackdrop()
+                        ObserveHomeUpdates(feed, account.user)
+                        LaunchedEffect(refreshEpoch) { feed.refreshIfRequested(refreshEpoch) }
+                        LaunchedEffect(selected, account.user?.id) {
+                            if (selected == 1 && account.categories.isEmpty()) account.loadCategories()
+                            if (selected == 3) account.loadNotices()
                         }
-                        GlassNavigation(selected, {
-                            selected = it
-                            if (it == 0 && state.forUser(account.user).hasUpdates) feed.refreshFromNavigation()
-                        }, { editor() }, backdrop, display.glass, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(20.dp).widthIn(max = 530.dp).fillMaxWidth(), homeHasUpdates = state.forUser(account.user).hasUpdates)
+                        Box(Modifier.fillMaxSize()) {
+                            Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.background)) {
+                                when (selected) {
+                                    0 -> FeedScreen(state.forUser(account.user), account.user, feed::select, feed::refresh, feed::more, { topic(it) }, ::user, { nav.navigate("search") }, { if (account.user == null) login() else user(account.user!!.username) }, { selected = 1 })
+                                    1 -> CategoriesScreen(account.categories, account.categoriesLoading, account.categoryError, account::loadCategories, ::login) { nav.navigate("category/${it.id}") }
+                                    3 -> NotificationsScreen(account, ::login, ::topic)
+                                    4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) })
+                                }
+                            }
+                            GlassNavigation(selected, {
+                                selected = it
+                                if (it == 0 && state.forUser(account.user).hasUpdates) feed.refreshFromNavigation()
+                            }, { editor() }, backdrop, display.glass, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(20.dp).widthIn(max = 530.dp).fillMaxWidth(), homeHasUpdates = state.forUser(account.user).hasUpdates)
+                        }
                     }
-                }
-                composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
-                    val id = entry.arguments!!.getInt("id")
-                    val vm = model("category-$id") { FeedViewModel(app.repository, id, account.user) }
-                    val state by vm.state.collectAsStateWithLifecycle()
-                    RefreshFeedOnResume(vm, account.user)
-                    FeedScreen(state.forUser(account.user, inCategory = true), account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, categoryTitle = account.categories.firstOrNull { it.id == id }?.name ?: "社区分类", back = { nav.popBackStack() })
-                }
-                composable("search") {
-                    val vm = model("search") { SearchViewModel(app.repository) }
-                    val state by vm.state.collectAsStateWithLifecycle()
-                    SearchScreen(state, vm::search, { nav.popBackStack() }, { topic(it) }, ::user, ::login)
-                }
-                composable("topic/{id}?post={post}",
-                    arguments = listOf(navArgument("id") { type = NavType.IntType }, navArgument("post") { type = NavType.IntType; defaultValue = 0 }),
-                    enterTransition = { fadeIn(tween(280)) + scaleIn(tween(280, easing = FastOutSlowInEasing), initialScale = 0.97f) },
-                    popEnterTransition = { fadeIn(tween(220)) + scaleIn(tween(220, easing = FastOutSlowInEasing), initialScale = 0.98f) },
-                    popExitTransition = { fadeOut(tween(220)) + scaleOut(tween(220, easing = FastOutSlowInEasing), targetScale = 0.98f) }) { entry ->
-                    val id = entry.arguments!!.getInt("id")
-                    val number = entry.arguments!!.getInt("post").takeIf { it > 0 }
-                    val vm = model("topic-$id-$number") { TopicViewModel(app.repository, id, number) }
-                    val state by vm.state.collectAsStateWithLifecycle()
-                    val nonce by entry.savedStateHandle.getStateFlow("refresh", 0L).collectAsStateWithLifecycle()
-                    LaunchedEffect(nonce) { if (nonce != 0L) vm.refresh() }
-                    LaunchedEffect(vm) { vm.events.collect { snackbar.showSnackbar(it) } }
-                    TopicScreen(state, display.glass, { nav.popBackStack() }, vm::refresh, vm::more, ::login, { authenticated { vm.like(it) } }, { authenticated { vm.bookmark(it) } }, { editor(id, it?.number) }, ::user, { nav.navigate("image?url=${Uri.encode(it)}") }, ::openLink,
-                        { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${state.detail?.title.orEmpty()}\nhttps://linux.do/t/$id") }, "分享话题")) })
-                }
-                composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); scope.launch { snackbar.showSnackbar("欢迎回来，${account.user?.displayName}") } }) }
-                composable("settings") { SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openLink) }
-                composable("bookmarks") { LaunchedEffect(account.user?.id) { account.loadSaved() }; BookmarksScreen(account, { nav.popBackStack() }, ::login, ::topic) }
-                composable("user/{username}") { entry -> UserScreen(entry.arguments!!.getString("username")!!, app.repository, { nav.popBackStack() }, ::login, ::openLink) }
-                composable("compose?topic={topic}&reply={reply}", arguments = listOf(navArgument("topic") { type = NavType.IntType; defaultValue = 0 }, navArgument("reply") { type = NavType.IntType; defaultValue = 0 })) { entry ->
-                    val topicId = entry.arguments!!.getInt("topic").takeIf { it > 0 }
-                    val replyTo = entry.arguments!!.getInt("reply").takeIf { it > 0 }
-                    val currentUser = account.user
-                    if (currentUser == null) {
-                        Column { PageTopBar("发布", { nav.popBackStack() }); EmptyState("登录后发布", "草稿会自动保存在本机。", actionLabel = "登录", action = ::login) }
-                    } else {
-                        val vm = model("editor-${currentUser.id}-$topicId-$replyTo") { EditorViewModel(app, currentUser.id, topicId, replyTo) }
-                        LaunchedEffect(Unit) { if (account.categories.isEmpty()) account.loadCategories() }
-                        LaunchedEffect(vm) { vm.published.collect { result ->
-                            nav.previousBackStackEntry?.savedStateHandle?.set("refresh", System.nanoTime())
-                            nav.popBackStack(); refreshEpoch++
-                            if (!result.queued && topicId == null) result.topicId?.let { topic(it) }
-                            snackbar.showSnackbar(if (result.queued) "内容已提交，等待社区审核" else "发布成功")
-                        } }
-                        EditorScreen(vm, account.categories, account.categoryError, account::loadCategories, { nav.popBackStack() })
+                    composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
+                        val id = entry.arguments!!.getInt("id")
+                        val vm = model("category-$id") { FeedViewModel(app.repository, id, account.user) }
+                        val state by vm.state.collectAsStateWithLifecycle()
+                        RefreshFeedOnResume(vm, account.user)
+                        FeedScreen(state.forUser(account.user, inCategory = true), account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, categoryTitle = account.categories.firstOrNull { it.id == id }?.name ?: "社区分类", back = { nav.popBackStack() })
                     }
+                    composable("search") {
+                        val vm = model("search") { SearchViewModel(app.repository) }
+                        val state by vm.state.collectAsStateWithLifecycle()
+                        SearchScreen(state, vm::search, { nav.popBackStack() }, { topic(it) }, ::user, ::login)
+                    }
+                    composable("topic/{id}?post={post}",
+                        arguments = listOf(navArgument("id") { type = NavType.IntType }, navArgument("post") { type = NavType.IntType; defaultValue = 0 }),
+                        enterTransition = { fadeIn(tween(280)) + scaleIn(tween(280, easing = FastOutSlowInEasing), initialScale = 0.97f) },
+                        popEnterTransition = { fadeIn(tween(220)) + scaleIn(tween(220, easing = FastOutSlowInEasing), initialScale = 0.98f) },
+                        popExitTransition = { fadeOut(tween(220)) + scaleOut(tween(220, easing = FastOutSlowInEasing), targetScale = 0.98f) }) { entry ->
+                        val id = entry.arguments!!.getInt("id")
+                        val number = entry.arguments!!.getInt("post").takeIf { it > 0 }
+                        val vm = model("topic-$id-$number") { TopicViewModel(app.repository, id, number) }
+                        val state by vm.state.collectAsStateWithLifecycle()
+                        val nonce by entry.savedStateHandle.getStateFlow("refresh", 0L).collectAsStateWithLifecycle()
+                        LaunchedEffect(nonce) { if (nonce != 0L) vm.refresh() }
+                        LaunchedEffect(vm) { vm.events.collect { snackbar.showSnackbar(it) } }
+                        TopicScreen(state, display.glass, { nav.popBackStack() }, vm::refresh, vm::more, ::login, { authenticated { vm.like(it) } }, { authenticated { vm.bookmark(it) } }, { editor(id, it?.number) }, ::user, { nav.navigate("image?url=${Uri.encode(it)}") }, ::openLink,
+                            { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${state.detail?.title.orEmpty()}\nhttps://linux.do/t/$id") }, "分享话题")) })
+                    }
+                    composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); scope.launch { snackbar.showSnackbar("欢迎回来，${account.user?.displayName}") } }) }
+                    composable("settings") { SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openLink) }
+                    composable("bookmarks") { LaunchedEffect(account.user?.id) { account.loadSaved() }; BookmarksScreen(account, { nav.popBackStack() }, ::login, ::topic) }
+                    composable("user/{username}") { entry -> UserScreen(entry.arguments!!.getString("username")!!, app.repository, { nav.popBackStack() }, ::login, ::openLink) }
+                    composable("compose?topic={topic}&reply={reply}", arguments = listOf(navArgument("topic") { type = NavType.IntType; defaultValue = 0 }, navArgument("reply") { type = NavType.IntType; defaultValue = 0 })) { entry ->
+                        val topicId = entry.arguments!!.getInt("topic").takeIf { it > 0 }
+                        val replyTo = entry.arguments!!.getInt("reply").takeIf { it > 0 }
+                        val currentUser = account.user
+                        if (currentUser == null) {
+                            Column { PageTopBar("发布", { nav.popBackStack() }); EmptyState("登录后发布", "草稿会自动保存在本机。", actionLabel = "登录", action = ::login) }
+                        } else {
+                            val vm = model("editor-${currentUser.id}-$topicId-$replyTo") { EditorViewModel(app, currentUser.id, topicId, replyTo) }
+                            LaunchedEffect(Unit) { if (account.categories.isEmpty()) account.loadCategories() }
+                            LaunchedEffect(vm) { vm.published.collect { result ->
+                                nav.previousBackStackEntry?.savedStateHandle?.set("refresh", System.nanoTime())
+                                nav.popBackStack(); refreshEpoch++
+                                if (!result.queued && topicId == null) result.topicId?.let { topic(it) }
+                                snackbar.showSnackbar(if (result.queued) "内容已提交，等待社区审核" else "发布成功")
+                            } }
+                            EditorScreen(vm, account.categories, account.categoryError, account::loadCategories, { nav.popBackStack() })
+                        }
+                    }
+                    composable("image?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry -> val url = entry.arguments!!.getString("url").orEmpty(); ImageScreen(url, { nav.popBackStack() }, { openLink(url) }) }
                 }
-                composable("image?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry -> val url = entry.arguments!!.getString("url").orEmpty(); ImageScreen(url, { nav.popBackStack() }, { openLink(url) }) }
+                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp).widthIn(max = 600.dp))
             }
-            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp).widthIn(max = 600.dp))
         }
     }
 }

@@ -52,9 +52,9 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
             val offset = scrollBehavior.state.heightOffset.roundToInt()
             layout(placeable.width, (placeable.height + offset).coerceAtLeast(0)) { placeable.placeRelative(0, offset) }
         }.background(MaterialTheme.colorScheme.surface).padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.size(48.dp).clip(CircleShape).clickable(onClick = login), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(48.dp).clickable(onClick = login), contentAlignment = Alignment.Center) {
                 if (user == null) Image(painterResource(R.drawable.ic_linux_do), "Linux.do 社区 Logo", Modifier.size(36.dp))
-                else Avatar(user, 36.dp)
+                else Avatar(user, 36.dp, presentation = AvatarPresentation.ACCOUNT)
             }
             Box(Modifier.weight(1f).heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = search), contentAlignment = Alignment.Center) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 32.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {

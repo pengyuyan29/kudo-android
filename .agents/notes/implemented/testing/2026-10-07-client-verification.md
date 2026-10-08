@@ -16,6 +16,8 @@ Status: implemented
 
 JUnit 与 MockWebServer 检查请求来源、CSRF、失败不重试、JSON 与 HTML 解析。FeedViewModelTest 先复现分类 429 误伤话题列表，再修复至通过。Compose 仪器测试使用明确的测试内容，验证玻璃导航、帖子动作和主题切换；测试内容不进入正式应用数据源。
 
+[头像](../feature/2026-10-08-avatar-presentation.md)的动画测试使用自行生成的三帧APNG/GIF/WebP，读真实像素证明换帧，不能仅检查Drawable类型。头像UI夹具提供本地图片抓取器与表情目录，检查方圆裁切、头像外角标、账户/公开场景、静态回退和状态到期。后台测试真实切换Activity到CREATED，再恢复RESUMED；只改一个Compose布尔值无法复现后台重组停止。UI测试在应用加载器测试前运行，验证临时加载器还原和Activity重建不受初始化顺序影响。
+
 按用户要求，后续测试只使用已连接真机。通过 adb 指定序列号安装测试 APK 并运行 instrumentation，保留主应用数据与网页验证 Cookie；测试截图留在 external files，运行后拉取人工检查。测试前停止 Android CLI 的布局 instrumentation，避免两个 UiAutomation 争用同一设备。截图等待系统对话框退出动画完成，避免将过渡帧误当成页面结果。
 
 深色模式增加实际 TextLayoutResult 前景亮度断言，弥补仅验证主题枚举改变却未检查文字可读性的缺口。
@@ -41,6 +43,8 @@ NavigationMaterialUiTest 检查首尾灰面外侧与上下的实际留白相等�
 网络错误可稳定复现，仪器测试可以生成可视化检查材料。真实账号、Cloudflare 和真机帧率仍需独立验收；不能用模拟测试通过来宣称其已验证。
 
 ## Verification
+
+2026-10-08 动态头像与角标：57项JVM及46项真机回归通过（101.177秒），Debug / 测试APK与Lint通过，0 errors / 28 warnings。头像后台未停和全局加载器初始化顺序崩溃先复现，再由9项专测及完整回归确认修复。输出为 avatar-ui-instrumentation.txt / avatar-lifecycle-instrumentation.txt / avatar-final-build.txt / avatar-final-instrumentation.txt。真实头像形状、资质和透明原图另行核查，APNG/GIF/WebP换帧使用确定性样本证明；设备、图片来源和兼容性边界见头像笔记。
 
 2026-10-08 静止留白与透色：首尾与黑底复现两项失败后修正参数；关闭动画又发现速度残留压扁/拉高，独立复现失败后增加系统缩放观察。最终28项正常动画63.441秒、关闭动画51.013秒全部通过，输出 `artifacts/navigation-material-final.txt` / `navigation-material-reduced-motion.txt`，结束三项缩放恢复1。Debug / 测试APK和Lint通过，0 errors / 27 warnings；真实首页、图片经过底栏、拖动双高亮和末端静止截图已人工检查。新增测试的虚拟时钟与墙钟不一致记录为 `navigation-material-initial.txt` / `navigation-material-clock-fixed.txt`，几何断言未放宽。
 

@@ -3,7 +3,6 @@ package com.kudo.android.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -30,15 +29,6 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 fun mediaUrl(value: String): String? {
     val url = "https://linux.do/".toHttpUrlOrNull()?.resolve(value.replace("{size}", "120")) ?: return null
     return url.takeIf { it.isHttps && value.isNotBlank() }?.toString()
-}
-
-@Composable
-fun Avatar(member: Member?, size: Dp = 40.dp, onClick: (() -> Unit)? = null) {
-    Box(Modifier.size(size).clip(CircleShape).background(LogoYellow.copy(alpha = 0.22f))
-        .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier), contentAlignment = Alignment.Center) {
-        Text(member?.displayName?.take(1)?.uppercase() ?: "DO", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.34f).sp)
-        if (!member?.avatar.isNullOrBlank()) AsyncImage(mediaUrl(member!!.avatar), "${member.displayName}的头像", Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-    }
 }
 
 @Composable

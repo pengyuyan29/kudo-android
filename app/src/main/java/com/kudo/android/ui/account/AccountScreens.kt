@@ -60,7 +60,7 @@ fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookma
             item {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(LogoYellow).clickable(onClick = if (user == null) login else profile).padding(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Avatar(user, 60.dp)
+                        Avatar(user, 60.dp, presentation = AvatarPresentation.ACCOUNT)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(user?.displayName ?: "你好，DO 友", style = MaterialTheme.typography.headlineSmall, color = Ink)
                             Text(user?.let { "@${it.username}  ·  Lv.${it.trustLevel}" } ?: "登录，加入每一次精彩讨论", style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = 0.7f))
