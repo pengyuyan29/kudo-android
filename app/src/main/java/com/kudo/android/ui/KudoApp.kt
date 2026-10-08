@@ -143,13 +143,14 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                         popExitTransition = { fadeOut(tween(220)) + scaleOut(tween(220, easing = FastOutSlowInEasing), targetScale = 0.98f) }) { entry ->
                         val id = entry.arguments!!.getInt("id")
                         val number = entry.arguments!!.getInt("post").takeIf { it > 0 }
-                        val vm = model("topic-$id-$number") { TopicViewModel(app.repository, id, number) }
+                        val vm = model("topic-$id-$number-${account.user?.id}") { TopicViewModel(app.repository, id, number, account.user?.id) }
                         val state by vm.state.collectAsStateWithLifecycle()
                         val nonce by entry.savedStateHandle.getStateFlow("refresh", 0L).collectAsStateWithLifecycle()
                         LaunchedEffect(nonce) { if (nonce != 0L) vm.refresh() }
                         LaunchedEffect(vm) { vm.events.collect { snackbar.showSnackbar(it) } }
                         TopicScreen(state, display.glass, { nav.popBackStack() }, vm::refresh, vm::more, ::login, { authenticated { vm.like(it) } }, { authenticated { vm.bookmark(it) } }, { editor(id, it?.number) }, ::user, { nav.navigate("image?url=${Uri.encode(it)}") }, ::openLink,
-                            { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${state.detail?.title.orEmpty()}\nhttps://linux.do/t/$id") }, "分享话题")) })
+                            { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${state.detail?.title.orEmpty()}\nhttps://linux.do/t/$id") }, "分享话题")) },
+                            follow = { authenticated { vm.follow() } }, react = { post, reaction -> authenticated { vm.react(post, reaction) } })
                     }
                     composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); scope.launch { snackbar.showSnackbar("欢迎回来，${account.user?.displayName}") } }) }
                     composable("settings") { SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openLink) }

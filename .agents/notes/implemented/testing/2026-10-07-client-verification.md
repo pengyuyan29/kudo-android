@@ -46,6 +46,8 @@ CommunityUiTest 的整栏抬升与取消复位检查同样按真实16ms间隔推
 
 ## Verification
 
+2026-10-09 详情作者、回应与行内表情：先复现emoji丢图、其他回应误当爱心、撤销路径错误、服务器返回值被忽略、分页覆盖状态及深链主帖旧副本覆盖；完整76项JVM通过。RMX2202 / Android13的详情、Surface、头像和社区28项通过，59.081秒，写回复内容靠左收尾后Surface 5项再通过，10.395秒。Debug/测试APK与Lint通过，0 errors / 28 existing warnings。日志为 topic-emoji-repro.txt / topic-reaction-repro.txt / topic-state-repro.txt / topic-pinned-repro.txt / topic-final-build.txt / topic-final-instrumentation.txt / topic-aligned-instrumentation.txt。真实站点只读截图、尺寸测量、APK安装哈希见[详情记录](../feature/2026-10-09-topic-author-and-responses.md)，不把夹具回应写入当作线上变更验收。
+
 2026-10-09 导航几何测试时钟：18项导航回归中旧抬升检查失败，镜片171.05px低于底栏176.40px，日志 `artifacts/navigation-rims-regression.txt`。该检查改为与既有多位置停顿测试一致的真实逐帧等待后，独立用例通过，2.985秒，日志 `navigation-rims-clock-fixed.txt`；原尺寸上下限与取消恢复断言全部保留。
 
 2026-10-08 动态头像与角标：57项JVM及46项真机回归通过（101.177秒），Debug / 测试APK与Lint通过，0 errors / 28 warnings。头像后台未停和全局加载器初始化顺序崩溃先复现，再由9项专测及完整回归确认修复。输出为 avatar-ui-instrumentation.txt / avatar-lifecycle-instrumentation.txt / avatar-final-build.txt / avatar-final-instrumentation.txt。真实头像形状、资质和透明原图另行核查，APNG/GIF/WebP换帧使用确定性样本证明；设备、图片来源和兼容性边界见头像笔记。

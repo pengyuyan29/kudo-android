@@ -130,7 +130,7 @@ internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
 }
 
 @Composable
-internal fun SiteEmoji(name: String, modifier: Modifier = Modifier.size(24.dp), source: String? = null) {
+internal fun SiteEmoji(name: String, modifier: Modifier = Modifier, source: String? = null) {
     val metadata = LocalAvatarMetadata.current
     val key = name.removeSurrounding(":")
     var url by remember(key, source, metadata) {
@@ -141,7 +141,7 @@ internal fun SiteEmoji(name: String, modifier: Modifier = Modifier.size(24.dp), 
     }
     val pixels = with(LocalDensity.current) { (24.dp.toPx() * fontScale).toInt().coerceAtLeast(1) }
     AvatarImage(url?.let(::mediaUrl), pixels, animate = true,
-        modifier = modifier.semantics { contentDescription = name }, contentScale = ContentScale.Fit) {
+        modifier = modifier.size(24.dp).semantics { contentDescription = name }, contentScale = ContentScale.Fit) {
         Icon(Icons.Rounded.Mood, null, Modifier.fillMaxSize(), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

@@ -24,6 +24,8 @@ AvatarMetadataCache 合并 40ms 内的可见作者请求，每批最多 50 个 I
 
 L 站回应使用 PUT /discourse-reactions/posts/{post_id}/custom-reactions/{reaction}/toggle.json，短按选择当前回应名称，没有回应才使用 heart；再次选择相同名称会撤销，换种类由服务器原子切换。计数和当前回应使用写接口返回的完整帖子，不自行累加。无插件数据时保留核心 post_actions 的爱心流程；写请求始终不自动重试。用户详情的 can_follow / is_followed 决定关注入口，通过 PUT /follow/{username}.json 关注、DELETE 同址取消，成功后更新本地状态。用户名和回应名均按单一路径段编码，客户端不拼接任意远端路径。
 
+[详情状态](../feature/2026-10-09-topic-author-and-responses.md)将主帖补齐和关注资料作为辅助读取；分页保留已完成的写入，账号 ID 参与 ViewModel 身份。
+
 AndroidSessionCookies 与官网 WebView 共用 CookieManager。CSRF 通过互斥刷新；失败的写请求不自动重发。401、验证页、权限拒绝、429、服务端错误和网络错误分型。图片仅向 HTTPS linux.do 附加 Cookie，跨站图片不携带账号凭据。备份禁用，设置和草稿在应用私有目录；退出清除账号草稿。
 
 Discourse 的 JSON 403 若携带 `error_type: not_logged_in`，按未登录处理，展示登录入口；其余 JSON 403 保持权限错误。不按中文错误文案猜测类型，避免翻译变化和权限不足被混淆。真机访客搜索会触发此边界。

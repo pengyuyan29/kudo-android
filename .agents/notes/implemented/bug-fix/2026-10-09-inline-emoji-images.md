@@ -23,7 +23,9 @@ RichContent 将独立和段落内的 emoji 图片替换成 alt 字符串，因�
 
 ## Verification
 
-独立 emoji 图片被转成名称的单元测试先失败，输出 artifacts/topic-emoji-repro.txt；修复后 ContentParserTest 的 10 项通过，输出 topic-emoji-fixed.txt，覆盖段落、重复表情、链接、引用、非法地址与普通图片混排。真实站点图片请求只读验证通过，字段和图片状态记录在 topic-detail-contract-review.json。真机行内排版与放大字号随详情交互集中验收。
+独立 emoji 图片被转成名称的单元测试先失败，输出 artifacts/topic-emoji-repro.txt；修复后 ContentParserTest 的 10 项通过，输出 topic-emoji-fixed.txt，覆盖段落、重复表情、链接、引用、非法地址与普通图片混排。真实站点图片请求只读验证通过，字段和图片状态记录在 topic-detail-contract-review.json。
+
+TopicDetailUiTest 在真机以确定性PNG验证行内图片完成加载、没有裸露名称、130%字号时占位矩形完整；完整28项UI回归通过，输出 topic-final-instrumentation.txt。同一SiteEmoji组件在真实回应面板中显示 distorted_face 与自定义图片，截图 topic-responses-real.png 已人工确认；[详情交互](../feature/2026-10-09-topic-author-and-responses.md)复用此组件并记录完整验收材料。
 
 ## Consequences
 
