@@ -94,6 +94,13 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
             }
         }
         AvatarEnvironment(app.repository, account.user?.id) {
+            ImageGalleryHost(loadAlbum = { id ->
+                val detail = app.repository.detail(id, 1)
+                val first = detail.originalPost ?: detail.stream.firstOrNull()?.let { firstId ->
+                    app.repository.posts(id, listOf(firstId)).firstOrNull { it.number == 1 }
+                }
+                parseArticle(first?.cooked ?: error("暂时无法读取主帖图片")).filterIsInstance<ArticleBlock.Image>()
+            }, openLink = ::openLink, accountKey = account.user?.id) {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.TopCenter) {
                 NavHost(nav, "root", Modifier.widthIn(max = 840.dp).fillMaxSize(),
                     enterTransition = { fadeIn(tween(280)) }, exitTransition = { fadeOut(tween(180)) },
@@ -148,7 +155,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                         val nonce by entry.savedStateHandle.getStateFlow("refresh", 0L).collectAsStateWithLifecycle()
                         LaunchedEffect(nonce) { if (nonce != 0L) vm.refresh() }
                         LaunchedEffect(vm) { vm.events.collect { snackbar.showSnackbar(it) } }
-                        TopicScreen(state, display.glass, { nav.popBackStack() }, vm::refresh, vm::more, ::login, { authenticated { vm.like(it) } }, { authenticated { vm.bookmark(it) } }, { editor(id, it?.number) }, ::user, { nav.navigate("image?url=${Uri.encode(it)}") }, ::openLink,
+                        TopicScreen(state, display.glass, { nav.popBackStack() }, vm::refresh, vm::more, ::login, { authenticated { vm.like(it) } }, { authenticated { vm.bookmark(it) } }, { editor(id, it?.number) }, ::user, {}, ::openLink,
                             { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${state.detail?.title.orEmpty()}\nhttps://linux.do/t/$id") }, "分享话题")) },
                             follow = { authenticated { vm.follow() } }, react = { post, reaction -> authenticated { vm.react(post, reaction) } })
                     }
@@ -174,9 +181,9 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                             EditorScreen(vm, account.categories, account.categoryError, account::loadCategories, { nav.popBackStack() })
                         }
                     }
-                    composable("image?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry -> val url = entry.arguments!!.getString("url").orEmpty(); ImageScreen(url, { nav.popBackStack() }, { openLink(url) }) }
                 }
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp).widthIn(max = 600.dp))
+            }
             }
         }
     }

@@ -2,6 +2,7 @@ package com.kudo.android.ui.topic
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
@@ -12,11 +13,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.*
@@ -35,6 +39,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
+import java.util.UUID
 
 sealed interface ArticleBlock {
     data class TextBlock(val html: String, val quote: Boolean = false, val heading: Boolean = false) : ArticleBlock
@@ -162,9 +167,20 @@ internal fun SiteEmoji(name: String, modifier: Modifier = Modifier, source: Stri
 }
 
 @Composable
-fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Unit) {
+fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Unit, galleryKey: String = "article") {
     val blocks = remember(html) { parseArticle(html) }
+    val images = remember(blocks) { blocks.filterIsInstance<ArticleBlock.Image>() }
+    val anchors = remember(blocks) { List(images.size) { GalleryThumbnailAnchor() } }
+    val gallery = LocalImageGallery.current
+    val origin = rememberSaveable { UUID.randomUUID().toString() }
+    RegisterGalleryOrigin(origin) { image, index ->
+        anchors.getOrNull(index)?.takeIf { images.getOrNull(index)?.let { sameGalleryImage(it, image) } == true }?.also {
+            it.requester.bringIntoView()
+            withFrameNanos { }
+        }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        var imageIndex = 0
         blocks.forEach { block -> when (block) {
             is ArticleBlock.TextBlock -> {
                 val color = MaterialTheme.colorScheme.primary
@@ -183,7 +199,13 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
             is ArticleBlock.Code -> SelectionContainer {
                 Text(block.text, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).horizontalScroll(rememberScrollState()).padding(13.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
             }
-            is ArticleBlock.Image -> ArticleImage(block) { onImage(block.originalUrl) }
+            is ArticleBlock.Image -> {
+                val index = imageIndex++
+                ArticleImage(block, anchors[index], "article-image-$galleryKey-$index") {
+                    if (gallery == null) onImage(block.originalUrl)
+                    else gallery.open(images, index, origin, anchors[index])
+                }
+            }
             is ArticleBlock.Embed -> Text("↗ ${block.title}", Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onLink(block.url) }.padding(14.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
             ArticleBlock.Rule -> Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
         } }
@@ -191,14 +213,19 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
 }
 
 @Composable
-private fun ArticleImage(image: ArticleBlock.Image, open: () -> Unit) {
+private fun ArticleImage(image: ArticleBlock.Image, anchor: GalleryThumbnailAnchor, tag: String, open: () -> Unit) {
     var decodedRatio by remember(image.url) { mutableStateOf<Float?>(null) }
+    val cornerRadius = with(LocalDensity.current) { 11.dp.toPx() }
+    SideEffect { anchor.cornerRadius = cornerRadius }
+    DisposableEffect(anchor) { onDispose { anchor.coordinates = null; anchor.painter = null } }
     AsyncImage(image.url, image.alt.ifBlank { "帖子图片，点击放大" },
         Modifier.fillMaxWidth().aspectRatio(decodedRatio ?: image.ratio ?: 1.6f)
+            .bringIntoViewRequester(anchor.requester).onGloballyPositioned { anchor.coordinates = it }.testTag(tag)
             .clip(RoundedCornerShape(11.dp)).clickable(onClick = open),
         contentScale = ContentScale.Fit,
         onSuccess = { state ->
             val bitmap = state.result.image
             if (bitmap.width > 0 && bitmap.height > 0) decodedRatio = bitmap.width.toFloat() / bitmap.height
+            anchor.painter = state.painter
         })
 }

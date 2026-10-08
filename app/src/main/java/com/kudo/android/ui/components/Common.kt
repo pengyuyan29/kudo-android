@@ -3,18 +3,23 @@ package com.kudo.android.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -24,7 +29,9 @@ import coil3.compose.AsyncImage
 import com.kudo.android.data.*
 import com.kudo.android.ui.theme.Ink
 import com.kudo.android.ui.theme.LogoYellow
+import com.kudo.android.ui.topic.*
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import java.util.UUID
 
 fun mediaUrl(value: String): String? {
     val url = "https://linux.do/".toHttpUrlOrNull()?.resolve(value.replace("{size}", "120")) ?: return null
@@ -84,7 +91,7 @@ fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (S
         }
         Text(topic.title, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
         if (topic.excerpt.isNotBlank()) Text(topic.excerpt, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-        if (topic.image.isNotBlank()) AsyncImage(mediaUrl(topic.image), "话题图片", Modifier.fillMaxWidth().heightIn(max = 190.dp).aspectRatio(1.9f).clip(RoundedCornerShape(10.dp)), contentScale = ContentScale.Crop)
+        mediaUrl(topic.image)?.let { TopicPreviewImage(topic.id, it, onClick) }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             category?.let { Text(it.name, Modifier.clip(RoundedCornerShape(5.dp)).background(LogoYellow.copy(alpha = 0.13f)).padding(horizontal = 7.dp, vertical = 3.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1) }
             topic.tags.take(2).forEach { Text("# $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
@@ -95,6 +102,29 @@ fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (S
             Stat(Icons.Rounded.ThumbUpOffAlt, compactNumber(topic.likes))
         }
     }
+}
+
+@Composable
+private fun TopicPreviewImage(topicId: Int, url: String, openTopic: () -> Unit) {
+    val gallery = LocalImageGallery.current
+    val origin = rememberSaveable { UUID.randomUUID().toString() }
+    var preview by rememberSaveable(topicId, url, stateSaver = GalleryImageSaver) { mutableStateOf(ArticleBlock.Image(url, "话题图片")) }
+    val anchor = remember { GalleryThumbnailAnchor().apply { contentScale = ContentScale.Crop } }
+    val radius = with(LocalDensity.current) { 10.dp.toPx() }
+    SideEffect { anchor.cornerRadius = radius }
+    DisposableEffect(anchor) { onDispose { anchor.coordinates = null; anchor.painter = null } }
+    RegisterGalleryOrigin(origin) { image, _ ->
+        preview = image
+        withFrameNanos { }
+        anchor.requester.bringIntoView()
+        withFrameNanos { }
+        anchor
+    }
+    AsyncImage(preview.url, "话题图片，点击放大", Modifier.fillMaxWidth().heightIn(max = 190.dp).aspectRatio(1.9f)
+        .bringIntoViewRequester(anchor.requester).onGloballyPositioned { anchor.coordinates = it }
+        .testTag("topic-image-$topicId").clip(RoundedCornerShape(10.dp)).clickable {
+            if (gallery == null) openTopic() else gallery.open(listOf(preview), 0, origin, anchor, topicId)
+        }, contentScale = ContentScale.Crop, onSuccess = { anchor.painter = it.painter })
 }
 
 @Composable

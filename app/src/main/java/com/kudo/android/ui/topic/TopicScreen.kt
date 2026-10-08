@@ -69,7 +69,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                                     Text("#${post.number}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 post.replyTo?.let { Text("回复 #$it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                RichContent(post.cooked, image, openLink)
+                                RichContent(post.cooked, image, openLink, galleryKey = "post-${post.id}")
                                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                     Text(if (post.number == 1) "正文" else "回复", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                                     TopicReactionButton(post, !showing && !state.loading && post.id !in state.busy && (state.viewerId == null || post.canReact),
