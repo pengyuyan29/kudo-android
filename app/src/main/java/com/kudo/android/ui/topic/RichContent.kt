@@ -3,7 +3,12 @@ package com.kudo.android.ui.topic
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Mood
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -11,13 +16,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import coil3.compose.AsyncImage
+import com.kudo.android.data.AvatarMetadataCache
+import com.kudo.android.ui.components.AvatarImage
+import com.kudo.android.ui.components.LocalAvatarMetadata
 import com.kudo.android.ui.components.mediaUrl
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
@@ -42,7 +54,7 @@ fun parseArticle(html: String): List<ArticleBlock> {
             "hr" -> result.add(ArticleBlock.Rule)
             "img" -> {
                 val raw = element.attr("src")
-                if (element.hasClass("emoji")) result.add(ArticleBlock.TextBlock(element.attr("alt"), quote))
+                if (element.hasClass("emoji")) result.add(ArticleBlock.TextBlock(element.outerHtml(), quote))
                 else mediaUrl(raw)?.let { url ->
                     val width = element.attr("width").toFloatOrNull() ?: 16f
                     val height = element.attr("height").toFloatOrNull() ?: 10f
@@ -78,29 +90,60 @@ fun parseArticle(html: String): List<ArticleBlock> {
     return result
 }
 
-private fun inlineText(html: String, linkColor: Color): AnnotatedString = buildAnnotatedString {
-    fun appendNode(node: Node) {
-        if (node is TextNode) append(node.text())
-        else if (node is Element) {
-            val children: AnnotatedString.Builder.() -> Unit = { node.childNodes().forEach(::appendNode) }
-            when (node.normalName()) {
-                "br" -> append("\n")
-                "strong", "b" -> withStyle(SpanStyle(fontWeight = FontWeight.Bold), children)
-                "em", "i" -> withStyle(SpanStyle(fontStyle = FontStyle.Italic), children)
-                "del", "s" -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough), children)
-                "code" -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = linkColor.copy(alpha = 0.1f)), children)
-                "img" -> append(node.attr("alt"))
-                "a" -> {
-                    val url = mediaUrl(node.attr("href"))
-                    if (url != null) withLink(LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))), children)
-                    else children()
+internal data class InlineEmoji(val url: String, val name: String)
+internal data class InlineArticle(val text: AnnotatedString, val emojis: Map<String, InlineEmoji>)
+
+internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
+    val emojis = linkedMapOf<String, InlineEmoji>()
+    val text = buildAnnotatedString {
+        fun appendNode(node: Node) {
+            if (node is TextNode) append(node.text())
+            else if (node is Element) {
+                val children: AnnotatedString.Builder.() -> Unit = { node.childNodes().forEach(::appendNode) }
+                when (node.normalName()) {
+                    "br" -> append("\n")
+                    "strong", "b" -> withStyle(SpanStyle(fontWeight = FontWeight.Bold), children)
+                    "em", "i" -> withStyle(SpanStyle(fontStyle = FontStyle.Italic), children)
+                    "del", "s" -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough), children)
+                    "code" -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = linkColor.copy(alpha = 0.1f)), children)
+                    "img" -> {
+                        val url = mediaUrl(node.attr("src"))
+                        if (node.hasClass("emoji") && url != null) {
+                            val id = "emoji-${emojis.size}"
+                            emojis[id] = InlineEmoji(url, node.attr("alt").ifBlank { node.attr("title") }.ifBlank { "表情" })
+                            appendInlineContent(id, "\uFFFC")
+                        } else append(node.attr("alt"))
+                    }
+                    "a" -> {
+                        val url = mediaUrl(node.attr("href"))
+                        if (url != null) withLink(LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))), children)
+                        else children()
+                    }
+                    "script", "style" -> Unit
+                    else -> children()
                 }
-                "script", "style" -> Unit
-                else -> children()
             }
         }
+        Jsoup.parseBodyFragment(html).body().childNodes().forEach(::appendNode)
     }
-    Jsoup.parseBodyFragment(html).body().childNodes().forEach(::appendNode)
+    return InlineArticle(text, emojis)
+}
+
+@Composable
+internal fun SiteEmoji(name: String, modifier: Modifier = Modifier.size(24.dp), source: String? = null) {
+    val metadata = LocalAvatarMetadata.current
+    val key = name.removeSurrounding(":")
+    var url by remember(key, source, metadata) {
+        mutableStateOf(source ?: if (metadata == null) AvatarMetadataCache.standardEmojiUrl(key) else null)
+    }
+    LaunchedEffect(key, source, metadata) {
+        if (source == null) url = metadata?.emojiUrl(key) ?: AvatarMetadataCache.standardEmojiUrl(key)
+    }
+    val pixels = with(LocalDensity.current) { (24.dp.toPx() * fontScale).toInt().coerceAtLeast(1) }
+    AvatarImage(url?.let(::mediaUrl), pixels, animate = true,
+        modifier = modifier.semantics { contentDescription = name }, contentScale = ContentScale.Fit) {
+        Icon(Icons.Rounded.Mood, null, Modifier.fillMaxSize(), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 @Composable
@@ -110,9 +153,16 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
         blocks.forEach { block -> when (block) {
             is ArticleBlock.TextBlock -> {
                 val color = MaterialTheme.colorScheme.primary
-                val text = remember(block.html, color) { inlineText(block.html, color) }
+                val article = remember(block.html, color) { parseInlineArticle(block.html, color) }
+                val inline = remember(article.emojis) {
+                    article.emojis.mapValues { (_, emoji) ->
+                        InlineTextContent(Placeholder(1.25.em, 1.25.em, PlaceholderVerticalAlign.TextCenter)) {
+                            SiteEmoji(emoji.name, Modifier.fillMaxSize(), emoji.url)
+                        }
+                    }
+                }
                 SelectionContainer {
-                    Text(text, Modifier.fillMaxWidth().then(if (block.quote) Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(9.dp)).padding(12.dp) else Modifier), style = if (block.heading) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge, color = if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                    Text(article.text, Modifier.fillMaxWidth().then(if (block.quote) Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(9.dp)).padding(12.dp) else Modifier), inlineContent = inline, style = if (block.heading) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge, color = if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
                 }
             }
             is ArticleBlock.Code -> SelectionContainer {

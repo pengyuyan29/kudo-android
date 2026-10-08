@@ -3,6 +3,8 @@ package com.kudo.android
 import com.kudo.android.data.*
 import com.kudo.android.ui.topic.ArticleBlock
 import com.kudo.android.ui.topic.parseArticle
+import com.kudo.android.ui.topic.parseInlineArticle
+import androidx.compose.ui.graphics.Color
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -40,4 +42,36 @@ println(x)</code></pre><p><img src="/uploads/image.png" width="800" height="600"
         assertEquals("https://linux.do/uploads/image.png", (blocks[3] as ArticleBlock.Image).url)
     }
     @Test fun plainTextDecodesEntities() { assertEquals("A & B", plainText("<p>A &amp; B</p>")) }
+
+    @Test fun standaloneEmojiKeepsItsImageInsteadOfOnlyTheShortcode() {
+        val html = """<img src="https://cdn.ldstatic.com/images/emoji/twemoji/distorted_face.png?v=15" class="emoji" alt=":distorted_face:">"""
+        val block = parseArticle(html).single() as ArticleBlock.TextBlock
+        assertTrue("表情必须保留图片来源，不能只留下 :distorted_face:", block.html.contains("distorted_face.png"))
+        assertTrue(block.html.contains("class=\"emoji\""))
+    }
+
+    @Test fun inlineEmojisKeepOrderNamesLinksAndHttpsSources() {
+        val content = parseInlineArticle("""前<strong>粗体</strong><img class="emoji" src="/images/emoji/twemoji/distorted_face.png?v=15" alt=":distorted_face:"><a href="https://linux.do/t/1">链接<img class="emoji" src="//cdn.ldstatic.com/custom.gif" alt=":custom:"></a>后""", Color.Blue)
+        assertEquals("前粗体\uFFFC链接\uFFFC后", content.text.text)
+        assertEquals(listOf(":distorted_face:", ":custom:"), content.emojis.values.map { it.name })
+        assertEquals(listOf("https://linux.do/images/emoji/twemoji/distorted_face.png?v=15", "https://cdn.ldstatic.com/custom.gif"), content.emojis.values.map { it.url })
+        assertTrue(content.text.spanStyles.isNotEmpty())
+        assertTrue(content.text.getLinkAnnotations(0, content.text.length).isNotEmpty())
+    }
+
+    @Test fun repeatedAndQuotedEmojisStayInlineWhileOrdinaryImagesStayBlocks() {
+        val blocks = parseArticle("""<blockquote><p>A<img class="emoji" src="/one.png" alt=":one:"><img class="emoji" src="/one.png" alt=":one:">B<img src="/photo.png"></p></blockquote>""")
+        val text = blocks[0] as ArticleBlock.TextBlock
+        assertTrue(text.quote)
+        val inline = parseInlineArticle(text.html, Color.Blue)
+        assertEquals("A\uFFFC\uFFFCB", inline.text.text)
+        assertEquals(2, inline.emojis.size)
+        assertEquals("https://linux.do/photo.png", (blocks[1] as ArticleBlock.Image).url)
+    }
+
+    @Test fun invalidEmojiSourcesKeepReadableAlternativeText() {
+        val content = parseInlineArticle("""<img class="emoji" src="javascript:alert(1)" alt=":bad:"><img class="emoji" src="http://example.com/emoji.png" alt=":insecure:">""", Color.Blue)
+        assertEquals(":bad::insecure:", content.text.text)
+        assertTrue(content.emojis.isEmpty())
+    }
 }
