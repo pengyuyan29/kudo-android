@@ -26,7 +26,13 @@ Status: implemented
 
 ## Testing
 
-CategoryMetadataTest 的2项测试先复现原解析丢失 icon 字段，再通过：两种分类JSON结构、服务端换图标、颜色和简介保留、缺失/null/非字符串/空白字段。日志为 artifacts/category-metadata-repro.txt / category-metadata-checks.txt。浏览器实际分类数据、图形分别保存在 category-web-metadata.json / category-web-glyphs.json；23种 path 和 viewBox 逐一与 Font Awesome Free 6.7.2 官方 SVG 比对相同。资源与字段单元已完成，页面接入及真机验收是后续单元。
+CategoryMetadataTest 的2项测试先复现原解析丢失 icon 字段，再通过：两种分类JSON结构、服务端换图标、颜色和简介保留、缺失/null/非字符串/空白字段。日志为 artifacts/category-metadata-repro.txt / category-metadata-checks.txt。浏览器实际分类数据、图形分别保存在 category-web-metadata.json / category-web-glyphs.json；23种 path 和 viewBox 逐一与 Font Awesome Free 6.7.2 官方 SVG 比对相同。
+
+完整37项JVM测试和37项RMX2202 / Android13界面测试通过（79.933秒），Debug/测试包构建成功，Lint为0 errors / 27 warnings，笔记门禁通过。日志为 categories-final-build.txt / categories-final-instrumentation.txt。新增2项界面测试遍历全部23种图标及默认图标，检查分类入口唯一且回调正确、首行在状态栏安全区下、标题区移除、失败重试和验证入口、深色130%及280dp宽窗口；既有设置模态回归覆盖加长的许可说明。
+
+已查看 categories-icons-light.png / categories-icons-dark-large.png。长简介仍按原规则最多两行，窄屏用省略号；图标保留原始比例。真实分类页截图 categories-real-top.png 显示代码、幼苗、分享、硬盘、书本、公文包等，独立标题和刷新按钮不存在；点击开发调优后真实分类列表成功加载，再返回分类页，布局记录 categories-real-open.json / categories-real-loaded.json。
+
+Fonticons署名和许可入口显示在开源致谢，19,484字节的完整许可确认进入 assets/licenses/fontawesome-icons-LICENSE.txt。分发包保留数据覆盖安装，构建/分发/设备 APK 的 SHA256 均为 36ea572348457d2ed16e44f2c1e2f02302ad3a2ee5a1cf836b56950702f8d4d1，记录 categories-apk-verification.txt。
 
 ## Consequences
 

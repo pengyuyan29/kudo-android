@@ -59,11 +59,11 @@
 
 | 检查 | 结果 |
 | --- | --- |
-| JVM 回归 | 35项通过，新增消息总线协议、合并检查、刷新竞态、后台暂停、账号隔离与刷新事件去重；保留此前24项回归 |
+| JVM 回归 | 37项通过，新增分类图标元数据与缺失/异常字段；保留此前35项回归 |
 | Android Lint | 0 errors；27 项依赖升级 / API 使用建议等 warnings，新增 Shapes 升级建议 |
 | Debug APK | 构建成功，0.1.0，约 25 MiB，已覆盖安装到新真机 |
 | RMX2202 真机 | Android 13 / API 33，WebView 153，1080×2400 |
-| Compose 界面 | 35项通过，74.976秒：新增更新提示保持位置、回顶及三种材质唯一入口、离开后恢复阅读位置3项，原有32项保留 |
+| Compose 界面 | 37项通过，79.933秒：新增分类图标渲染、唯一跳转、状态栏安全区、错误恢复、深色大字号窄屏2项，原有35项保留 |
 | 真实只读浏览 | 首页及图片、分类、分类规范地址跳转、帖子与多楼层正文均已加载；访客真实推送→刷新提示→回顶刷新已走通，另1项线上探针通过 |
 | 网页验证 | 用户手动完成人机验证，官网登录表单成功加载；部分接口仍可能再次验证 |
 | 搜索 | 已发送真实查询，站点要求登录；已补 `not_logged_in` 回归与登录引导 |
@@ -112,3 +112,19 @@ Linux.do 实际使用 MessageBus 长轮询。当前筛选有新话题或内容�
 材质验收单独记录：真实静止截图、12秒同机慢拖 `live-refresh-material-motion.mp4` 及抽帧 `live-refresh-material-rest.png` / `-drag.png` / `-end.png` 已检查，高亮黄色、透明中性灰、镜片凸出和发布按钮前景折射保持正常。三种材质深色大字号由界面测试覆盖。录屏不作为正式性能结论。
 
 最终 APK `artifacts/Kudo-0.1.0-debug.apk` 已保留数据安装，构建/分发/设备包 SHA256 一致：`cab9cc981232c221f7ede530e4e3ce8cf9927f149b7cb1a1e170adeaf1631d91`，记录 `live-refresh-apk-verification.txt`。当前真实验收为访客链路；登录私有频道、令牌失效后线上续接仍需账号验收。提示按15秒合并检查，并受网络/站点数据可见性影响。
+
+## 分类图标与顶部清理验收（2026-10-08）
+
+分类读取 /site.json 的 icon 名称；23种图标的路径和 viewBox 已逐一核对与官网及 Font Awesome Free 6.7.2 相同，转为原生矢量并随APK提供。删除发现社区、顶部刷新按钮和找到你的同好，卡片介绍及跳转保留。
+
+手动用例：
+
+1. 打开分类页，第一张卡片在状态栏下，顶部没有独立标题/刷新/副标题。开发调优为代码、国产替代为幼苗、资源荟萃为分享、网盘资源为硬盘、文档共建为书本、非我莫属为公文包；颜色跟随分类配置。
+2. 点击分类并返回，仍可正常浏览。网络失败保留“重新加载”，需要站点验证时保留验证入口；卡片介绍没有删除。遇到空白、异常或未收录图标显示默认井号。
+3. 深色130%和280dp宽窗口检查标题、图标及点击范围；长简介仍最多两行省略，列表末尾保留底栏避让。开源致谢包含 Fonticons 署名及许可入口。
+
+37项JVM、37项真机界面测试通过（79.933秒），Lint 0 errors / 27 warnings；日志为 `categories-final-build.txt` / `categories-final-instrumentation.txt`。图标字段丢失先复现后修复，见 `category-metadata-repro.txt` / `category-metadata-checks.txt`。界面测试遍历23种图标及默认图标、所有点击回调、重试和验证入口，既有设置与底栏回归保留。
+
+截图 `categories-icons-light.png` / `categories-icons-dark-large.png` / `categories-real-top.png` 已查看。真实分类页显示对应图标并移除顶部区域，点击开发调优成功加载分类列表，随后返回分类页；记录 `categories-real-open.json` / `categories-real-loaded.json`。本轮未改底栏材质，不重复慢拖录屏。
+
+新版 `artifacts/Kudo-0.1.0-debug.apk` 已保留数据覆盖安装，构建/分发/设备包 SHA256 均为 `36ea572348457d2ed16e44f2c1e2f02302ad3a2ee5a1cf836b56950702f8d4d1`，见 `categories-apk-verification.txt`。19,484字节的完整 CC BY 4.0 许可已核实进入 APK。官网以后新增未收录的图标时会回退默认图标，需要更新本地图形目录。

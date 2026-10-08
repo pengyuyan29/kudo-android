@@ -19,6 +19,8 @@ Android 13+ 使用完整液态玻璃；Android 12 使用背景模糊；Android 8
 
 首页接入 Linux.do 的 MessageBus 长轮询，收到消息后合并检查当前筛选的第一页，确认新话题或内容更新才提示“刷新”。消息不插入当前列表；点击底栏刷新后回顶，成功清除提示，失败保留。后台和详情页暂停订阅，返回首页检查遗漏并保留阅读位置；顶部“新”的数量仍在主动刷新时更新。检查按15秒合并，实际提示时间还取决于网络和站点数据可见性。
 
+分类页直接展示列表，移除“发现社区”、顶部刷新按钮及“找到你的同好”。卡片读取官网的 icon 配置，使用与官网一致的23种 Font Awesome 矢量图标和分类颜色；缺失或未收录的图标使用默认图标。卡片介绍、跳转及加载失败时的重试/验证入口保留，图标资源随安装包提供。
+
 详情页“写回复”和“赞 / 收藏 / 分享”两块胶囊直接采用官方 `Surface Liquid Button` 样式：30%主题表面色、2dp模糊、12 / 24dp边缘折射、触点高光及按压放大；四个操作保持独立，关闭、请求忙碌与缺失主帖时的权限不变。
 
 设置页选项使用底部 ActionSheet，当前项以黄色勾选标记；关于、隐私、致谢与退出确认采用官方 Dialog 材质。模态支持遮罩与返回键关闭、背景可访问隔离、键盘焦点、小窗口滚动和系统安全区，替代默认 Material AlertDialog。
@@ -44,10 +46,10 @@ npm run verify-notes
 adb -s <真机序列号> install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # 使用 Android CLI 检查过布局时，先停止它的辅助测试进程，避免 UiAutomation 冲突。
 adb -s <真机序列号> shell am force-stop com.android.cli.interact.instrumentation
-adb -s <真机序列号> shell am instrument -w -r -e class 'com.kudo.android.HomeRefreshUiTest,com.kudo.android.FeedHeaderUiTest,com.kudo.android.CommunityUiTest,com.kudo.android.SurfaceLiquidUiTest,com.kudo.android.SettingsModalUiTest,com.kudo.android.NavigationMaterialUiTest' com.kudo.android.test/androidx.test.runner.AndroidJUnitRunner
+adb -s <真机序列号> shell am instrument -w -r -e class 'com.kudo.android.CategoriesUiTest,com.kudo.android.HomeRefreshUiTest,com.kudo.android.FeedHeaderUiTest,com.kudo.android.CommunityUiTest,com.kudo.android.SurfaceLiquidUiTest,com.kudo.android.SettingsModalUiTest,com.kudo.android.NavigationMaterialUiTest' com.kudo.android.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-2026-10-08：35项 JVM 测试、35项 RMX2202 / Android13 真机界面测试通过（74.976秒），覆盖推送协议、刷新竞态、账号隔离、返回阅读位置及底栏回归。另有1项显式开启的线上只读探针通过（21.297秒），真实访客首页已观察到刷新图标出现、阅读位置不变、点击回顶后成功恢复首页图标。Debug / 测试 APK、Lint 与笔记检查通过，Lint 为0 errors / 27 warnings。三种材质、深色130%截图和慢拖录屏已检查；登录私有频道仍需真实账号验收。此前关闭动画的28项测试结果保留。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。真实社区只做只读检查，自动化帖子与互动使用夹具。
+2026-10-08：37项 JVM 测试、37项 RMX2202 / Android13 真机界面测试通过（79.933秒），包括分类图标元数据、23种矢量与默认图标、分类跳转/重试、深色130%窄屏，以及既有首页和底栏回归。真实分类图标、页面清理及开发调优列表跳转已检查。Debug / 测试 APK、Lint 与笔记检查通过，Lint 为0 errors / 27 warnings。此前首页线上只读探针通过（21.297秒），真实访客推送与刷新已验证；登录私有频道仍需账号验收。此前材质慢拖录屏与关闭动画的28项结果保留。真机检查记录与手动验收用例见 [TASKS.md](TASKS.md)。真实社区只做只读检查，自动化帖子与互动使用夹具。
 
 线上探针 `LiveUpdatesProbeTest` 默认跳过，手动运行需同时传 `-e liveReadOnlyProbe true -e class com.kudo.android.LiveUpdatesProbeTest`。它等待最多60秒的真实可见更新，不作为离线回归或CI门禁。
 

@@ -33,16 +33,14 @@ fun RootHeading(title: String, action: @Composable RowScope.() -> Unit = {}) {
 
 @Composable
 fun CategoriesScreen(categories: List<Category>, loading: Boolean, error: Throwable?, refresh: () -> Unit, login: () -> Unit, select: (Category) -> Unit) {
-    Column {
-        RootHeading("发现社区") { IconButton(onClick = refresh) { Icon(Icons.Rounded.Refresh, "刷新分类") } }
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
         LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item { Text("找到你的同好", Modifier.padding(start = 6.dp, bottom = 8.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (loading && categories.isEmpty()) item { LoadingRow() }
             if (error != null) item { ErrorState(error, refresh, login) }
             items(categories, key = { it.id }) { category ->
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).clickable { select(category) }.padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     val color = runCatching { Color(android.graphics.Color.parseColor("#${category.color}")) }.getOrDefault(LogoYellow)
-                    Box(Modifier.size(45.dp).background(color.copy(alpha = 0.14f), RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Tag, null, tint = color) }
+                    Box(Modifier.size(45.dp).background(color.copy(alpha = 0.14f), RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) { Icon(CategoryIcons.get(category.icon), null, Modifier.size(24.dp), tint = color) }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text(category.name, style = MaterialTheme.typography.titleMedium)
                         Text(category.description.ifBlank { "${compactNumber(category.count)} 个话题" }, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
