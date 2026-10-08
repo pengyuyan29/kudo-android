@@ -39,7 +39,11 @@ import org.jsoup.nodes.TextNode
 sealed interface ArticleBlock {
     data class TextBlock(val html: String, val quote: Boolean = false, val heading: Boolean = false) : ArticleBlock
     data class Code(val text: String) : ArticleBlock
-    data class Image(val url: String, val alt: String, val ratio: Float) : ArticleBlock
+    data class Image(
+        val url: String, val alt: String, val ratio: Float? = null,
+        val originalUrl: String = url, val filename: String = "",
+        val dimensions: String = "", val sizeLabel: String = "",
+    ) : ArticleBlock
     data class Embed(val url: String, val title: String) : ArticleBlock
     data object Rule : ArticleBlock
 }
@@ -47,6 +51,7 @@ sealed interface ArticleBlock {
 fun parseArticle(html: String): List<ArticleBlock> {
     val result = mutableListOf<ArticleBlock>()
     fun walk(element: Element, quote: Boolean = false) {
+        if (element.hasClass("meta") && element.parents().any { it.hasClass("lightbox") || it.hasClass("lightbox-wrapper") }) return
         when (element.normalName()) {
             "script", "style", "noscript" -> Unit
             "pre" -> result.add(ArticleBlock.Code(element.wholeText()))
@@ -56,9 +61,19 @@ fun parseArticle(html: String): List<ArticleBlock> {
                 val raw = element.attr("src")
                 if (element.hasClass("emoji")) result.add(ArticleBlock.TextBlock(element.outerHtml(), quote))
                 else mediaUrl(raw)?.let { url ->
-                    val width = element.attr("width").toFloatOrNull() ?: 16f
-                    val height = element.attr("height").toFloatOrNull() ?: 10f
-                    result.add(ArticleBlock.Image(url, element.attr("alt"), (width / height.coerceAtLeast(1f)).coerceIn(0.65f, 2.5f)))
+                    val lightbox = element.parents().firstOrNull { it.hasClass("lightbox") }
+                    val metadata = lightbox?.selectFirst(".meta")
+                    val information = metadata?.selectFirst(".informations")?.text().orEmpty()
+                    val dimensions = Regex("\\d+\\s*[×x]\\s*\\d+").find(information)?.value.orEmpty()
+                    val width = element.attr("width").toFloatOrNull()
+                    val height = element.attr("height").toFloatOrNull()
+                    val ratio = if (width != null && height != null && width > 0 && height > 0) {
+                        (width / height).takeIf { it.isFinite() && it > 0 }
+                    } else null
+                    result.add(ArticleBlock.Image(url, element.attr("alt"), ratio,
+                        originalUrl = lightbox?.attr("href")?.let(::mediaUrl) ?: url,
+                        filename = metadata?.selectFirst(".filename")?.text().orEmpty(),
+                        dimensions = dimensions, sizeLabel = information.removePrefix(dimensions).trim()))
                 }
             }
             "iframe", "video", "audio" -> {
@@ -73,7 +88,7 @@ fun parseArticle(html: String): List<ArticleBlock> {
             }
             "p", "h1", "h2", "h3", "h4", "li", "summary" -> {
                 val images = element.select("img:not(.emoji)")
-                val copy = element.clone().apply { select("img:not(.emoji)").remove() }
+                val copy = element.clone().apply { select("img:not(.emoji), .lightbox .meta, .lightbox-wrapper .meta").remove() }
                 if (copy.text().isNotBlank() || copy.select("img.emoji").isNotEmpty()) result.add(ArticleBlock.TextBlock(if (element.normalName() == "li") "• ${copy.html()}" else copy.html(), quote, element.normalName().startsWith("h")))
                 images.forEach { walk(it, quote) }
             }
@@ -168,9 +183,22 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
             is ArticleBlock.Code -> SelectionContainer {
                 Text(block.text, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).horizontalScroll(rememberScrollState()).padding(13.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
             }
-            is ArticleBlock.Image -> AsyncImage(block.url, block.alt.ifBlank { "帖子图片，点击放大" }, Modifier.fillMaxWidth().aspectRatio(block.ratio).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onImage(block.url) }, contentScale = ContentScale.Fit)
+            is ArticleBlock.Image -> ArticleImage(block) { onImage(block.originalUrl) }
             is ArticleBlock.Embed -> Text("↗ ${block.title}", Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onLink(block.url) }.padding(14.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
             ArticleBlock.Rule -> Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
         } }
     }
+}
+
+@Composable
+private fun ArticleImage(image: ArticleBlock.Image, open: () -> Unit) {
+    var decodedRatio by remember(image.url) { mutableStateOf<Float?>(null) }
+    AsyncImage(image.url, image.alt.ifBlank { "帖子图片，点击放大" },
+        Modifier.fillMaxWidth().aspectRatio(decodedRatio ?: image.ratio ?: 1.6f)
+            .clip(RoundedCornerShape(11.dp)).clickable(onClick = open),
+        contentScale = ContentScale.Fit,
+        onSuccess = { state ->
+            val bitmap = state.result.image
+            if (bitmap.width > 0 && bitmap.height > 0) decodedRatio = bitmap.width.toFloat() / bitmap.height
+        })
 }

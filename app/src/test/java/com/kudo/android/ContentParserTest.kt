@@ -74,4 +74,40 @@ println(x)</code></pre><p><img src="/uploads/image.png" width="800" height="600"
         assertEquals(":bad::insecure:", content.text.text)
         assertTrue(content.emojis.isEmpty())
     }
+
+    @Test fun wideScreenshotsKeepTheirActualAspectRatio() {
+        val block = parseArticle("""<img src="/wide.png" width="1688" height="339">""").single() as ArticleBlock.Image
+        assertEquals("宽图容器不能被比例上限撑高", 1688f / 339f, requireNotNull(block.ratio), 0.0001f)
+    }
+
+    @Test fun lightboxMetadataDoesNotBecomeBodyTextButAuthorCaptionsSurvive() {
+        val blocks = parseArticle("""<div class="lightbox-wrapper"><a class="lightbox" href="/original.png"><img src="/preview.png" width="1688" height="339" alt="示例"><div class="meta"><span class="filename">20261008230932_14_506</span><span class="informations">1688×339 22.8 KB</span></div></a></div><p>我写的图片说明</p><div class="meta">正常正文</div>""")
+        assertEquals("只应有图片、作者说明与普通正文", 3, blocks.size)
+        assertTrue(blocks.first() is ArticleBlock.Image)
+        assertEquals(listOf("我写的图片说明", "正常正文"), blocks.filterIsInstance<ArticleBlock.TextBlock>().map { it.html })
+        val image = blocks.first() as ArticleBlock.Image
+        assertEquals("https://linux.do/original.png", image.originalUrl)
+        assertEquals("20261008230932_14_506", image.filename)
+        assertEquals("1688×339", image.dimensions)
+        assertEquals("22.8 KB", image.sizeLabel)
+    }
+
+    @Test fun tallImagesAndMissingOrInvalidDimensionsDoNotUseAnInventedAspectRatio() {
+        val tall = parseArticle("""<img src="/tall.png" width="200" height="4000">""").single() as ArticleBlock.Image
+        assertEquals(0.05f, requireNotNull(tall.ratio), 0.0001f)
+        for (attributes in listOf("", "width=\"0\" height=\"100\"", "width=\"200\" height=\"-2\"", "width=\"NaN\" height=\"2\"")) {
+            val image = parseArticle("<img src=\"/unknown.png\" $attributes>").single() as ArticleBlock.Image
+            assertNull(image.ratio)
+            assertEquals(image.url, image.originalUrl)
+        }
+    }
+
+    @Test fun inlineLightboxDropsOnlyAutomaticMetadataAndRejectsInsecureOriginals() {
+        val blocks = parseArticle("""<p>说明<a class="lightbox" href="javascript:alert(1)"><img src="/safe.png"><span class="meta"><span class="filename">隐藏文件名</span></span></a><img class="emoji" src="/emoji.png" alt=":ok:">保留图注</p>""")
+        val text = blocks.filterIsInstance<ArticleBlock.TextBlock>().single().html
+        assertFalse(text.contains("隐藏文件名"))
+        assertTrue(text.contains("保留图注"))
+        assertTrue(text.contains("class=\"emoji\""))
+        assertEquals("https://linux.do/safe.png", blocks.filterIsInstance<ArticleBlock.Image>().single().originalUrl)
+    }
 }
