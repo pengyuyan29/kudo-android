@@ -32,13 +32,21 @@ class AvatarAnimationDecoderTest {
         assertTrue("APNG 不能只显示静态首帧", drawable is Animatable)
     }
 
+    @Test fun applicationImageLoaderSurvivesActivityRecreation() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val loader = SingletonImageLoader.get(context)
+        compose.activityRule.scenario.recreate()
+        assertSame("重建页面必须复用应用图片加载器", loader, SingletonImageLoader.get(context))
+        assertTrue("重建后仍应解码 APNG 动画", load("three-frame.png") is Animatable)
+    }
+
     @Test fun apngGifAndWebPActuallyRenderAllThreeFrames() = runBlocking {
         for (name in listOf("three-frame.png", "three-frame.gif", "three-frame.webp")) assertFrames(name, load(name))
     }
 
     @Test fun legacyWebPDecoderRendersAnimationAndStaticPngRemainsStatic() = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val loader = ImageLoader.Builder(context).communityAnimations(legacyWebP = true).build()
+        val loader = ImageLoader.Builder(context).components { communityAnimations(legacyWebP = true) }.build()
         try {
             assertFrames("legacy-webp", load("three-frame.webp", loader))
             assertFalse(load("static.png", loader) is Animatable)

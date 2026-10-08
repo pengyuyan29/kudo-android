@@ -8,11 +8,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import coil3.ImageLoader
-import coil3.SingletonImageLoader
-import coil3.network.okhttp.OkHttpNetworkFetcherFactory
-import com.kudo.android.data.AppContainer
-import com.kudo.android.media.communityAnimations
 import com.kudo.android.ui.KudoApp
 
 class MainActivity : ComponentActivity() {
@@ -20,8 +15,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val app = AppContainer(applicationContext)
-        SingletonImageLoader.setSafe { context -> ImageLoader.Builder(context).components { add(OkHttpNetworkFetcherFactory(callFactory = { app.imageHttpClient })) }.communityAnimations().build() }
+        val app = (application as KudoApplication).container
         incomingUrl = intent?.dataString
         setContent { KudoApp(app, incomingUrl) }
     }

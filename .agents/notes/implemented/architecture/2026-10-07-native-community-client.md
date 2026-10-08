@@ -12,6 +12,10 @@ Status: implemented
 
 Coil 3.3.0 的全局 ImageLoader 注册 GIF/动态 WebP 解码；APNG 及 API 26/27 的 WebP 由 APNG4Android 3.0.5 补齐，两模块使用 Java 帧解码，不引入本地二进制。按内容识别 PNG acTL / WebP VP8X，绝不只判断后缀。APNG/WebP 补充解码限制 16 MiB、4096 边长、4M 像素和 1000 帧，按目标尺寸在分配画布前采样。返回不可共享 Drawable，避免多个头像抢同一动画回调；磁盘图片缓存与既有 Cookie 同源边界保持一致。APNG4Android 许可随 APK 收录，头像语义由[头像方案](../../proposed/feature/2026-10-08-avatar-presentation.md)管理。
 
+网络抓取器和 communityAnimations 必须在同一个 components 配置块中注册。动画扩展定义在 ComponentRegistry.Builder 上；重复调用 ImageLoader.Builder.components 会替换先前配置，导致测试抓取器及生产的受限 Cookie 客户端被默认抓取器取代。AvatarUiTest 的真实图片夹具先复现加载失败，再验证同一注册块保留两类组件。
+
+KudoApplication 通过 SingletonImageLoader.Factory 提供全局加载器，AppContainer 在 Application.onCreate 的主线程初始化，避免 WebSettings 首次初始化发生在图片工作线程。Activity 复用容器，不再调用 setSafe：图片先于首页访问、Activity 重建和测试先后顺序都必须得到同一受限网络与动画配置。AvatarUiTest 后接真实加载器测试先复现 setSafe 晚于 get 的崩溃，页面重建用例检查同一加载器继续解码 APNG。
+
 玻璃用 Apache-2.0 的 Kyant Backdrop 1.0.6，封装背景采样、模糊、折射、高光和胶囊选中动画。此版本使用 Android Compose，避免为客户端引入跨平台工程。API 33+ 支持完整玻璃，API 31–32 模糊，较旧系统半透明；用户也能手动选择材质。
 
 官网 WebView 仅用于登录和网页验证，原生请求与其共享受限于 linux.do 的 Cookie。以 /session/current.json 验证会话；写请求附带 /session/csrf 获取的令牌，不使用站点管理员 API Key。只允许可信 HTTPS 来源进入带会话的请求层。写请求不自动重试，避免重复发帖；401、403 验证、429 与一般网络失败有不同反馈。
@@ -33,6 +37,7 @@ Android 12+ 的 data_extraction_rules 明确排除账号数据的云备份和设
 - Flutter 复用 FluxDO：可直接利用成熟的论坛功能，但用户明确要求安卓原生，并要求贴近 Compose 玻璃交互，因此独立实现 Kotlin 客户端。
 - 自写整套 AGSL 渲染器：能控制全部折射参数，但背景采样、坐标和性能适配会扩大风险；复用开放许可的 Backdrop，再独立实现酷DO组件。
 - 全站 WebView：能完整支持所有 Discourse 插件，但无法实现要求的原生信息流与玻璃控件；仅保留验证和外部内容入口。
+- 在 Activity 中用 setSafe 注册图片加载器：配置紧邻界面、入口直观，但第一次图片读取后再次创建页面会抛异常；由 Application 提供 Factory，页面只消费已经统一的配置。
 
 ## Verification
 

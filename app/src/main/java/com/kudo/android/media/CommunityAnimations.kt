@@ -1,6 +1,7 @@
 package com.kudo.android.media
 
 import android.os.Build
+import coil3.ComponentRegistry
 import coil3.ImageLoader
 import coil3.asImage
 import coil3.decode.DecodeResult
@@ -26,7 +27,7 @@ import java.io.IOException
 import kotlin.math.max
 import kotlin.math.min
 
-fun ImageLoader.Builder.communityAnimations(legacyWebP: Boolean = Build.VERSION.SDK_INT < 28): ImageLoader.Builder = components {
+fun ComponentRegistry.Builder.communityAnimations(legacyWebP: Boolean = Build.VERSION.SDK_INT < 28): ComponentRegistry.Builder = apply {
     add(FrameAnimationDecoder.Factory(legacyWebP))
     if (Build.VERSION.SDK_INT >= 28) add(AnimatedImageDecoder.Factory()) else add(GifDecoder.Factory())
 }
