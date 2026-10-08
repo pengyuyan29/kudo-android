@@ -19,6 +19,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.GlassNavigation
 import com.kudo.android.ui.theme.KudoTheme
+import com.kudo.android.ui.theme.LogoYellow
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import org.junit.Assert.*
@@ -30,6 +31,43 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class NavigationMaterialUiTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test fun restingSelectionHasVisibleGrayWithoutDimmingBrandIcons() {
+        var mode by mutableStateOf(GlassMode.LIQUID)
+        compose.setContent {
+            KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+                val backdrop = rememberLayerBackdrop()
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(Color.White))
+                    GlassNavigation(0, {}, {}, backdrop, mode,
+                        Modifier.align(Alignment.BottomCenter).padding(20.dp).fillMaxWidth().testTag("navigation"))
+                }
+            }
+        }
+        for (material in GlassMode.entries) {
+            compose.runOnIdle { mode = material }
+            compose.waitForIdle()
+            val bounds = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
+            val pixels = compose.onRoot().captureToImage().toPixelMap()
+            val gray = pixels[bounds.center.x.toInt(), (bounds.top + bounds.height * 0.08f).toInt()]
+            val brightness = (gray.red + gray.green + gray.blue) / 3f
+            val spread = maxOf(gray.red, gray.green, gray.blue) - minOf(gray.red, gray.green, gray.blue)
+            capture("navigation-gray-${material.name.lowercase()}.png")
+            // A neutral but nearly white selection passed the old hue-only check.
+            assertTrue("白底选中面需有接近参考图的灰度对比：$material / $gray", brightness in 0.85f..0.92f)
+            assertTrue("选中灰面不能染上品牌色：$gray", spread < 0.02f)
+            var brandPixels = 0
+            for (y in bounds.top.toInt() until bounds.center.y.toInt()) {
+                for (x in bounds.left.toInt() until bounds.right.toInt()) {
+                    val color = pixels[x, y]
+                    if (kotlin.math.abs(color.red - LogoYellow.red) < 0.02f &&
+                        kotlin.math.abs(color.green - LogoYellow.green) < 0.02f &&
+                        kotlin.math.abs(color.blue - LogoYellow.blue) < 0.02f) brandPixels++
+                }
+            }
+            assertTrue("灰底不能压暗前景的 LogoYellow：$material / $brandPixels", brandPixels > 30)
+        }
+    }
 
     @Test fun restingSelectionKeepsUniformInsetAtBothEnds() {
         var selected by mutableIntStateOf(0)

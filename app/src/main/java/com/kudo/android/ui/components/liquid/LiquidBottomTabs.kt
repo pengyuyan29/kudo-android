@@ -219,7 +219,12 @@ internal fun LiquidBottomTabs(
                                 if (canRefract) lens(24.dp.toPx() * progress, 24.dp.toPx() * progress)
                             },
                             highlight = { Highlight.Default.copy(alpha = dampedDragAnimation.pressProgress) },
-                            onDrawSurface = { drawRect(containerColor) },
+                            onDrawSurface = {
+                                drawRect(containerColor)
+                                // The lens samples this surface before the labels, keeping their colors intact.
+                                drawRect(if (isLightTheme) Color.Black.copy(0.12f) else Color.White.copy(0.12f),
+                                    alpha = 1f - dampedDragAnimation.pressProgress)
+                            },
                         )
                         .then(interactiveHighlight.modifier)
                         .height(48.dp).fillMaxWidth().padding(horizontal = 4.dp),
@@ -261,7 +266,6 @@ internal fun LiquidBottomTabs(
                         },
                         onDrawSurface = {
                             val progress = dampedDragAnimation.pressProgress
-                            drawRect(if (isLightTheme) Color.Black.copy(0.06f) else Color.White.copy(0.06f), alpha = 1f - progress)
                             drawRect(Color.Black.copy(alpha = 0.03f * progress))
                         },
                     )
