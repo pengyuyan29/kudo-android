@@ -11,6 +11,7 @@ data class Member(
     val bio: String = "", val trustLevel: Int = 0, val unifiedNew: Boolean = false,
     val animatedAvatar: String = "", val flair: AvatarFlair? = null, val status: UserStatus? = null,
     val avatarDetailsLoaded: Boolean = false,
+    val canFollow: Boolean = false, val isFollowed: Boolean = false,
 ) {
     val displayName get() = name.ifBlank { username }
     val isSiteOwner get() = username.equals("neo", ignoreCase = true)
@@ -42,8 +43,22 @@ enum class FeedFilter(val value: String, val label: String, val personal: Boolea
 data class Post(
     val id: Int, val number: Int, val author: Member, val cooked: String, val createdAt: String,
     val likes: Int, val liked: Boolean, val bookmarkId: Int?, val replyTo: Int?, val canLike: Boolean,
-)
-data class TopicDetail(val id: Int, val title: String, val categoryId: Int, val posts: List<Post>, val stream: List<Int>, val closed: Boolean)
+    val reactions: List<PostReaction> = emptyList(), val currentReaction: UserReaction? = null,
+    val reactionCount: Int = likes, val reactionsAvailable: Boolean = false, val canUndoLike: Boolean = true,
+) {
+    val activeReaction: String? get() = currentReaction?.id ?: "heart".takeIf { liked }
+    val canReact: Boolean get() = if (activeReaction != null) currentReaction?.canUndo ?: canUndoLike else canLike
+}
+data class PostReaction(val id: String, val count: Int)
+data class UserReaction(val id: String, val canUndo: Boolean)
+data class TopicDetail(
+    val id: Int, val title: String, val categoryId: Int, val posts: List<Post>, val stream: List<Int>, val closed: Boolean,
+    val author: Member? = posts.firstOrNull { it.number == 1 }?.author,
+    val createdAt: String = posts.firstOrNull { it.number == 1 }?.createdAt.orEmpty(),
+    val validReactions: List<String> = emptyList(), val pinnedOriginal: Post? = null,
+) {
+    val originalPost: Post? get() = posts.firstOrNull { it.number == 1 } ?: pinnedOriginal
+}
 data class Notice(val id: Int, val title: String, val description: String, val topicId: Int?, val postNumber: Int?, val read: Boolean, val time: String)
 data class SavedTopic(val id: Int, val topicId: Int, val title: String, val excerpt: String, val postNumber: Int?)
 data class PublishResult(val topicId: Int?, val queued: Boolean)
@@ -72,6 +87,7 @@ object DiscourseParser {
         },
         userStatus(json.optJSONObject("status") ?: json.optJSONObject("user_status")),
         avatarDetailsLoaded || json.has("status") || json.has("user_status"),
+        json.optBoolean("can_follow"), json.optBoolean("is_followed"),
     )
 
     private fun userStatus(json: JSONObject?): UserStatus? {
@@ -116,19 +132,33 @@ object DiscourseParser {
     fun post(json: JSONObject): Post {
         val action = json.optJSONArray("actions_summary").objects().firstOrNull { it.optInt("id") == 2 }
         val bookmarked = json.optJSONObject("bookmarks")
+        val current = json.optJSONObject("current_user_reaction")?.takeIf { it.stringField("type") == "emoji" }
+            ?.let { item -> item.stringField("id").takeIf(String::isNotEmpty)?.let { UserReaction(it, item.optBoolean("can_undo")) } }
+        val reactions = json.optJSONArray("reactions").objects().mapNotNull {
+            val id = it.stringField("id")
+            if (id.isEmpty() || it.stringField("type") != "emoji" || it.optInt("count") <= 0) null else PostReaction(id, it.getInt("count"))
+        }
+        val liked = if (json.has("current_user_reaction")) current?.id == "heart" else action?.optBoolean("acted") ?: false
         return Post(json.getInt("id"), json.optInt("post_number"), member(json, fromPost = true, avatarDetailsLoaded = true), json.text("cooked"), json.text("created_at"),
-            action?.optInt("count") ?: 0, action?.optBoolean("acted") ?: false,
+            action?.optInt("count")?.coerceAtLeast(0) ?: 0, liked,
             json.positiveInt("bookmark_id") ?: bookmarked?.positiveInt("id")
                 ?: json.optJSONArray("bookmarks").objects().firstOrNull()?.positiveInt("id"),
-            json.positiveInt("reply_to_post_number"), action?.optBoolean("can_act", true) ?: true)
+            json.positiveInt("reply_to_post_number"), action?.optBoolean("can_act") ?: false,
+            reactions, current,
+            json.optInt("reaction_users_count", if (json.has("reactions")) reactions.sumOf { it.count } else action?.optInt("count") ?: 0).coerceAtLeast(0),
+            json.has("reactions") || json.has("current_user_reaction"), action?.optBoolean("can_undo") ?: false)
     }
 
     fun detail(json: JSONObject): TopicDetail {
         val stream = json.getJSONObject("post_stream")
         val ids = stream.optJSONArray("stream")
+        val posts = stream.optJSONArray("posts").objects().map(::post)
+        val original = posts.firstOrNull { it.number == 1 }
         return TopicDetail(json.getInt("id"), json.text("title"), json.optInt("category_id"),
-            stream.optJSONArray("posts").objects().map(::post),
-            if (ids == null) emptyList() else (0 until ids.length()).map { ids.getInt(it) }, json.optBoolean("closed"))
+            posts, if (ids == null) emptyList() else (0 until ids.length()).map { ids.getInt(it) }, json.optBoolean("closed"),
+            original?.author ?: json.optJSONObject("details")?.optJSONObject("created_by")?.let { member(it) },
+            json.text("created_at").ifBlank { original?.createdAt.orEmpty() },
+            json.optJSONArray("valid_reactions").strings().filter { it.matches(Regex("[a-zA-Z0-9_+:-]+")) }.distinct())
     }
 
     fun notices(json: JSONObject): List<Notice> = json.optJSONArray("notifications").objects().map { item ->

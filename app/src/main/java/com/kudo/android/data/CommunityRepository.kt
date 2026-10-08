@@ -55,9 +55,34 @@ class CommunityRepository(val client: DiscourseClient) {
         }
         return topics to (json.optJSONObject("grouped_search_result")?.optBoolean("more_full_page_results") ?: false)
     }
-    suspend fun like(post: Post) {
-        if (post.liked) client.write("DELETE", "/post_actions/${post.id}?post_action_type_id=2")
-        else client.write("POST", "/post_actions", mapOf("id" to post.id.toString(), "post_action_type_id" to "2"))
+    suspend fun like(post: Post): Post = react(post, post.activeReaction ?: "heart")
+
+    suspend fun react(post: Post, reaction: String): Post {
+        require(reaction.matches(Regex("[a-zA-Z0-9_+:-]+")))
+        if (!post.canReact) throw ApiFailure(FailureKind.FORBIDDEN,
+            if (post.activeReaction != null) "此回应已无法撤销或更换" else "暂时无法回应此帖子")
+        val result = if (post.reactionsAvailable) {
+            val url = client.baseUrl.newBuilder().addPathSegment("discourse-reactions").addPathSegment("posts")
+                .addPathSegment(post.id.toString()).addPathSegment("custom-reactions").addPathSegment(reaction)
+                .addPathSegment("toggle.json").build()
+            client.write("PUT", url.toString())
+        } else {
+            require(reaction == "heart")
+            if (post.liked) client.write("DELETE", "/post_actions/${post.id}?post_action_type_id=2")
+            else client.write("POST", "/post_actions", mapOf("id" to post.id.toString(), "post_action_type_id" to "2"))
+        }
+        val updated = if (result.optInt("id") == post.id && result.has("post_number")) DiscourseParser.post(result) else post(post.id)
+        if (updated.id != post.id) throw ApiFailure(FailureKind.SERVER, "回应状态需刷新确认")
+        return updated
+    }
+
+    suspend fun follow(member: Member): Boolean {
+        if (!member.canFollow && !member.isFollowed) throw ApiFailure(FailureKind.FORBIDDEN, "暂时无法关注此用户")
+        require(member.username.isNotBlank())
+        val url = client.baseUrl.newBuilder().addPathSegment("follow").addPathSegment("${member.username}.json").build()
+        val result = client.write(if (member.isFollowed) "DELETE" else "PUT", url.toString())
+        if (result.optString("success") != "OK") throw ApiFailure(FailureKind.SERVER, "关注状态需刷新确认")
+        return !member.isFollowed
     }
     suspend fun bookmark(post: Post): Int? {
         if (post.bookmarkId != null) { client.write("DELETE", "/bookmarks/${post.bookmarkId}.json"); return null }

@@ -20,6 +20,10 @@ Member 保留独立 animated_avatar、资质 flair_* 和状态。账号/用户�
 
 AvatarMetadataCache 合并 40ms 内的可见作者请求，每批最多 50 个 ID，使用 /user-cards.json?user_ids= 读取完整角标。只补齐无资质且状态未知的作者；ID 与用户名都匹配才应用结果。缓存最多 256 人、有效 60 秒，失败退避 15 秒，单次辅助请求最多 5 秒；失败不传播为页面错误。/emojis.json 目录在缓存生命周期内复用，支持官网自定义表情地址。缓存拥有独立可取消任务，账号切换时调用 close，旧请求不能进入新账号实例。
 
+详情作者优先使用第一楼完整资料，深链未加载第一楼时使用 details.created_by 与主题 created_at，不能把首个已加载回复当成楼主。valid_reactions 保留服务器允许的回应名称。Post 区分 reactions、reaction_users_count、current_user_reaction 和 can_undo；其他回应即使同步到了 actions_summary 的赞，也不能被显示或撤销成爱心。
+
+L 站回应使用 PUT /discourse-reactions/posts/{post_id}/custom-reactions/{reaction}/toggle.json，短按选择当前回应名称，没有回应才使用 heart；再次选择相同名称会撤销，换种类由服务器原子切换。计数和当前回应使用写接口返回的完整帖子，不自行累加。无插件数据时保留核心 post_actions 的爱心流程；写请求始终不自动重试。用户详情的 can_follow / is_followed 决定关注入口，通过 PUT /follow/{username}.json 关注、DELETE 同址取消，成功后更新本地状态。用户名和回应名均按单一路径段编码，客户端不拼接任意远端路径。
+
 AndroidSessionCookies 与官网 WebView 共用 CookieManager。CSRF 通过互斥刷新；失败的写请求不自动重发。401、验证页、权限拒绝、429、服务端错误和网络错误分型。图片仅向 HTTPS linux.do 附加 Cookie，跨站图片不携带账号凭据。备份禁用，设置和草稿在应用私有目录；退出清除账号草稿。
 
 Discourse 的 JSON 403 若携带 `error_type: not_logged_in`，按未登录处理，展示登录入口；其余 JSON 403 保持权限错误。不按中文错误文案猜测类型，避免翻译变化和权限不足被混淆。真机访客搜索会触发此边界。
@@ -34,9 +38,11 @@ Discourse 的 JSON 403 若携带 `error_type: not_logged_in`，按未登录处�
 
 [首页推送](../feature/2026-10-08-home-live-refresh.md)使用固定推送域名的独立无 Cookie 客户端；主站 HTML 引导仍复用本篇同源验证，只提取 shared_session_key，不放宽常规 API 的地址边界。
 
-接口错误可以在原生界面提供具体恢复入口。直接 HTTP 仍可能遇到 Cloudflare 指纹限制，网页验证成功不保证 OkHttp 在所有网络可用。复杂 JSON 插件数据不在首版模型内，正文保留网页入口。
+接口错误可以在原生界面提供具体恢复入口。直接 HTTP 仍可能遇到 Cloudflare 指纹限制，网页验证成功不保证 OkHttp 在所有网络可用。关注与回应采用已核实的站点插件契约，其他复杂插件正文保留网页入口。
 
 ## Verification
+
+2026-10-09 其他回应被误认为爱心及短按发错撤销请求的两项测试先失败，输出 artifacts/topic-reaction-repro.txt。修复后关注/回应契约 9 项、正文解析 10 项、头像模型 7 项全部通过，输出 topic-contract-fixed.txt。覆盖服务端计数、当前回应、不可撤销、合法路径段、失败不重试、关注成功确认、深链作者和首楼完整头像。线上字段、表情图片仅做只读核查，写操作使用 MockWebServer。
 
 集中测试覆盖同源地址限制、null 字段、作者关联、点赞与收藏、写请求不可自动重放以及 401 / 403 / 429。分类 301 的复现测试先失败，修复后验证规范地址、跨源拒绝、循环上限和写请求不重放。最新真机公开列表成功，详情可能要求网页验证；不以某一接口可用推断全部可用。
 
