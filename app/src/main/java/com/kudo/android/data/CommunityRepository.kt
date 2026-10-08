@@ -28,6 +28,14 @@ class CommunityRepository(val client: DiscourseClient) {
         val path = client.baseUrl.newBuilder().addPathSegment("u").addPathSegment("$username.json").build().toString()
         return DiscourseParser.member(client.get(path).getJSONObject("user"), avatarDetailsLoaded = true)
     }
+    suspend fun userCards(ids: List<Int>): List<Member> {
+        val users = ids.filter { it > 0 }.distinct()
+        if (users.isEmpty()) return emptyList()
+        require(users.size <= 50)
+        return client.get("/user-cards.json", mapOf("user_ids" to users.joinToString(",")))
+            .optJSONArray("users").objects().map { DiscourseParser.member(it, avatarDetailsLoaded = true) }
+    }
+    suspend fun emojiUrls(): Map<String, String> = DiscourseParser.emojiUrls(client.get("/emojis.json"))
     suspend fun detail(id: Int, number: Int? = null) = DiscourseParser.detail(client.get(if (number == null) "/t/$id.json" else "/t/$id/$number.json"))
     suspend fun posts(topicId: Int, ids: List<Int>): List<Post> {
         if (ids.isEmpty()) return emptyList()

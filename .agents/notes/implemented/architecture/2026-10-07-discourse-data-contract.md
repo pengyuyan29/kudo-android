@@ -18,6 +18,8 @@ data 包分开模型解析、DiscourseClient 和 CommunityRepository。分页使
 
 Member 保留独立 animated_avatar、资质 flair_* 和状态。账号/用户资料使用 status，帖子使用 user_status；完整响应中状态缺失与列表中状态未知分开表示，防止旧缓存恢复已清除的状态。帖子与搜索结果的作者使用 user_id，缺失时为 0，绝不把帖子 id 当作用户身份。新增字段只接受字符串，错误类型不转成图片地址；非法结束时间不转成永久状态。表情目录按分组解析 name / url，保留自定义上传地址。展示语义见[头像方案](../../proposed/feature/2026-10-08-avatar-presentation.md)。
 
+AvatarMetadataCache 合并 40ms 内的可见作者请求，每批最多 50 个 ID，使用 /user-cards.json?user_ids= 读取完整角标。只补齐无资质且状态未知的作者；ID 与用户名都匹配才应用结果。缓存最多 256 人、有效 60 秒，失败退避 15 秒，单次辅助请求最多 5 秒；失败不传播为页面错误。/emojis.json 目录在缓存生命周期内复用，支持官网自定义表情地址。缓存拥有独立可取消任务，账号切换时调用 close，旧请求不能进入新账号实例。
+
 AndroidSessionCookies 与官网 WebView 共用 CookieManager。CSRF 通过互斥刷新；失败的写请求不自动重发。401、验证页、权限拒绝、429、服务端错误和网络错误分型。图片仅向 HTTPS linux.do 附加 Cookie，跨站图片不携带账号凭据。备份禁用，设置和草稿在应用私有目录；退出清除账号草稿。
 
 Discourse 的 JSON 403 若携带 `error_type: not_logged_in`，按未登录处理，展示登录入口；其余 JSON 403 保持权限错误。不按中文错误文案猜测类型，避免翻译变化和权限不足被混淆。真机访客搜索会触发此边界。
@@ -39,3 +41,7 @@ Discourse 的 JSON 403 若携带 `error_type: not_logged_in`，按未登录处�
 集中测试覆盖同源地址限制、null 字段、作者关联、点赞与收藏、写请求不可自动重放以及 401 / 403 / 429。分类 301 的复现测试先失败，修复后验证规范地址、跨源拒绝、循环上限和写请求不重放。最新真机公开列表成功，详情可能要求网页验证；不以某一接口可用推断全部可用。
 
 AvatarModelTest 的帖子作者 ID 复现先失败（artifacts/avatar-model-repro.txt），随后覆盖真实用户 ID、缺失用户 ID、原动图、图标/图片资质、两种状态与到期边界、未知/空状态和自定义表情目录。
+
+AvatarMetadataCacheTest 验证 61 人分两批、重复作者合并、完整响应清空状态、LRU 上限与过期、失败退避、错身份拒绝、换号取消、表情单次读取和真实 Repository 请求格式。
+
+头像数据与缓存共 14 项定向测试通过，输出 artifacts/avatar-metadata-final.txt。失败退避用例曾复现 CompletableDeferred(null) 选中 parent 构造器导致无限等待，改为显式完成的空结果后通过；空结果也必须有确定完成状态。

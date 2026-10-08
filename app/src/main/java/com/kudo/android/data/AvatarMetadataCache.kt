@@ -1,0 +1,107 @@
+package com.kudo.android.data
+
+import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.Locale
+
+/** One account's short-lived, optional avatar metadata. The owning composition closes it. */
+class AvatarMetadataCache(
+    parentScope: CoroutineScope,
+    private val loadCards: suspend (List<Int>) -> List<Member>,
+    private val loadEmojis: suspend () -> Map<String, String>,
+    private val nowMillis: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val capacity: Int = 256,
+) : AutoCloseable {
+    private val job = SupervisorJob(parentScope.coroutineContext[Job])
+    private val scope = CoroutineScope(parentScope.coroutineContext + job)
+    private data class Key(val id: Int, val username: String)
+    private data class Cached(val member: Member?, val expires: Long)
+    private data class Emojis(val urls: Map<String, String>, val expires: Long)
+    private val lock = Mutex()
+    private val cache = LinkedHashMap<Key, Cached>(16, 0.75f, true)
+    private val pending = linkedMapOf<Key, CompletableDeferred<Member?>>()
+    private var worker: Job? = null
+    private var retryAfter = 0L
+    private val emojiLock = Mutex()
+    private var emojis: Emojis? = null
+    private var emojiRequest: Deferred<Emojis>? = null
+
+    init { require(capacity > 0) }
+
+    suspend fun resolve(member: Member): Member {
+        job.ensureActive()
+        if (member.avatarDetailsLoaded || member.flair != null || member.id <= 0 || member.username.isBlank()) return member
+        val key = key(member)
+        val result = lock.withLock {
+            val cached = cache[key]?.takeIf { it.expires > nowMillis() }
+            when {
+                cached != null -> CompletableDeferred(cached.member)
+                retryAfter > nowMillis() -> CompletableDeferred<Member?>().apply { complete(null) }
+                else -> pending.getOrPut(key) { CompletableDeferred(job) }.also {
+                    if (worker == null) worker = scope.launch { delay(40); drain() }
+                }
+            }
+        }.await()
+        job.ensureActive()
+        return result?.let {
+            member.copy(avatar = it.avatar.ifBlank { member.avatar }, animatedAvatar = it.animatedAvatar,
+                flair = it.flair, status = it.status, avatarDetailsLoaded = true)
+        } ?: member
+    }
+
+    private suspend fun drain() {
+        while (currentCoroutineContext().isActive) {
+            val keys = lock.withLock {
+                pending.keys.take(50).also { if (it.isEmpty()) worker = null }
+            }
+            if (keys.isEmpty()) return
+            val result = if (retryAfter > nowMillis()) null else optionalRequest { loadCards(keys.map { it.id }.distinct()) }
+            val members = result?.associateBy(::key).orEmpty()
+            lock.withLock {
+                job.ensureActive()
+                val now = nowMillis()
+                if (result == null) retryAfter = now + RETRY_MILLIS
+                for (key in keys) {
+                    val member = members[key]
+                    cache[key] = Cached(member, now + if (result == null) RETRY_MILLIS else CACHE_MILLIS)
+                    pending.remove(key)?.complete(member)
+                }
+                while (cache.size > capacity) cache.remove(cache.keys.first())
+            }
+        }
+    }
+
+    suspend fun emojiUrl(name: String): String? {
+        if (name.isBlank()) return null
+        job.ensureActive()
+        val request = emojiLock.withLock {
+            val cached = emojis?.takeIf { it.expires > nowMillis() }
+            if (cached != null) CompletableDeferred(cached)
+            else emojiRequest ?: scope.async(start = CoroutineStart.LAZY) {
+                val result = optionalRequest { loadEmojis() }
+                val entry = Emojis(result.orEmpty(), if (result == null) nowMillis() + RETRY_MILLIS else Long.MAX_VALUE)
+                emojiLock.withLock { emojis = entry; emojiRequest = null }
+                entry
+            }.also { emojiRequest = it; it.start() }
+        }
+        val urls = request.await().urls
+        job.ensureActive()
+        return urls[name] ?: standardEmojiUrl(name)
+    }
+
+    override fun close() { job.cancel() }
+
+    private suspend fun <T> optionalRequest(block: suspend () -> T): T? = try {
+        withTimeoutOrNull(5000) { block() }
+    } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+
+    private fun key(member: Member) = Key(member.id, member.username.lowercase(Locale.ROOT))
+
+    companion object {
+        private const val CACHE_MILLIS = 60_000L
+        private const val RETRY_MILLIS = 15_000L
+        fun standardEmojiUrl(name: String): String? = name.takeIf { it.matches(Regex("[A-Za-z0-9_+\\-]+(?::t[2-6])?")) }
+            ?.let { "/images/emoji/twemoji/${it.replace(":t", "/")}.png?v=15" }
+    }
+}
