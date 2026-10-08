@@ -17,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.em
 import coil3.compose.AsyncImage
 import com.kudo.android.data.AvatarMetadataCache
@@ -167,15 +169,18 @@ internal fun SiteEmoji(name: String, modifier: Modifier = Modifier, source: Stri
 }
 
 @Composable
-fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Unit, galleryKey: String = "article") {
+fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Unit,
+                galleryKey: String = "article", galleryBottomInset: Dp = 0.dp) {
     val blocks = remember(html) { parseArticle(html) }
     val images = remember(blocks) { blocks.filterIsInstance<ArticleBlock.Image>() }
     val anchors = remember(blocks) { List(images.size) { GalleryThumbnailAnchor() } }
     val gallery = LocalImageGallery.current
     val origin = rememberSaveable { UUID.randomUUID().toString() }
+    val bottomInset = with(LocalDensity.current) { galleryBottomInset.toPx() }
     RegisterGalleryOrigin(origin) { image, index ->
         anchors.getOrNull(index)?.takeIf { images.getOrNull(index)?.let { sameGalleryImage(it, image) } == true }?.also {
-            it.requester.bringIntoView()
+            val size = it.coordinates?.takeIf { layout -> layout.isAttached }?.size
+            it.requester.bringIntoView(size?.let { bounds -> Rect(0f, 0f, bounds.width.toFloat(), bounds.height + bottomInset) })
             withFrameNanos { }
         }
     }

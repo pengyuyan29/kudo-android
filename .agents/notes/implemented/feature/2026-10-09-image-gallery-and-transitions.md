@@ -12,7 +12,7 @@ Status: implemented
 
 查看器放在同一窗口的根覆盖层，保留原页面组合、滚动位置和图片定位信息；不把整组图片编码进导航 URL。覆盖层隔离背景焦点与可访问语义。关闭先固定当前索引再调用来源定位，期间的翻页和重复关闭不改变目标；来源失效不阻塞关闭。会话保存地址、索引和元信息，不保存 LayoutCoordinates、Painter 或回调；来源以 rememberSaveable 的实例 ID 在重建后重新注册。切换账号重置会话。
 
-相册使用 Compose HorizontalPager 与现有 Coil 加载器。列表请求完成只更新仍活跃、未关闭的同一会话；匹配已显示的原图或 Discourse 上传缩略图，并保留原顺序及重复项。独立封面不在正文中时保留封面作为额外首张。[全屏手势与过渡](../../proposed/feature/2026-10-09-image-viewer-motion.md)负责图片变换、沉浸窗口和具体动画。
+相册使用 Compose HorizontalPager 与现有 Coil 加载器。列表请求完成只更新仍活跃、未关闭的同一会话；匹配已显示的原图或 Discourse 上传缩略图，并保留原顺序及重复项。独立封面不在正文中时保留封面作为额外首张。[全屏手势](2026-10-09-image-viewer-motion.md)负责图片变换与沉浸窗口。
 
 ## Existing note audit
 

@@ -141,12 +141,13 @@ internal class ImageGalleryState {
         } finally { target.loading = false }
     }
 
-    suspend fun dismiss(index: Int? = null, animate: suspend (GalleryThumbnailAnchor?) -> Unit = {}) {
+    suspend fun dismiss(index: Int? = null, prepare: suspend () -> Unit = {}, animate: suspend (GalleryThumbnailAnchor?) -> Unit = {}) {
         val target = session ?: return
         if (target.closing) return
         index?.let(target::select)
         target.closing = true
         try {
+            prepare()
             val anchor = try {
                 withTimeoutOrNull(1_200) { origins[target.origin]?.reveal(target.current, target.index) }
             } catch (cancelled: CancellationException) {
