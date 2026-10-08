@@ -68,6 +68,10 @@ Status: implemented
 
 ## Verification
 
+2026-10-09 最终交付：刷新入口改用水平翻转的 Material ReplayCircleFilled，呈圆底镂空顺时针回转箭头；浅色与深色130%截图 `artifacts/navigation-refresh-final.png` 已人工查看，沿用原点击、颜色和隐藏采样。57项JVM测试、Debug / 测试APK与Lint通过，0 errors / 28 warnings，日志 `navigation-final-build.txt`；最终21项导航与首页刷新真机测试通过，51.294秒，日志 `navigation-final-ui.txt`。
+
+材质验收独立于测试结果：真实首页静止图 `navigation-final-real-rest.png`、分类与发布处的拖动截图、对照图 `navigation-final-real-comparison.png` 及12.14秒录屏 `navigation-final-real-motion.mp4` 已核对。录屏抽帧 `navigation-final-motion-frames.png` 显示上下内凹弧带、两端完整轮廓、发布按钮前景折射、双高亮和松手恢复；背景不同于官方壁纸，固定背景的前后像素对照另见 `navigation-rims-comparison.png`。录屏仅用于材质和动作，不提供帧率结论。保留数据覆盖安装后，构建、分发 `artifacts/kudo-navigation-fixed.apk` 与设备APK的SHA256均为 `11e0f68a4e6952c85ee9c9345dfd4f17cc9a3dad1101c623354444185857c947`，记录 `navigation-final-apk-verification.json`。
+
 2026-10-09 内凹折射复核：固定青蓝背景下旧实现的上缘对比仅0.188，且上下最暗采样红分量分别0.380 / 0.416，均未接近底栏外背景0.082，日志 `artifacts/navigation-rims-repro.txt`。同比修正后上下对比分别0.573 / 0.565，最暗采样0.067 / 0.075，两侧都能折回外部背景；`navigation-rims-comparison.png` 已人工检查，旧边沿的标签碎片被清楚的上下内凹弧带替代。像素回归仅在API33及以上要求完整折射，同时检查弧带对比与外部背景取样，避免标签碎片让单纯对比度检查误过。
 
 正常动画的18项导航回归通过，44.799秒，日志 `navigation-rims-normal.txt`；关闭系统动画后18项通过，39.871秒，日志 `navigation-rims-reduced.txt`，结束三项缩放均恢复1。首次18项回归暴露旧几何测试的虚拟/墙钟不一致，单独修正并记录于[客户端验证](../testing/2026-10-07-client-verification.md)，不放宽凸出范围。此前不同背景录屏的“弧面折射一致”描述只覆盖一般边缘扭曲和整体运动，未单独验证内凹弧带；本次固定背景复现纠正这一验收缺口。
