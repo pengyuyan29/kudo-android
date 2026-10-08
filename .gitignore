@@ -6,6 +6,11 @@ local.properties
 *.iml
 *.jks
 *.keystore
+*.p12
+*.pfx
+/signing/
+/signing.properties
+__pycache__/
 node_modules/
 captures/
 artifacts/

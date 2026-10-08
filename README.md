@@ -36,12 +36,38 @@ adb -s <真机序列号> install -r app/build/outputs/apk/debug/app-debug.apk
 adb -s <真机序列号> shell am start -n com.kudo.android/.MainActivity
 ```
 
-输出：`app/build/outputs/apk/debug/app-debug.apk`（0.1.0，约 25 MiB）。这是 Debug 签名的开发包；正式发布需配置自己的签名，不提交 keystore。
+输出：`app/build/outputs/apk/debug/app-debug.apk`。没有私有签名配置时，源码克隆使用 Android 默认 Debug 证书。
+
+### 本地签名
+
+首次初始化固定签名（需要 Python 3.10+ 和 JDK 的 `keytool`）：
+
+```powershell
+python scripts/generate_signing.py
+.\gradlew.bat :app:assembleDebug :app:assembleRelease
+```
+
+生成器创建独立的 RSA 4096 / PKCS12 Debug、Release 证书，有效期 10000 天；已有 `signing/` 或 `signing.properties` 时拒绝覆盖。Gradle 自动读取根目录的私有 `signing.properties`，分别输出 `app/build/outputs/apk/debug/app-debug.apk` 和 `app/build/outputs/apk/release/app-release.apk`。Release 开启 R8，缺少完整签名时构建失败。
+
+请把 **`signing/` 与 `signing.properties` 一起私密备份**。其中 `kudo-debug.p12` / `kudo-release.p12` 是密钥库，`.pem` 是公开证书，`certificates.json` 记录 SHA256 指纹。密码只保存在本机配置中；这些文件均被 Git 忽略。正式签名丢失后无法继续覆盖更新相同签名的已安装应用。
+
+已有密钥可参考 [signing.properties.example](signing.properties.example) 填写；路径相对仓库根目录，也可使用绝对路径。`-PsigningPropertiesFile=<路径>` 可切换配置文件。环境变量优先于配置文件，Debug / Release 分别支持以下同名后缀：
+
+| 配置项 | Debug 环境变量 | Release 环境变量 |
+| --- | --- | --- |
+| 密钥库路径 | `DEBUG_KEYSTORE_PATH` | `RELEASE_KEYSTORE_PATH` |
+| 密钥库密码 | `DEBUG_STORE_PASSWORD` | `RELEASE_STORE_PASSWORD` |
+| 别名 | `DEBUG_KEY_ALIAS` | `RELEASE_KEY_ALIAS` |
+| 私钥密码 | `DEBUG_KEY_PASSWORD` | `RELEASE_KEY_PASSWORD` |
+| 格式（默认 PKCS12） | `DEBUG_KEYSTORE_TYPE` | `RELEASE_KEYSTORE_TYPE` |
+
+Debug 与 Release 保持相同包名、使用不同签名，不能互相覆盖安装。新生成的 Debug 证书也与此前机器默认签名不同；需要保留手机数据时，请继续使用原签名构建，不要直接卸载旧应用。
 
 ## 验证
 
 ```powershell
 npm run verify-notes
+python -m unittest discover -s scripts/tests -v
 .\gradlew.bat :app:testDebugUnitTest :app:lintDebug :app:assembleDebugAndroidTest
 adb -s <真机序列号> install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 # 使用 Android CLI 检查过布局时，先停止它的辅助测试进程，避免 UiAutomation 冲突。

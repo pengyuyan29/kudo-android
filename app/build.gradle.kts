@@ -1,7 +1,48 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+val signingProperties = Properties().apply {
+    val path = providers.gradleProperty("signingPropertiesFile").orElse("signing.properties").get()
+    val configuration = rootProject.file(path)
+    if (configuration.isFile) {
+        configuration.inputStream().use { load(it) }
+    } else if (providers.gradleProperty("signingPropertiesFile").isPresent) {
+        throw GradleException("The specified signingPropertiesFile does not exist.")
+    }
+}
+
+fun signingOptions(variant: String): Map<String, String> = mapOf(
+    "storeFile" to "KEYSTORE_PATH",
+    "storePassword" to "STORE_PASSWORD",
+    "keyAlias" to "KEY_ALIAS",
+    "keyPassword" to "KEY_PASSWORD",
+    "storeType" to "KEYSTORE_TYPE",
+).mapNotNull { (property, environment) ->
+    val value = providers.environmentVariable("${variant.uppercase()}_$environment").orNull
+        ?: signingProperties.getProperty("$variant.$property")
+    value?.takeIf { it.isNotBlank() }?.let { property to it }
+}.toMap()
+
+val requiredSigningOptions = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+val debugSigning = signingOptions("debug")
+val releaseSigning = signingOptions("release")
+
+fun validateSigning(variant: String, options: Map<String, String>) {
+    val missing = requiredSigningOptions.filter { it !in options }
+    if (missing.isNotEmpty()) {
+        throw GradleException(
+            "$variant signing is incomplete: ${missing.joinToString()}. " +
+                "Configure signing.properties or the ${variant.uppercase()}_* environment variables.",
+        )
+    }
+    if (!rootProject.file(options.getValue("storeFile")).isFile) {
+        throw GradleException("$variant keystore does not exist. Check the signing storeFile configuration.")
+    }
 }
 
 android {
@@ -15,8 +56,28 @@ android {
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+    signingConfigs {
+        if (debugSigning.isNotEmpty()) {
+            validateSigning("Debug", debugSigning)
+            getByName("debug") {
+                storeFile = rootProject.file(debugSigning.getValue("storeFile"))
+                storePassword = debugSigning.getValue("storePassword")
+                keyAlias = debugSigning.getValue("keyAlias")
+                keyPassword = debugSigning.getValue("keyPassword")
+                storeType = debugSigning["storeType"] ?: "PKCS12"
+            }
+        }
+        create("release") {
+            storeFile = releaseSigning["storeFile"]?.let { rootProject.file(it) }
+            storePassword = releaseSigning["storePassword"]
+            keyAlias = releaseSigning["keyAlias"]
+            keyPassword = releaseSigning["keyPassword"]
+            storeType = releaseSigning["storeType"] ?: "PKCS12"
+        }
+    }
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
@@ -28,6 +89,16 @@ android {
     buildFeatures { compose = true; buildConfig = true }
     testOptions { unitTests.isReturnDefaultValues = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+}
+
+val validateReleaseSigning by tasks.registering {
+    group = "verification"
+    description = "Rejects Release builds without a complete, private signing configuration."
+    doLast { validateSigning("Release", releaseSigning) }
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(validateReleaseSigning)
 }
 
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
