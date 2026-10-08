@@ -11,6 +11,7 @@
 | [OkHttp](https://github.com/square/okhttp) / [Okio](https://github.com/square/okio) | Apache-2.0 | HTTP 与 I/O |
 | [Coil](https://github.com/coil-kt/coil) | Apache-2.0 | 图片加载 |
 | [Jsoup](https://jsoup.org/) | [MIT](https://jsoup.org/license) | HTML 内容解析 |
+| [Font Awesome Free 6.7.2](https://github.com/FortAwesome/Font-Awesome/tree/6.7.2) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)（图标） | 与 Linux.do 官网一致的23种分类图标 |
 | [JUnit 4](https://junit.org/junit4/) | [EPL-1.0](https://www.eclipse.org/legal/epl-v10.html) | 测试，不进入正式应用运行代码 |
 
 接口行为研究参考 [FluxDO](https://github.com/Lingyan000/fluxdo)（GPL-3.0），没有复制其 Flutter 实现。酷安 16.6.4 仅作为界面比例和交互研究参考，没有复制其图标、图片或反编译实现。应用图标使用本项目绘制的黄色 K 标记。
@@ -20,3 +21,5 @@
 设置页的 LiquidModal 材质另外改编自同一版本 `destinations/DialogContent.kt`，保留色彩控制、模糊、深度折射与Plain高光；增加同窗口模态关闭、焦点和背景可访问隔离、底部ActionSheet、主题与兼容材质、安全区及内容滚动。来源与修改说明保留在文件头，使用上述完整Apache-2.0许可。
 
 依赖的确切版本见 `app/build.gradle.kts`；传递依赖可用 `gradlew.bat :app:dependencies --configuration debugRuntimeClasspath` 查询。正式分发时应连同各依赖要求的 LICENSE / NOTICE 保留完整许可文本。
+
+分类图标版权归 Fonticons, Inc.（2024）所有。选取 Font Awesome Free 6.7.2 的23个 SVG，逐一核对与 Linux.do 分类 sprite 的路径及 viewBox 一致，再转换为 Compose ImageVector；原始路径不变，尺寸按比例适配，颜色使用分类配置。实现位于 `ui/components/CategoryIcons.kt`，署名及[完整 CC BY 4.0 许可](app/src/main/assets/licenses/fontawesome-icons-LICENSE.txt)随 APK 分发。

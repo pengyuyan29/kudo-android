@@ -9,7 +9,7 @@ import java.time.temporal.ChronoUnit
 data class Member(val id: Int, val username: String, val name: String, val avatar: String, val bio: String = "", val trustLevel: Int = 0, val unifiedNew: Boolean = false) {
     val displayName get() = name.ifBlank { username }
 }
-data class Category(val id: Int, val name: String, val slug: String, val color: String, val description: String, val count: Int)
+data class Category(val id: Int, val name: String, val slug: String, val color: String, val description: String, val count: Int, val icon: String = "")
 data class Topic(
     val id: Int, val title: String, val excerpt: String, val author: Member?, val categoryId: Int,
     val tags: List<String>, val replies: Int, val views: Int, val likes: Int, val image: String,
@@ -59,7 +59,8 @@ object DiscourseParser {
     fun categories(json: JSONObject): List<Category> =
         (json.optJSONArray("categories") ?: json.optJSONObject("category_list")?.optJSONArray("categories")).objects().map {
             Category(it.getInt("id"), it.text("name"), it.text("slug"), it.text("color"),
-                plainText(it.text("description_text").ifBlank { it.text("description") }), it.optInt("topic_count"))
+                plainText(it.text("description_text").ifBlank { it.text("description") }), it.optInt("topic_count"),
+                (it.opt("icon") as? String).orEmpty().trim())
         }
 
     fun topicPage(json: JSONObject): TopicPage {
