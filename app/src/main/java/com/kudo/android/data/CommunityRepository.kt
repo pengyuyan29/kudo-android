@@ -23,10 +23,10 @@ class CommunityRepository(val client: DiscourseClient) {
         }
     }
     suspend fun categories() = DiscourseParser.categories(client.get("/site.json"))
-    suspend fun currentUser(): Member? = client.get("/session/current.json").optJSONObject("current_user")?.let(DiscourseParser::member)
+    suspend fun currentUser(): Member? = client.get("/session/current.json").optJSONObject("current_user")?.let { DiscourseParser.member(it, avatarDetailsLoaded = true) }
     suspend fun user(username: String): Member {
         val path = client.baseUrl.newBuilder().addPathSegment("u").addPathSegment("$username.json").build().toString()
-        return DiscourseParser.member(client.get(path).getJSONObject("user"))
+        return DiscourseParser.member(client.get(path).getJSONObject("user"), avatarDetailsLoaded = true)
     }
     suspend fun detail(id: Int, number: Int? = null) = DiscourseParser.detail(client.get(if (number == null) "/t/$id.json" else "/t/$id/$number.json"))
     suspend fun posts(topicId: Int, ids: List<Int>): List<Post> {
@@ -41,7 +41,7 @@ class CommunityRepository(val client: DiscourseClient) {
         val topics = json.optJSONArray("topics").objects().map { item ->
             val post = posts[item.optInt("id")]
             Topic(item.getInt("id"), item.text("title"), plainText(post?.text("blurb").orEmpty()),
-                post?.let(DiscourseParser::member), item.optInt("category_id"), item.optJSONArray("tags").tagNames(),
+                post?.let { DiscourseParser.member(it, fromPost = true) }, item.optInt("category_id"), item.optJSONArray("tags").tagNames(),
                 (item.optInt("posts_count", 1) - 1).coerceAtLeast(0), item.optInt("views"), item.optInt("like_count"),
                 item.text("image_url"), item.text("last_posted_at"))
         }

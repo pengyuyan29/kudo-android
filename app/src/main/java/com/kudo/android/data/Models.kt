@@ -6,8 +6,19 @@ import org.jsoup.Jsoup
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
-data class Member(val id: Int, val username: String, val name: String, val avatar: String, val bio: String = "", val trustLevel: Int = 0, val unifiedNew: Boolean = false) {
+data class Member(
+    val id: Int, val username: String, val name: String, val avatar: String,
+    val bio: String = "", val trustLevel: Int = 0, val unifiedNew: Boolean = false,
+    val animatedAvatar: String = "", val flair: AvatarFlair? = null, val status: UserStatus? = null,
+    val avatarDetailsLoaded: Boolean = false,
+) {
     val displayName get() = name.ifBlank { username }
+    val isSiteOwner get() = username.equals("neo", ignoreCase = true)
+}
+
+data class AvatarFlair(val name: String, val source: String, val background: String = "", val foreground: String = "")
+data class UserStatus(val emoji: String, val description: String, val endsAt: Instant? = null) {
+    fun isActive(now: Instant = Instant.now()): Boolean = endsAt?.isAfter(now) != false
 }
 data class Category(val id: Int, val name: String, val slug: String, val color: String, val description: String, val count: Int, val icon: String = "")
 data class Topic(
@@ -47,14 +58,38 @@ internal fun JSONArray?.tagNames(): List<String> = if (this == null) emptyList()
     }?.takeIf(String::isNotBlank)
 }.distinct()
 internal fun JSONObject.text(key: String): String = if (isNull(key)) "" else optString(key, "")
+internal fun JSONObject.stringField(key: String): String = (opt(key) as? String).orEmpty().trim()
 internal fun JSONObject.positiveInt(key: String): Int? = optInt(key).takeIf { it > 0 }
 fun plainText(html: String): String = Jsoup.parseBodyFragment(html).text()
 
 object DiscourseParser {
-    fun member(json: JSONObject): Member = Member(
-        json.optInt("id"), json.text("username"), json.text("name"), json.text("avatar_template"),
+    fun member(json: JSONObject, fromPost: Boolean = false, avatarDetailsLoaded: Boolean = false): Member = Member(
+        json.optInt(if (fromPost) "user_id" else "id"), json.text("username"), json.text("name"), json.text("avatar_template"),
         plainText(json.text("bio_cooked")), json.optInt("trust_level"), json.optBoolean("unified_new_enabled"),
+        json.stringField("animated_avatar"),
+        json.stringField("flair_url").takeIf(String::isNotEmpty)?.let {
+            AvatarFlair(json.stringField("flair_name"), it, json.stringField("flair_bg_color"), json.stringField("flair_color"))
+        },
+        userStatus(json.optJSONObject("status") ?: json.optJSONObject("user_status")),
+        avatarDetailsLoaded || json.has("status") || json.has("user_status"),
     )
+
+    private fun userStatus(json: JSONObject?): UserStatus? {
+        json ?: return null
+        val emoji = json.stringField("emoji").takeIf(String::isNotEmpty) ?: return null
+        if (!json.isNull("ends_at") && json.opt("ends_at") !is String) return null
+        val end = json.stringField("ends_at")
+        val endsAt = if (end.isEmpty()) null else { runCatching { Instant.parse(end) }.getOrNull() ?: return null }
+        return UserStatus(emoji, json.stringField("description"), endsAt)
+    }
+
+    fun emojiUrls(json: JSONObject): Map<String, String> = json.keys().asSequence()
+        .flatMap { json.optJSONArray(it).objects().asSequence() }
+        .mapNotNull { emoji ->
+            val name = emoji.stringField("name")
+            val url = emoji.stringField("url")
+            if (name.isEmpty() || url.isEmpty()) null else name to url
+        }.toMap()
 
     fun categories(json: JSONObject): List<Category> =
         (json.optJSONArray("categories") ?: json.optJSONObject("category_list")?.optJSONArray("categories")).objects().map {
@@ -64,7 +99,7 @@ object DiscourseParser {
         }
 
     fun topicPage(json: JSONObject): TopicPage {
-        val users = json.optJSONArray("users").objects().map(::member).associateBy { it.id }
+        val users = json.optJSONArray("users").objects().map { member(it) }.associateBy { it.id }
         val list = json.optJSONObject("topic_list") ?: error("服务器未返回话题列表")
         val topics = list.optJSONArray("topics").objects().map { item ->
             val posters = item.optJSONArray("posters").objects()
@@ -81,7 +116,7 @@ object DiscourseParser {
     fun post(json: JSONObject): Post {
         val action = json.optJSONArray("actions_summary").objects().firstOrNull { it.optInt("id") == 2 }
         val bookmarked = json.optJSONObject("bookmarks")
-        return Post(json.getInt("id"), json.optInt("post_number"), member(json), json.text("cooked"), json.text("created_at"),
+        return Post(json.getInt("id"), json.optInt("post_number"), member(json, fromPost = true, avatarDetailsLoaded = true), json.text("cooked"), json.text("created_at"),
             action?.optInt("count") ?: 0, action?.optBoolean("acted") ?: false,
             json.positiveInt("bookmark_id") ?: bookmarked?.positiveInt("id")
                 ?: json.optJSONArray("bookmarks").objects().firstOrNull()?.positiveInt("id"),
