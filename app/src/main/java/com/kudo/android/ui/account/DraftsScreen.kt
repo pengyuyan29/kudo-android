@@ -64,7 +64,8 @@ internal fun DraftsScreen(user: Member, repository: CommunityRepository, setting
                 scope.launch {
                     loading = true; error = null
                     try {
-                        if (saved.remote) withContext(Dispatchers.IO) { repository.deleteCloudDraft(saved) } else settings.clearDraft(saved.key)
+                        if (saved.backupKey != null) settings.clearDraft(saved.backupKey)
+                        else if (saved.remote) withContext(Dispatchers.IO) { repository.deleteCloudDraft(saved) } else settings.clearDraft(saved.key)
                         sheet.targetState = false; deleting = null; load(false)
                     } catch (e: CancellationException) { throw e } catch (e: Exception) { error = e }
                     finally { loading = false }

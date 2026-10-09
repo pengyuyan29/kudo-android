@@ -6,7 +6,7 @@ import org.json.JSONObject
 
 data class SavedDraft(val key: String, val draft: Draft, val topicId: Int?, val replyTo: Int?,
     val remote: Boolean, val sequence: Int = 0, val source: String = "{}", val time: String = "",
-    val privateMessage: Boolean = false) {
+    val privateMessage: Boolean = false, val backupKey: String? = null) {
     val title get() = draft.title.ifBlank { topicId?.let { "话题 #$it 的回复" } ?: if (privateMessage) "未命名私信" else "未命名草稿" }
 }
 
@@ -25,7 +25,7 @@ internal fun localAccountDrafts(values: Map<String, *>, userId: Int): List<Saved
         val prefix = rawKey.removeSuffix("_raw")
         val draft = Draft(values["${prefix}_title"] as? String ?: "", values[rawKey] as? String ?: "", values["${prefix}_category"] as? Int ?: 0)
         if (draft.raw.isBlank() && draft.title.isBlank()) null else SavedDraft(remoteKey, draft,
-            remoteKey.removePrefix("topic_").toIntOrNull(), null, true, privateMessage = remoteKey.startsWith("new_private_message"))
+            remoteKey.removePrefix("topic_").toIntOrNull(), null, true, privateMessage = remoteKey.startsWith("new_private_message"), backupKey = "${userId}_cloud_$remoteKey")
     }
     return drafts + backups
 }
