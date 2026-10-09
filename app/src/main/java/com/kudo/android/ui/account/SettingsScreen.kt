@@ -59,6 +59,11 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                         SettingRow("界面材质效果", settings.glass.label, !showing) { show("glass") }
                         SettingRow("字体大小", if (settings.fontScale == 1f) "跟随系统" else "${(settings.fontScale * 100).toInt()}%", !showing) { show("font") }
                         SettingRow("主题列表样式", settings.topicListStyle.label, !showing) { show("list") }
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("显示用户签名", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                            Switch(settings.showSignatures, { update(settings.copy(showSignatures = it)) }, enabled = !showing,
+                                modifier = Modifier.testTag("show-signatures"))
+                        }
                     }
                 }
                 item { Text(if (Build.VERSION.SDK_INT >= 33) "液态玻璃会随背景内容呈现模糊、折射和高光。可切换半透明以减少视觉效果。" else "此系统使用兼容材质显示；完整液态玻璃需要 Android 13 或更高版本。", Modifier.padding(horizontal = 9.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }

@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
@@ -31,9 +32,14 @@ fun UserScreen(username: String, repository: CommunityRepository, back: () -> Un
             if (user == null && error == null) LoadingRow()
             error?.let { ErrorState(it, { attempt++ }, login) }
             user?.let {
+                UserBackground(it.profileBackground, MaterialTheme.colorScheme.background,
+                    Modifier.fillMaxWidth()) { hasBackground ->
+                Column(Modifier.fillMaxWidth().padding(vertical = 30.dp, horizontal = 12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(15.dp)) {
                 Avatar(it, 84.dp)
-                Text(it.displayName, style = MaterialTheme.typography.headlineSmall)
-                Text("@${it.username}  ·  Lv.${it.trustLevel}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                Text(it.displayName, style = MaterialTheme.typography.headlineSmall, color = if (hasBackground) Color.White else MaterialTheme.colorScheme.onSurface)
+                Text("@${it.username}  ·  Lv.${it.trustLevel}", color = if (hasBackground) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+                }
+                }
                 if (it.bio.isNotBlank()) Text(it.bio, Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(18.dp), style = MaterialTheme.typography.bodyLarge)
                 OutlinedButton(onClick = { openLink("https://linux.do/u/${android.net.Uri.encode(username)}") }) { Text("在社区查看完整资料") }
             }

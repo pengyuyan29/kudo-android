@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -21,6 +22,7 @@ import com.kudo.android.data.ThemeMode
 
 val LogoYellow = Color(0xFFFFB003)
 val Ink = Color(0xFF202124)
+val LocalDisplaySettings = staticCompositionLocalOf { DisplaySettings() }
 private val Light = lightColorScheme(
     primary = Color(0xFF805600), onPrimary = Color.White, primaryContainer = LogoYellow, onPrimaryContainer = Ink,
     secondary = Color(0xFF6C6556), background = Color(0xFFF4F4F7), onBackground = Ink,
@@ -57,7 +59,7 @@ fun KudoTheme(settings: DisplaySettings, content: @Composable () -> Unit) {
         }
     }
     val density = LocalDensity.current
-    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale * settings.fontScale)) {
+    CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale * settings.fontScale), LocalDisplaySettings provides settings) {
         MaterialTheme(colorScheme = if (dark) Dark else Light, typography = KudoTypography) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
                 content()

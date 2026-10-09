@@ -24,6 +24,7 @@ internal fun AvatarImage(
     modifier: Modifier = Modifier,
     fallbackUrl: String? = null,
     contentScale: ContentScale = ContentScale.Crop,
+    onLoaded: (Boolean) -> Unit = {},
     placeholder: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -41,6 +42,7 @@ internal fun AvatarImage(
         if (request != null) AsyncImage(request, null, Modifier.fillMaxSize(), contentScale = contentScale,
             onSuccess = {
                 loaded = true
+                onLoaded(true)
                 val current = it.result.image.asDrawable(resources) as? Animatable
                 animation = current
                 // Loading can finish after the lifecycle has already paused its recomposer.
@@ -48,6 +50,7 @@ internal fun AvatarImage(
             },
             onError = {
                 loaded = false
+                onLoaded(false)
                 if (!primaryFailed && fallbackUrl != null && fallbackUrl != source) primaryFailed = true
             })
     }

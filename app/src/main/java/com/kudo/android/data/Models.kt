@@ -13,6 +13,7 @@ data class Member(
     val avatarDetailsLoaded: Boolean = false,
     val canFollow: Boolean = false, val isFollowed: Boolean = false,
     val canIgnoreUsers: Boolean = false, val ignoredUsers: Set<String> = emptySet(),
+    val profileBackground: String = "", val cardBackground: String = "",
 ) {
     val displayName get() = name.ifBlank { username }
     val isSiteOwner get() = username.equals("neo", ignoreCase = true)
@@ -50,6 +51,7 @@ data class Post(
     val reactionCount: Int = likes, val reactionsAvailable: Boolean = false, val canUndoLike: Boolean = true,
     val updatedAt: String = createdAt, val version: Int = 1,
     val canViewEditHistory: Boolean = false, val availableFlags: Set<Int> = emptySet(),
+    val signature: String = "",
 ) {
     val activeReaction: String? get() = currentReaction?.id ?: "heart".takeIf { liked }
     val canReact: Boolean get() = if (activeReaction != null) currentReaction?.canUndo ?: canUndoLike else canLike
@@ -100,6 +102,7 @@ object DiscourseParser {
         avatarDetailsLoaded || json.has("status") || json.has("user_status"),
         json.optBoolean("can_follow"), json.optBoolean("is_followed"),
         json.optBoolean("can_ignore_users"), (json.optJSONArray("ignored_users") ?: json.optJSONArray("ignored_usernames")).strings().toSet(),
+        json.stringField("profile_background_upload_url"), json.stringField("card_background_upload_url"),
     )
 
     private fun userStatus(json: JSONObject?): UserStatus? {
@@ -162,7 +165,8 @@ object DiscourseParser {
             json.has("reactions") || json.has("current_user_reaction"), action?.optBoolean("can_undo") ?: false,
             updatedAt = json.stringField("updated_at").ifBlank { json.text("created_at") }, version = json.positiveInt("version") ?: 1,
             canViewEditHistory = json.optBoolean("can_view_edit_history"),
-            availableFlags = json.optJSONArray("actions_summary").objects().filter { it.optBoolean("can_act") && it.optInt("id") != 2 }.mapNotNull { it.positiveInt("id") }.toSet())
+            availableFlags = json.optJSONArray("actions_summary").objects().filter { it.optBoolean("can_act") && it.optInt("id") != 2 }.mapNotNull { it.positiveInt("id") }.toSet(),
+            signature = json.stringField("user_signature"))
     }
 
     fun detail(json: JSONObject): TopicDetail {

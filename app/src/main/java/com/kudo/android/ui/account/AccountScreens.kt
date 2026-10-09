@@ -9,7 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,6 +22,9 @@ import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
 import com.kudo.android.ui.theme.Ink
 import com.kudo.android.ui.theme.LogoYellow
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @Composable
 fun RootHeading(title: String, action: @Composable RowScope.() -> Unit = {}) {
@@ -53,21 +56,32 @@ fun CategoriesScreen(categories: List<Category>, loading: Boolean, error: Throwa
 }
 
 @Composable
-fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookmarks: () -> Unit, profile: () -> Unit) {
+fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookmarks: () -> Unit, profile: () -> Unit, repository: CommunityRepository? = null) {
+    var decoration by remember(user?.id, user?.username) { mutableStateOf<Member?>(null) }
+    LaunchedEffect(user?.id, user?.username, repository) {
+        if (user != null && repository != null) try {
+            decoration = withContext(Dispatchers.IO) { repository.user(user.username) }
+                .takeIf { it.id == user.id && it.username.equals(user.username, ignoreCase = true) }
+        } catch (e: CancellationException) { throw e } catch (_: Exception) { }
+    }
     Column {
         RootHeading("我的") { IconButton(onClick = settings) { Icon(Icons.Rounded.Settings, "设置") } }
         LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item {
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(LogoYellow).clickable(onClick = if (user == null) login else profile).padding(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                UserBackground((decoration ?: user)?.cardBackground.orEmpty(), LogoYellow,
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).clickable(onClick = if (user == null) login else profile)) { hasBackground ->
+                val foreground = if (hasBackground) Color.White else Ink
+                Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Avatar(user, 60.dp, presentation = AvatarPresentation.ACCOUNT)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(user?.displayName ?: "你好，DO 友", style = MaterialTheme.typography.headlineSmall, color = Ink)
-                            Text(user?.let { "@${it.username}  ·  Lv.${it.trustLevel}" } ?: "登录，加入每一次精彩讨论", style = MaterialTheme.typography.bodyMedium, color = Ink.copy(alpha = 0.7f))
+                            Text(user?.displayName ?: "你好，DO 友", style = MaterialTheme.typography.headlineSmall, color = foreground)
+                            Text(user?.let { "@${it.username}  ·  Lv.${it.trustLevel}" } ?: "登录，加入每一次精彩讨论", style = MaterialTheme.typography.bodyMedium, color = foreground.copy(alpha = 0.8f))
                         }
-                        Icon(Icons.Rounded.ChevronRight, null, tint = Ink)
+                        Icon(Icons.Rounded.ChevronRight, null, tint = foreground)
                     }
-                    Text(if (user == null) "登录 Linux.do  →" else "查看个人主页  →", style = MaterialTheme.typography.labelLarge, color = Ink)
+                    Text(if (user == null) "登录 Linux.do  →" else "查看个人主页  →", style = MaterialTheme.typography.labelLarge, color = foreground)
+                }
                 }
             }
             item {
