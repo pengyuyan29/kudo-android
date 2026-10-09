@@ -12,7 +12,7 @@ Status: implemented
 
 信息流昵称下显示 bumped_at 更新时间和带图标分类；列表接口没有主帖编辑版本，遵循用户补充要求完全不显示编辑状态，也不逐帖请求详情。详情楼主和回复昵称下显示各自 updated_at、同一主题分类和版本大于1时的“已编辑”；缺少 updated_at 时回退 created_at，时间变化本身不能判定编辑。深链仍由 pinnedOriginal 提供楼主更新时间和编辑状态。
 
-标签保留 name、slug 以及可选 icon/color，同时保留原 tags 名称列表的调用契约。列表、搜索和详情共享标签解析。胶囊允许换行，不再截断为前两个标签；无配置标签只显示文字。分类从 /site.json 获取，沿用原生 Font Awesome 图标。
+标签保留 name、slug 以及可选 icon/color，同时保留原 tags 名称列表的调用契约。列表、搜索和详情共享标签解析。胶囊允许换行，不再截断为前两个标签；无配置标签只显示文字。传统列表的分类与胶囊标签按 FlowRow 每行垂直居中，避免无底面的分类被默认顶部对齐而偏高。分类从 /site.json 获取，沿用原生 Font Awesome 图标。
 
 官网 Tag Icons 主题按标签 slug 优先、name 次之解析。启动及账号切换时，同源读取 /latest HTML 的 data-preloaded.themeSettings，提取各主题 settings.tag_icon_list；只使用名称与颜色，不执行脚本。目录缓存于当前组合生命周期，辅助请求限8秒，失败不阻塞页面。内置2026-10-09核对的60个标签键作为离线回退，读取有效非空配置后使用完整远端目录，跟随目录内的配置增删。新增42个官方 Free 6.7.2 矢量，连同分类共65种；未知名称回退 Tag 图形，保留署名及完整许可。
 
@@ -37,6 +37,8 @@ TopicPresentationMetadataTest 的6项用例覆盖标签 slug、异常字段、�
 RMX2202 / Android13 的46项集中界面回归全部通过（85.265秒），日志 artifacts/presentation-device-final-tests.txt；覆盖两种列表、保存恢复、图标与胶囊、详情编辑标记、窄屏深色130%字号、回复按钮对称内边距和第8楼定位。已查看 artifacts/presentation-ui/ 下 presentation-feed-light、presentation-detail-light、presentation-reply-width、presentation-title-dark-large 和 presentation-floor-eight 截图。初轮失败来自合并语义节点查询和 LazyColumn 未组合的设置项；改为正确语义树和先滚动定位，未削弱功能断言。
 
 真实公开首页、传统列表与详情截图 presentation-live-home、presentation-live-title-final、presentation-live-detail-final 和 presentation-live-return 已查看。昵称下分类与实际公告、纯水、人工智能等标签图标正确；编辑过的真实主帖显示“已编辑”，可换行且无裁切。设置已恢复默认信息流，截图 presentation-live-settings-restored 与 presentation-live-feed-restored。APK保留原安装签名覆盖安装，未清理数据或修改签名文件。
+
+用户截图指出传统列表的分类偏高。两项几何复现测试先失败：普通字号及深色130%下分类中心都比首个胶囊中心高9px，日志 artifacts/list-alignment-repro-tests.txt。FlowRow 改为 itemVerticalAlignment = Alignment.CenterVertically 后，7项展示与3项样式回归全部通过（10.889秒），日志 artifacts/list-alignment-fixed-tests.txt；新增用例验证同一行中心一致，并保留窄屏标签换行。已查看 artifacts/list-alignment-ui/ 下 presentation-title-aligned-light.png 与 presentation-title-aligned-dark-large.png。Debug与测试包构建通过，保留原签名覆盖安装。修正覆盖首页、分类和搜索共用的 TopicTitleRow；未增加固定高度，大字号仍能增高和换行。
 
 ## Consequences
 

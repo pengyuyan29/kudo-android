@@ -116,6 +116,36 @@ class TopicPresentationUiTest {
         capture("presentation-title-dark-large.png")
     }
 
+    @Test fun traditionalCategoryAndTagsShareTheSameVerticalCenter() {
+        checkTraditionalMetadataAlignment(DisplaySettings(theme = ThemeMode.LIGHT), 360,
+            "presentation-title-aligned-light.png")
+    }
+
+    @Test fun traditionalCategoryStaysCenteredWhenLargeTagsWrap() {
+        checkTraditionalMetadataAlignment(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f), 280,
+            "presentation-title-aligned-dark-large.png")
+        val firstTag = compose.onNodeWithTag("topic-tag-纯水", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val lastTag = compose.onNodeWithTag("topic-tag-普通标签", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("窄屏下标签应正常换行", lastTag.top > firstTag.bottom)
+    }
+
+    private fun checkTraditionalMetadataAlignment(settings: DisplaySettings, width: Int, screenshot: String) {
+        compose.setContent {
+            KudoTheme(settings) {
+                CompositionLocalProvider(LocalTopicPresentation provides metadata) {
+                    Box(Modifier.width(width.dp)) {
+                        TopicTitleRow(topic.copy(replies = 1, bumpedAt = ""), category, {}, {})
+                    }
+                }
+            }
+        }
+        val categoryBounds = compose.onNodeWithTag("category-inline-4", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val tagBounds = compose.onNodeWithTag("topic-tag-纯水", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("分类和第一个标签应在同一行", categoryBounds.bottom > tagBounds.top && tagBounds.bottom > categoryBounds.top)
+        assertEquals("分类与胶囊标签应垂直居中", tagBounds.center.y, categoryBounds.center.y, 1f)
+        capture(screenshot)
+    }
+
     private fun capture(name: String) {
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()

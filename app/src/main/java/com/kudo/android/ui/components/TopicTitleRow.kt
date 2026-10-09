@@ -31,7 +31,8 @@ fun TopicTitleRow(topic: Topic, category: Category?, onClick: () -> Unit, onUser
                     Text(topic.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Normal,
                         maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically) {
                     resolvedCategory?.let { CategoryInline(it) }
                     topic.tagDetails.forEach { TopicTagChip(it) }
                 }
