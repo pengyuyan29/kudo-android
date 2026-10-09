@@ -14,7 +14,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -150,9 +149,9 @@ internal fun BoxScope.ImageAspectBadge(ratio: Float?) {
     val label = imageAspectLabel(ratio) ?: return
     Box(Modifier.matchParentSize().padding(6.dp)) {
         Text(label, Modifier.align(Alignment.BottomEnd).testTag("image-aspect-badge")
-            .background(Color(0xFF008F72).copy(alpha = 0.78f), RoundedCornerShape(2.dp))
+            .background(LogoYellow.copy(alpha = 0.9f), RoundedCornerShape(2.dp))
             .padding(horizontal = 4.dp, vertical = 1.dp),
-            color = Color.White, fontSize = 12.sp, lineHeight = 16.sp,
+            color = Ink, fontSize = 12.sp, lineHeight = 16.sp,
             style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
     }
 }
