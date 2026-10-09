@@ -74,10 +74,11 @@ internal fun LiquidModal(
     actions: @Composable RowScope.() -> Unit,
     showTitle: Boolean = true,
     sheetBackground: Color = MaterialTheme.colorScheme.surface,
+    dismissEnabled: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (actionSheet) {
-        CommunitySheet(visibility, title, dismiss, showTitle = showTitle, containerColor = sheetBackground, actions = actions, content = content)
+        CommunitySheet(visibility, title, dismiss, showTitle = showTitle, dismissEnabled = dismissEnabled, containerColor = sheetBackground, actions = actions, content = content)
         return
     }
     val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f

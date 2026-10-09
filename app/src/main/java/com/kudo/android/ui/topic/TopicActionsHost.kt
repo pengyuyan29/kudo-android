@@ -4,6 +4,14 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.dialog
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -43,12 +51,15 @@ val LocalIgnoredUsers = staticCompositionLocalOf<Set<String>> { emptySet() }
 fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: GlassMode, login: () -> Unit,
     ignored: (Int, String) -> Unit, message: suspend (String) -> Unit, changed: () -> Unit = {}, content: @Composable () -> Unit) {
     val vm: TopicActionsViewModel = viewModel(key = "topic-actions-${viewer?.id}", factory = viewModelFactory { initializer { TopicActionsViewModel(repository, viewer) } })
-    val state = vm.state
+    val current = vm.state
+    var retained by remember(vm) { mutableStateOf(current) }
+    SideEffect { if (current.topicId != null) retained = current }
+    val state = if (current.topicId != null) current else retained
     val context = LocalContext.current
     val backdrop = rememberLayerBackdrop()
     val visibility = remember(vm) { MutableTransitionState(false) }
     var detailBookmark by remember(vm) { mutableStateOf<((Post) -> Unit)?>(null) }
-    LaunchedEffect(state.topicId) { visibility.targetState = state.topicId != null }
+    LaunchedEffect(current.topicId) { visibility.targetState = current.topicId != null }
     LaunchedEffect(vm) { vm.events.collect { event -> when (event) {
         is TopicActionEvent.Message -> launch { message(event.text) }
         is TopicActionEvent.Ignored -> ignored(event.viewerId, event.username)
@@ -58,7 +69,7 @@ fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: Gl
         detailBookmark = bookmark; vm.open(id, true, post)
     }) }
     fun authenticate(action: () -> Unit) { if (viewer == null) { vm.dismiss(); login() } else action() }
-    val showing = state.topicId != null || visibility.currentState || visibility.targetState
+    val showing = current.topicId != null || visibility.currentState || visibility.targetState
     Box(Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().layerBackdrop(backdrop)
             .then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)
@@ -70,22 +81,28 @@ fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: Gl
             TopicActionPanel.MENU -> "主题操作"; TopicActionPanel.HISTORY -> "编辑历史"
             TopicActionPanel.REPORT -> "举报"; TopicActionPanel.IGNORE -> "忽略用户"
         }
-        LiquidModal(visibility, title, true, backdrop, glass, vm::dismiss,
+        if (state.panel == TopicActionPanel.REPORT) {
+            AnimatedVisibility(visibility, enter = fadeIn(), exit = fadeOut()) {
+                val focus = remember { FocusRequester() }
+                LaunchedEffect(Unit) { focus.requestFocus() }
+                Box(Modifier.fillMaxSize().focusRequester(focus).focusProperties { onExit = { if (visibility.targetState) cancelFocusChange() } }
+                    .focusGroup().semantics { dialog(); paneTitle = "举报" }) {
+                    TopicReportPage(state, vm::dismiss, vm::chooseFlag, vm::message, vm::confirm, vm::submitReport, vm::report, visibility.targetState)
+                }
+            }
+        } else LiquidModal(visibility, title, true, backdrop, glass, vm::dismiss,
+            dismissEnabled = !state.busy,
             showTitle = state.panel != TopicActionPanel.MENU,
             actions = {
                 LiquidModalAction(if (state.busy) "提交中…" else "取消", vm::dismiss, Modifier.weight(1f))
-                if (state.panel == TopicActionPanel.REPORT) {
-                    val enabled = !state.loading && !state.busy && !state.writeLocked && state.flags?.valid(state.selectedFlag, state.message, state.confirmed) == true
-                    Button(vm::submitReport, enabled = enabled, modifier = Modifier.weight(1f)) { Text(if (state.selectedFlag?.contactAuthor == true) "发送消息" else "提交举报") }
-                }
                 if (state.panel == TopicActionPanel.IGNORE) {
-                    Button(vm::submitIgnore, enabled = state.duration != null && !state.busy && !state.writeLocked && viewer?.canIgnoreUsers == true && state.post?.author?.id != viewer.id,
-                        modifier = Modifier.weight(1f)) { Text("确认忽略") }
+                    CommunityButton("确认忽略", vm::submitIgnore, enabled = state.duration != null && !state.busy && !state.writeLocked && viewer?.canIgnoreUsers == true && state.post?.author?.id != viewer.id,
+                        modifier = Modifier.weight(1f))
                 }
             }) {
             when (state.panel) {
                 TopicActionPanel.MENU -> {
-                    TopicActionMenu(state.post, state.fromDetail, !state.busy && !state.writeLocked,
+                    TopicActionMenu(state.post, state.fromDetail, visibility.targetState && !state.busy && !state.writeLocked,
                         copy = { state.post?.let { post ->
                             (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("主帖", plainText(post.cooked)))
                             vm.dismiss()
@@ -113,7 +130,7 @@ fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: Gl
 @Composable
 fun TopicActionMenu(post: Post?, fromDetail: Boolean, enabled: Boolean, copy: () -> Unit, bookmark: () -> Unit,
     history: () -> Unit, ignore: () -> Unit, report: () -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag("topic-action-row"), horizontalArrangement = Arrangement.SpaceEvenly) {
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 10.dp).testTag("topic-action-row"), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         if (fromDetail) TopicCircleAction("复制", Icons.Rounded.ContentCopy, enabled && post != null, copy)
         TopicCircleAction(if (post?.bookmarkId != null) "取消收藏" else "收藏", if (post?.bookmarkId != null) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, enabled && post != null, bookmark)
         if (post?.hasEditHistory == true) TopicCircleAction("编辑历史", Icons.Rounded.History, enabled, history)

@@ -18,8 +18,16 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.*
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.kudo.android.ui.theme.Ink
 import com.kudo.android.ui.theme.LogoYellow
+
+@Composable
+internal fun CommunityIconButton(icon: ImageVector, description: String, action: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    Box(modifier.size(48.dp).clickable(enabled = enabled, role = Role.Button, onClick = action), contentAlignment = Alignment.Center) {
+        Icon(icon, description, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) .6f else .25f))
+    }
+}
 
 @Composable
 internal fun CommunityButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, compact: Boolean = false) {
