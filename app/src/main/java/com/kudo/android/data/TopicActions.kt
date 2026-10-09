@@ -71,14 +71,20 @@ internal fun revisionParts(html: String): List<RevisionPart> = buildList {
 
 internal fun parsePostRevision(json: JSONObject): PostRevision {
     val changes = buildList {
-        listOf("title_changes" to "标题", "body_changes" to "正文", "tags_changes" to "标签").forEach { (key, label) ->
+        listOf("title_changes" to "标题", "body_changes" to "正文").forEach { (key, label) ->
             val inline = json.optJSONObject(key)?.stringField("inline").orEmpty()
             if (inline.isNotBlank()) add(RevisionChange(label, revisionParts(inline)))
         }
-        listOf("category_id_changes" to "分类", "wiki_changes" to "Wiki", "post_type_changes" to "帖子类型", "reply_to_post_number_changes" to "回复楼层").forEach { (key, label) ->
+        fun display(value: Any?): String = when (value) {
+            is org.json.JSONArray -> value.strings().joinToString("、").ifBlank { "无" }
+            is JSONObject -> value.stringField("display_username").ifBlank { value.positiveInt("post_number")?.toString().orEmpty() }.ifBlank { "无" }
+            null, JSONObject.NULL -> "无"
+            else -> value.toString()
+        }
+        listOf("tags_changes" to "标签", "user_changes" to "作者", "category_id_changes" to "分类", "wiki_changes" to "Wiki", "post_type_changes" to "帖子类型", "locale_changes" to "语言", "reply_to_post_number_changes" to "回复楼层").forEach { (key, label) ->
             json.optJSONObject(key)?.let { value -> add(RevisionChange(label, listOf(
-                RevisionPart(value.text("previous"), RevisionKind.REMOVED), RevisionPart(" → ", RevisionKind.NORMAL),
-                RevisionPart(value.text("current"), RevisionKind.ADDED)))) }
+                RevisionPart(display(value.opt("previous")), RevisionKind.REMOVED), RevisionPart(" → ", RevisionKind.NORMAL),
+                RevisionPart(display(value.opt("current")), RevisionKind.ADDED)))) }
         }
     }
     return PostRevision(json.getInt("post_id"), json.getInt("current_revision"), json.positiveInt("previous_revision"),

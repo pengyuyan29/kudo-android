@@ -10,7 +10,7 @@ Status: implemented
 
 数据单元提供主帖权限、举报配置与写入、编辑历史与差异文本契约。TopicActionsHost 已统一两种列表长按、更多图标与详情更多入口；原生历史和举报表单消费同一状态。跨页面菜单由同一 Host 管理，列表按需请求主帖，详情收藏交给既有 TopicViewModel，避免和底部操作状态分叉。列表支持收藏、按需历史、屏蔽、举报；详情用复制替代屏蔽。第一排使用横向圆形图标按钮和底部取消，窄屏允许横向滚动。
 
-历史需要 version > 1 且 can_view_edit_history，读取 /posts/{id}/revisions/latest.json，翻页跟随 previous_revision / next_revision，不能假定版本连续。原生差异文本保留新增、删除标记及作者、时间、原因。
+历史需要 version > 1 且 can_view_edit_history，读取 /posts/{id}/revisions/latest.json，翻页跟随 previous_revision / next_revision，不能假定版本连续。原生差异文本保留新增、删除标记及作者、时间、原因；标签数组、作者对象与回复楼层对象按网站实际形态解析。
 
 举报读取 /site.json 中启用且适用于 Post 的 is_flag 原因，与主帖 actions_summary.can_act 求交集。说明下限读取 /latest 的 siteSettings.min_personal_message_post_length，上限遵循 Discourse MAX_MESSAGE_LENGTH=500。支持 notify_user 私信和 illegal 确认；POST /post_actions 只提交 id、post_action_type_id、必要的 message，不发送工作人员强制处理字段。写请求不自动重试；结果未知时阻止再次提交。
 
@@ -27,6 +27,8 @@ Status: implemented
 - 举报和历史打开网页可自动覆盖网站细节，但用户需要原生操作，因此按权限和配置实现原生界面。
 
 ## Testing
+
+标签数组和回复对象复现先失败，修复解析后与全部123项JVM回归通过；历史翻页保留网站非连续版本指针。
 
 500字上限复现测试先失败，再依据 Discourse PostActionType.MAX_MESSAGE_LENGTH 修正；集中回归记录随界面完成补齐。
 

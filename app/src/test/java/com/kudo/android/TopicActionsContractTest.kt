@@ -81,4 +81,10 @@ class TopicActionsContractTest {
             assertTrue(revision.changes.single().parts.contains(RevisionPart("新文 & 内容", RevisionKind.ADDED)))
         }
     }
+    @Test fun historyRetainsTagArrayAndReplyAuthorChanges() {
+        val revision = parsePostRevision(JSONObject("""{"post_id":10,"current_revision":2,"tags_changes":{"previous":["旧标签"],"current":["新标签"]},"reply_to_post_number_changes":{"previous":{"post_number":2},"current":{"post_number":3}},"user_changes":{"previous":{"display_username":"原作者"},"current":{"display_username":"新作者"}}}"""))
+        assertEquals(listOf("标签", "作者", "回复楼层"), revision.changes.map { it.label })
+        assertEquals("旧标签", revision.changes.first().parts.first().text)
+        assertEquals("2", revision.changes.last().parts.first().text)
+    }
 }
