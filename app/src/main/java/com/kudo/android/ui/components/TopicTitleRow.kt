@@ -18,6 +18,7 @@ import com.kudo.android.data.*
 
 @Composable
 fun TopicTitleRow(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (String) -> Unit) {
+    val resolvedCategory = category ?: LocalTopicPresentation.current.categories.firstOrNull { it.id == topic.categoryId }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).clickable(onClick = onClick)
         .testTag("topic-title-${topic.id}")) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 13.dp), verticalAlignment = Alignment.Top,
@@ -31,8 +32,8 @@ fun TopicTitleRow(topic: Topic, category: Category?, onClick: () -> Unit, onUser
                         maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    category?.let { Text(it.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    topic.tags.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    resolvedCategory?.let { CategoryInline(it) }
+                    topic.tagDetails.forEach { TopicTagChip(it) }
                 }
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {

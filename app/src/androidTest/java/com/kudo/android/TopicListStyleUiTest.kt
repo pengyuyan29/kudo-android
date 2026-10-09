@@ -36,9 +36,9 @@ class TopicListStyleUiTest {
         compose.runOnIdle { style = TopicListStyle.TITLE }
         compose.onNodeWithText(topic.excerpt).assertDoesNotExist()
         compose.onNodeWithTag("topic-title-1").assertIsDisplayed()
-        compose.onNodeWithTag("topic-count-1").assertTextEquals("23")
+        compose.onNodeWithTag("topic-count-1", useUnmergedTree = true).assertTextEquals("23")
         compose.onNodeWithText(topic.title).performClick()
-        compose.onNodeWithContentDescription("作者").performClick()
+        compose.onNodeWithContentDescription("作者的头像").performClick()
         compose.runOnIdle { assertEquals(1, opened); assertEquals("author", author); style = TopicListStyle.FEED }
         compose.onNodeWithText(topic.excerpt).assertIsDisplayed()
     }

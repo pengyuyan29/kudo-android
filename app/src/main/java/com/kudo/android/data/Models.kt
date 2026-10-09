@@ -22,10 +22,12 @@ data class UserStatus(val emoji: String, val description: String, val endsAt: In
     fun isActive(now: Instant = Instant.now()): Boolean = endsAt?.isAfter(now) != false
 }
 data class Category(val id: Int, val name: String, val slug: String, val color: String, val description: String, val count: Int, val icon: String = "")
+data class TopicTag(val name: String, val slug: String = "", val icon: String = "", val color: String = "")
 data class Topic(
     val id: Int, val title: String, val excerpt: String, val author: Member?, val categoryId: Int,
     val tags: List<String>, val replies: Int, val views: Int, val likes: Int, val image: String,
     val bumpedAt: String, val pinned: Boolean = false, val closed: Boolean = false,
+    val tagDetails: List<TopicTag> = tags.map { TopicTag(it) },
 )
 data class TopicPage(val topics: List<Topic>, val next: String?)
 
@@ -45,9 +47,11 @@ data class Post(
     val likes: Int, val liked: Boolean, val bookmarkId: Int?, val replyTo: Int?, val canLike: Boolean,
     val reactions: List<PostReaction> = emptyList(), val currentReaction: UserReaction? = null,
     val reactionCount: Int = likes, val reactionsAvailable: Boolean = false, val canUndoLike: Boolean = true,
+    val updatedAt: String = createdAt, val version: Int = 1,
 ) {
     val activeReaction: String? get() = currentReaction?.id ?: "heart".takeIf { liked }
     val canReact: Boolean get() = if (activeReaction != null) currentReaction?.canUndo ?: canUndoLike else canLike
+    val edited: Boolean get() = version > 1
 }
 data class PostReaction(val id: String, val count: Int)
 data class UserReaction(val id: String, val canUndo: Boolean)
@@ -56,6 +60,7 @@ data class TopicDetail(
     val author: Member? = posts.firstOrNull { it.number == 1 }?.author,
     val createdAt: String = posts.firstOrNull { it.number == 1 }?.createdAt.orEmpty(),
     val validReactions: List<String> = emptyList(), val pinnedOriginal: Post? = null,
+    val tags: List<TopicTag> = emptyList(),
 ) {
     val originalPost: Post? get() = posts.firstOrNull { it.number == 1 } ?: pinnedOriginal
 }
@@ -65,13 +70,16 @@ data class PublishResult(val topicId: Int?, val queued: Boolean)
 
 internal fun JSONArray?.objects(): List<JSONObject> = if (this == null) emptyList() else (0 until length()).mapNotNull { optJSONObject(it) }
 internal fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else (0 until length()).mapNotNull { optString(it).takeIf(String::isNotBlank) }
-internal fun JSONArray?.tagNames(): List<String> = if (this == null) emptyList() else (0 until length()).mapNotNull {
+internal fun JSONArray?.topicTags(): List<TopicTag> = if (this == null) emptyList() else (0 until length()).mapNotNull {
     when (val value = opt(it)) {
-        is String -> value
-        is JSONObject -> value.text("name")
+        is String -> value.trim().takeIf(String::isNotEmpty)?.let { TopicTag(it) }
+        is JSONObject -> value.stringField("name").takeIf(String::isNotEmpty)?.let {
+            TopicTag(it, value.stringField("slug"), value.stringField("icon"), value.stringField("color"))
+        }
         else -> null
-    }?.takeIf(String::isNotBlank)
-}.distinct()
+    }
+}.distinctBy { it.name }
+internal fun JSONArray?.tagNames(): List<String> = topicTags().map { it.name }
 internal fun JSONObject.text(key: String): String = if (isNull(key)) "" else optString(key, "")
 internal fun JSONObject.stringField(key: String): String = (opt(key) as? String).orEmpty().trim()
 internal fun JSONObject.positiveInt(key: String): Int? = optInt(key).takeIf { it > 0 }
@@ -124,7 +132,8 @@ object DiscourseParser {
             Topic(item.getInt("id"), item.text("title"), plainText(item.text("excerpt")), users[author?.optInt("user_id")],
                 item.optInt("category_id"), item.optJSONArray("tags").tagNames(),
                 (item.optInt("posts_count", 1) - 1).coerceAtLeast(0), item.optInt("views"), item.optInt("like_count"),
-                item.text("image_url"), item.text("bumped_at"), item.optBoolean("pinned"), item.optBoolean("closed"))
+                item.text("image_url"), item.text("bumped_at"), item.optBoolean("pinned"), item.optBoolean("closed"),
+                tagDetails = item.optJSONArray("tags").topicTags())
         }
         return TopicPage(topics, list.text("more_topics_url").takeIf(String::isNotBlank))
     }
@@ -146,7 +155,8 @@ object DiscourseParser {
             json.positiveInt("reply_to_post_number"), action?.optBoolean("can_act") ?: false,
             reactions, current,
             json.optInt("reaction_users_count", if (json.has("reactions")) reactions.sumOf { it.count } else action?.optInt("count") ?: 0).coerceAtLeast(0),
-            json.has("reactions") || json.has("current_user_reaction"), action?.optBoolean("can_undo") ?: false)
+            json.has("reactions") || json.has("current_user_reaction"), action?.optBoolean("can_undo") ?: false,
+            updatedAt = json.stringField("updated_at").ifBlank { json.text("created_at") }, version = json.positiveInt("version") ?: 1)
     }
 
     fun detail(json: JSONObject): TopicDetail {
@@ -158,7 +168,8 @@ object DiscourseParser {
             posts, if (ids == null) emptyList() else (0 until ids.length()).map { ids.getInt(it) }, json.optBoolean("closed"),
             original?.author ?: json.optJSONObject("details")?.optJSONObject("created_by")?.let { member(it) },
             json.text("created_at").ifBlank { original?.createdAt.orEmpty() },
-            json.optJSONArray("valid_reactions").strings().filter { it.matches(Regex("[a-zA-Z0-9_+:-]+")) }.distinct())
+            json.optJSONArray("valid_reactions").strings().filter { it.matches(Regex("[a-zA-Z0-9_+:-]+")) }.distinct(),
+            tags = json.optJSONArray("tags").topicTags())
     }
 
     fun notices(json: JSONObject): List<Notice> = json.optJSONArray("notifications").objects().map { item ->

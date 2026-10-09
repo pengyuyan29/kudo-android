@@ -25,6 +25,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.Avatar
+import com.kudo.android.ui.components.TopicAuthorMetadata
+import com.kudo.android.ui.components.LocalTopicPresentation
 import com.kudo.android.ui.components.liquid.LiquidButton
 import com.kudo.android.ui.theme.LogoYellow
 import com.kyant.backdrop.Backdrop
@@ -49,8 +51,9 @@ internal fun TopicTopBar(
             Column(Modifier.weight(1f).padding(start = 10.dp, end = 8.dp)) {
                 Text(author.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Normal)
-                Text(relativeTime(state.detail.createdAt), maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TopicAuthorMetadata(state.detail.originalPost?.updatedAt ?: state.detail.createdAt,
+                    LocalTopicPresentation.current.categories.firstOrNull { it.id == state.detail.categoryId },
+                    state.detail.originalPost?.edited == true)
             }
         }
         if (author != null && author.id != state.viewerId &&
@@ -121,7 +124,7 @@ internal fun TopicBottomBar(
             contentColor = MaterialTheme.colorScheme.onSurface, contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start),
             modifier = Modifier.testTag("topic-reply")) {
-            Icon(Icons.Outlined.DriveFileRenameOutline, null, Modifier.size(20.dp))
+            Icon(Icons.Outlined.DriveFileRenameOutline, null, Modifier.size(20.dp).testTag("topic-reply-icon"))
             Text("写回复", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Normal, maxLines = 1)
         }
         Spacer(Modifier.weight(1f))

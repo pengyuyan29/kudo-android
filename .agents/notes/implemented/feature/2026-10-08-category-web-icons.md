@@ -16,6 +16,8 @@ Status: implemented
 
 ## Related decisions
 
+[主题展示](2026-10-09-topic-presentation.md)复用分类图标进入作者元信息，扩充42个标签需要的官方矢量，目录合计65种；分类本身仍按服务器 icon 字段索引，不根据名称猜测。
+
 检索分类、category、Category：与[请求数据契约](../../implemented/architecture/2026-10-07-discourse-data-contract.md)部分重叠，补充已有分类模型字段；与[首页标签](../../implemented/feature/2026-10-08-home-tabs-and-collapse.md)及[会话筛选](../../implemented/feature/2026-10-08-session-feed-filters.md)仅共享分类入口，不改变筛选或登录规则；液态玻璃及密度笔记为背景，不修改底栏材质；[首页推送](../../implemented/feature/2026-10-08-home-live-refresh.md)中的刷新专指首页，本篇仅移除分类常驻按钮。没有完全吸收或过时提案。
 
 ## Alternatives considered

@@ -1,0 +1,24 @@
+package com.kudo.android.ui
+
+import android.net.Uri
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.navigation.NavHostController
+
+internal fun NavHostController.openLinuxDoDestination(target: LinuxDoDestination, home: () -> Unit) {
+    when (target) {
+        is LinuxDoDestination.Topic -> navigate("topic/${target.id}?post=${target.number ?: 0}") { launchSingleTop = true }
+        is LinuxDoDestination.User -> navigate("user/${Uri.encode(target.username)}") { launchSingleTop = true }
+        LinuxDoDestination.Home -> { home(); popBackStack("root", false) }
+    }
+}
+
+@Composable
+internal fun IncomingLinuxDoLink(nav: NavHostController, url: String?, sequence: Long, home: () -> Unit, consume: () -> Unit) {
+    LaunchedEffect(url, sequence) {
+        url?.let { value ->
+            LinuxDoLink.parse(value)?.let { nav.openLinuxDoDestination(it, home) }
+            consume()
+        }
+    }
+}

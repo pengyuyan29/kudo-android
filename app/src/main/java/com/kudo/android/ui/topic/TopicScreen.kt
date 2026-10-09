@@ -57,6 +57,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                         item("title") {
                             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text(detail.title, style = MaterialTheme.typography.headlineSmall)
+                                if (detail.tags.isNotEmpty()) TopicTags(detail.tags)
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     Text("${detail.stream.size.coerceAtLeast(detail.posts.size)} 个楼层", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     if (detail.closed) Text("话题已关闭", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
@@ -72,7 +73,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                                             Text(post.author.displayName, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                                             if (post.author.id == detail.author?.id) Text("楼主", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                         }
-                                        Text(relativeTime(post.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        TopicAuthorMetadata(post.updatedAt, LocalTopicPresentation.current.categories.firstOrNull { it.id == detail.categoryId }, post.edited)
                                     }
                                     Text("#${post.number}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }

@@ -23,6 +23,7 @@ class CommunityRepository(val client: DiscourseClient) {
         }
     }
     suspend fun categories() = DiscourseParser.categories(client.get("/site.json"))
+    suspend fun tagIcons() = client.tagIcons()
     suspend fun currentUser(): Member? = client.get("/session/current.json").optJSONObject("current_user")?.let { DiscourseParser.member(it, avatarDetailsLoaded = true) }
     suspend fun user(username: String): Member {
         val path = client.baseUrl.newBuilder().addPathSegment("u").addPathSegment("$username.json").build().toString()
@@ -51,7 +52,7 @@ class CommunityRepository(val client: DiscourseClient) {
             Topic(item.getInt("id"), item.text("title"), plainText(post?.text("blurb").orEmpty()),
                 post?.let { DiscourseParser.member(it, fromPost = true) }, item.optInt("category_id"), item.optJSONArray("tags").tagNames(),
                 (item.optInt("posts_count", 1) - 1).coerceAtLeast(0), item.optInt("views"), item.optInt("like_count"),
-                item.text("image_url"), item.text("last_posted_at"))
+                item.text("image_url"), item.text("last_posted_at"), tagDetails = item.optJSONArray("tags").topicTags())
         }
         return topics to (json.optJSONObject("grouped_search_result")?.optBoolean("more_full_page_results") ?: false)
     }

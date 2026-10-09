@@ -1,0 +1,43 @@
+# Agent Note: 主题列表模式与作者元信息
+
+Status: implemented
+
+## Problem
+
+只有带摘要和图片的信息流列表，缺少紧凑标题列表。昵称下只有时间，分类与文本标签置于正文下方，无法对照网页辨认带图标的分类和标签，详情没有真实编辑状态。
+
+## Decision
+
+界面设置持久化信息流和传统标题两种模式，默认信息流。首页、分类和搜索主题列表应用同一选择；传统行显示头像、标题、图标分类与标签、回复数和更新时间，以分隔线代替卡片间距，不显示摘要和预览图。持久化名称而非序号，缺失及未知值回退信息流。
+
+信息流昵称下显示 bumped_at 更新时间和带图标分类；列表接口没有主帖编辑版本，遵循用户补充要求完全不显示编辑状态，也不逐帖请求详情。详情楼主和回复昵称下显示各自 updated_at、同一主题分类和版本大于1时的“已编辑”；缺少 updated_at 时回退 created_at，时间变化本身不能判定编辑。深链仍由 pinnedOriginal 提供楼主更新时间和编辑状态。
+
+标签保留 name、slug 以及可选 icon/color，同时保留原 tags 名称列表的调用契约。列表、搜索和详情共享标签解析。胶囊允许换行，不再截断为前两个标签；无配置标签只显示文字。分类从 /site.json 获取，沿用原生 Font Awesome 图标。
+
+官网 Tag Icons 主题按标签 slug 优先、name 次之解析。启动及账号切换时，同源读取 /latest HTML 的 data-preloaded.themeSettings，提取各主题 settings.tag_icon_list；只使用名称与颜色，不执行脚本。目录缓存于当前组合生命周期，辅助请求限8秒，失败不阻塞页面。内置2026-10-09核对的60个标签键作为离线回退，读取有效非空配置后使用完整远端目录，跟随目录内的配置增删。新增42个官方 Free 6.7.2 矢量，连同分类共65种；未知名称回退 Tag 图形，保留署名及完整许可。
+
+## Existing note audit
+
+- [数据契约](../../implemented/architecture/2026-10-07-discourse-data-contract.md)：部分重叠，同步标签结构、详情字段及同源辅助读取事实。
+- [分类图标](../../implemented/feature/2026-10-08-category-web-icons.md)：部分重叠，保留分类元数据与原生矢量方案，目录扩充供标签复用。
+- [设置弹窗](../../implemented/feature/2026-10-08-glass-settings-modals.md)：部分重叠，列表选择沿用现有 ActionSheet、即时保存和取消契约。
+- [详情作者](../../implemented/feature/2026-10-09-topic-author-and-responses.md)：部分重叠，保留固定楼主及辅助主帖补齐，只扩展昵称下元信息。
+- [信息流密度](../../implemented/feature/2026-10-07-coolapk-density-and-motion.md)：默认信息流仍适用，传统列表是独立选择；无完全吸收或过时提案。
+
+## Alternatives considered
+
+- 同一张卡片隐藏摘要和图片：组件少，但头像、计数和分隔线仍保持卡片层次，无法达到传统列表密度，采用独立传统行、共享元信息。
+- 每项列表请求完整详情判断编辑状态：字段完整，但带来逐帖网络开销；接口不支持时用户允许隐藏，因此列表不补请求也不显示编辑标记。
+- 只内置标签图标配置：离线稳定且没有辅助请求，但站点增删和改名无法跟随；内置用于失败回退，正常读取站点主题配置，图形仍使用已核实的本地矢量。
+
+## Verification
+
+TopicPresentationMetadataTest 的6项用例覆盖标签 slug、异常字段、更新与编辑版本、转义 preload、slug 优先匹配、内置纯水/人工智能/公告以及详情和搜索字段。106项 JVM 测试全部通过，Debug及测试包构建成功，Lint为0错误、30警告、1提示，日志 artifacts/presentation-final-build.txt。
+
+RMX2202 / Android13 的46项集中界面回归全部通过（85.265秒），日志 artifacts/presentation-device-final-tests.txt；覆盖两种列表、保存恢复、图标与胶囊、详情编辑标记、窄屏深色130%字号、回复按钮对称内边距和第8楼定位。已查看 artifacts/presentation-ui/ 下 presentation-feed-light、presentation-detail-light、presentation-reply-width、presentation-title-dark-large 和 presentation-floor-eight 截图。初轮失败来自合并语义节点查询和 LazyColumn 未组合的设置项；改为正确语义树和先滚动定位，未削弱功能断言。
+
+真实公开首页、传统列表与详情截图 presentation-live-home、presentation-live-title-final、presentation-live-detail-final 和 presentation-live-return 已查看。昵称下分类与实际公告、纯水、人工智能等标签图标正确；编辑过的真实主帖显示“已编辑”，可换行且无裁切。设置已恢复默认信息流，截图 presentation-live-settings-restored 与 presentation-live-feed-restored。APK保留原安装签名覆盖安装，未清理数据或修改签名文件。
+
+## Consequences
+
+列表保留真实活动时间和分类，但不会显示主帖编辑状态。详情以服务端版本为准，自动处理和用户编辑是否增加版本由站点决定。启动多两项有时限的辅助读取，失败仍显示内容及内置标签图标；新图标名在本地目录更新前使用通用 Tag 图形。未知分类元数据不编造分类名，读取成功后补入。

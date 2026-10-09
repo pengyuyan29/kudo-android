@@ -73,7 +73,7 @@ class SettingsModalUiTest {
     @Test fun dialogBlankAreaDoesNotDismissAndBackgroundCannotOpenLinks() {
         var links = 0
         show({ DisplaySettings(theme = ThemeMode.LIGHT) }, {}, openLink = { links++ })
-        compose.onNodeWithText("隐私说明").performScrollTo().performClick()
+        openSetting("隐私说明")
         compose.onNodeWithTag("liquid-dialog").assertIsDisplayed()
         compose.onAllNodesWithText("社区指南").assertCountEquals(0)
         compose.onNodeWithTag("liquid-dialog").performTouchInput { click(Offset(width / 2f, 10f)) }
@@ -125,7 +125,7 @@ class SettingsModalUiTest {
             compose.onNodeWithText("取消").assertIsDisplayed()
             capture("settings-sheet-${mode.name.lowercase()}-dark-large.png")
             compose.onNodeWithText("取消").performClick()
-            compose.onNodeWithText("隐私说明").performScrollTo().performClick()
+            openSetting("隐私说明")
             val layouts = mutableListOf<TextLayoutResult>()
             compose.onNodeWithText("酷DO 直接连接 Linux.do。", substring = true)
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
@@ -134,7 +134,7 @@ class SettingsModalUiTest {
             compose.onNodeWithText("知道了").assertIsDisplayed()
             capture("settings-dialog-${mode.name.lowercase()}-dark-large.png")
             compose.onNodeWithText("知道了").performClick()
-            compose.onNodeWithText("字体大小").performScrollTo()
+            compose.onNode(hasScrollAction()).performScrollToNode(hasText("字体大小"))
         }
     }
 
@@ -148,12 +148,17 @@ class SettingsModalUiTest {
                 }
             }
         }
-        compose.onNodeWithText("开源致谢").performScrollTo().performClick()
+        openSetting("开源致谢")
         compose.onNodeWithText("知道了").assertIsDisplayed()
         compose.onNodeWithText("FluxDO 接口参考").performScrollTo().performTouchInput { click() }
         compose.runOnIdle { assertEquals(1, links) }
         compose.onNodeWithText("知道了").performClick()
         compose.onNodeWithTag("liquid-dialog").assertDoesNotExist()
+    }
+
+    private fun openSetting(label: String) {
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText(label))
+        compose.onNodeWithText(label).performClick()
     }
 
     private fun show(settings: () -> DisplaySettings, update: (DisplaySettings) -> Unit,

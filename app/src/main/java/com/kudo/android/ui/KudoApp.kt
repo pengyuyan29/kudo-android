@@ -94,21 +94,13 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
         fun topic(id: Int, number: Int? = null) { if (id > 0) nav.navigate("topic/$id?post=${number ?: 0}") }
         fun user(username: String) { if (username.isNotBlank()) nav.navigate("user/${Uri.encode(username)}") }
         fun destination(target: LinuxDoDestination) {
-            when (target) {
-                is LinuxDoDestination.Topic -> nav.navigate("topic/${target.id}?post=${target.number ?: 0}") { launchSingleTop = true }
-                is LinuxDoDestination.User -> nav.navigate("user/${Uri.encode(target.username)}") { launchSingleTop = true }
-                LinuxDoDestination.Home -> { selected = 0; nav.popBackStack("root", false) }
-            }
+            nav.openLinuxDoDestination(target) { selected = 0 }
         }
         fun openLink(url: String) { LinuxDoLink.parse(url)?.let(::destination) ?: openBrowser(url) }
         fun editor(id: Int? = null, number: Int? = null) { authenticated { nav.navigate("compose?topic=${id ?: 0}&reply=${number ?: 0}") } }
         LaunchedEffect(account) { account.events.collect { snackbar.showSnackbar(it) } }
-        LaunchedEffect(incomingUrl, linkSequence) {
-            incomingUrl?.let { value ->
-                LinuxDoLink.parse(value)?.let(::destination)
-                consumeLink()
-            }
-        }
+        IncomingLinuxDoLink(nav, incomingUrl, linkSequence, { selected = 0 }, consumeLink)
+        TopicPresentationEnvironment(app.repository, account.user?.id) {
         AvatarEnvironment(app.repository, account.user?.id) {
             ImageGalleryHost(loadAlbum = { id ->
                 val detail = app.repository.detail(id, 1)
@@ -200,6 +192,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp).widthIn(max = 600.dp))
             }
             }
+        }
         }
     }
 }

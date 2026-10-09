@@ -79,12 +79,13 @@ fun SectionLabel(text: String, trailing: String? = null) {
 
 @Composable
 fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (String) -> Unit) {
+    val resolvedCategory = category ?: LocalTopicPresentation.current.categories.firstOrNull { it.id == topic.categoryId }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick = onClick).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Avatar(topic.author, 35.dp) { topic.author?.username?.let(onUser) }
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Text(topic.author?.displayName ?: "Linux.do 社区", style = MaterialTheme.typography.titleSmall, maxLines = 1)
-                Text(relativeTime(topic.bumpedAt).ifBlank { "社区话题" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TopicAuthorMetadata(topic.bumpedAt, resolvedCategory)
             }
             if (topic.pinned) Icon(Icons.Rounded.PushPin, "置顶", Modifier.size(17.dp), MaterialTheme.colorScheme.primary)
             else Icon(Icons.Rounded.MoreHoriz, null, Modifier.size(19.dp), MaterialTheme.colorScheme.outline)
@@ -92,10 +93,7 @@ fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (S
         Text(topic.title, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
         if (topic.excerpt.isNotBlank()) Text(topic.excerpt, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
         mediaUrl(topic.image)?.let { TopicPreviewImage(topic.id, it, onClick) }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            category?.let { Text(it.name, Modifier.clip(RoundedCornerShape(5.dp)).background(LogoYellow.copy(alpha = 0.13f)).padding(horizontal = 7.dp, vertical = 3.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, maxLines = 1) }
-            topic.tags.take(2).forEach { Text("# $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
-        }
+        if (topic.tagDetails.isNotEmpty()) TopicTags(topic.tagDetails)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Stat(Icons.Rounded.Visibility, compactNumber(topic.views))
             Stat(Icons.Rounded.ChatBubbleOutline, compactNumber(topic.replies))

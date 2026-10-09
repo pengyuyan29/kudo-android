@@ -12,7 +12,7 @@ data 包分开模型解析、DiscourseClient 和 CommunityRepository。分页使
 
 真机验证发现 `/c/{id}/l/latest.json` 返回规范地址的 301。服务端可在规范地址中加入分类 slug 或父分类，故客户端接受服务端同源 Location，不在所有页面重复拼接和缓存路径。
 
-列表和搜索共用标签解析：兼容字符串与 `{id, name, slug}` 对象，只显示非空 name，跳过未知对象和 null。真机返回新版对象标签，不能以 optString 将它序列化后显示给用户。
+列表、搜索和详情共用标签解析：兼容字符串与 `{id, name, slug}` 对象，只接受非空字符串 name，跳过未知对象和 null。Topic 保留 tags 名称列表，同时通过 tagDetails 保留 slug 及可选 icon/color；详情保留同样的标签模型。真机返回新版对象标签，不能以 optString 将它序列化后显示给用户。Post 保存 updated_at 和 version；updated_at 缺失回退创建时间，version 大于1才视为已编辑。列表不提供编辑版本，不为编辑标记额外请求详情。展示和同源主题图标目录见[主题展示](../feature/2026-10-09-topic-presentation.md)。
 
 分类沿用 /site.json，icon 仅接受字符串，空白、null和异常类型归为空；名称与ID不参与图标推断。[分类图标](../feature/2026-10-08-category-web-icons.md)使用此名称索引官网一致的本地矢量目录，不把远程字段当作图形代码执行。
 
