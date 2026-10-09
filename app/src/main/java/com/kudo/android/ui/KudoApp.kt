@@ -44,6 +44,7 @@ import com.kudo.android.ui.editor.*
 import com.kudo.android.ui.feed.*
 import com.kudo.android.ui.theme.KudoTheme
 import com.kudo.android.ui.topic.*
+import com.kudo.android.ui.web.WebScreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -98,10 +99,11 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
         fun authenticated(action: () -> Unit) { if (account.user == null) login() else action() }
         fun topic(id: Int, number: Int? = null) { if (id > 0) nav.navigate("topic/$id?post=${number ?: 0}") }
         fun user(username: String) { if (username.isNotBlank()) nav.navigate("user/${Uri.encode(username)}") }
-        fun destination(target: LinuxDoDestination) {
-            nav.openLinuxDoDestination(target) { selected = 0 }
+        fun invalidLink() { scope.launch { snackbar.showSnackbar("无法打开此链接") } }
+        fun openWebPage(url: String) { nav.openWebPage(url, ::invalidLink) }
+        fun openLink(url: String) {
+            nav.openContentLink(url, { selected = 0 }, ::invalidLink)
         }
-        fun openLink(url: String) { LinuxDoLink.parse(url)?.let(::destination) ?: openBrowser(url) }
         fun editor(id: Int? = null, number: Int? = null) { authenticated { nav.navigate("compose?topic=${id ?: 0}&reply=${number ?: 0}") } }
         LaunchedEffect(account) { account.events.collect { snackbar.showSnackbar(it) } }
         LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { account.checkSession() } }
@@ -164,6 +166,9 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val state by vm.state.collectAsStateWithLifecycle()
                         SearchScreen(state, vm::search, { nav.popBackStack() }, { topic(it) }, ::user, ::login, listStyle = display.topicListStyle)
                     }
+                    composable("web?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry ->
+                        WebScreen(entry.arguments!!.getString("url")!!, { nav.popBackStack() }, ::openBrowser)
+                    }
                     composable("topic/{id}?post={post}",
                         arguments = listOf(navArgument("id") { type = NavType.IntType }, navArgument("post") { type = NavType.IntType; defaultValue = 0 }),
                         enterTransition = { fadeIn(tween(280)) + scaleIn(tween(280, easing = FastOutSlowInEasing), initialScale = 0.97f) },
@@ -206,7 +211,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         }
                     }
                     composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); scope.launch { snackbar.showSnackbar("欢迎回来，${account.user?.displayName}") } }) }
-                    composable("settings") { SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openBrowser, { nav.navigate("ignored-users") }) }
+                    composable("settings") { SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openWebPage, { nav.navigate("ignored-users") }) }
                     composable("ignored-users") {
                         LaunchedEffect(Unit) { account.checkSession() }
                         key(account.user?.id) { IgnoredUsersScreen(account.user, app.repository, { nav.popBackStack() }, ::login) { id, username ->
@@ -214,7 +219,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         } }
                     }
                     composable("bookmarks") { LaunchedEffect(account.user?.id) { account.loadSaved() }; BookmarksScreen(account, { nav.popBackStack() }, ::login, ::topic) }
-                    composable("user/{username}") { entry -> UserScreen(entry.arguments!!.getString("username")!!, app.repository, { nav.popBackStack() }, ::login, ::openBrowser) }
+                    composable("user/{username}") { entry -> UserScreen(entry.arguments!!.getString("username")!!, app.repository, { nav.popBackStack() }, ::login, ::openWebPage) }
                     composable("compose?topic={topic}&reply={reply}", arguments = listOf(navArgument("topic") { type = NavType.IntType; defaultValue = 0 }, navArgument("reply") { type = NavType.IntType; defaultValue = 0 })) { entry ->
                         val topicId = entry.arguments!!.getInt("topic").takeIf { it > 0 }
                         val replyTo = entry.arguments!!.getInt("reply").takeIf { it > 0 }

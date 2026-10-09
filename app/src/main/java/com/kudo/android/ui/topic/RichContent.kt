@@ -41,6 +41,7 @@ import com.kudo.android.ui.components.AvatarImage
 import com.kudo.android.ui.components.ImageAspectBadge
 import com.kudo.android.ui.components.LocalAvatarMetadata
 import com.kudo.android.ui.components.mediaUrl
+import com.kudo.android.ui.LinuxDoLink
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
@@ -112,12 +113,12 @@ fun parseArticle(html: String): List<ArticleBlock> {
             }
             "iframe", "video", "audio" -> {
                 val raw = element.attr("src").ifBlank { element.selectFirst("source")?.attr("src").orEmpty() }
-                mediaUrl(raw)?.let { result.add(ArticleBlock.Embed(it, "在浏览器打开媒体")) }
+                LinuxDoLink.webUrl(raw)?.let { result.add(ArticleBlock.Embed(it, "打开媒体网页")) }
             }
             "blockquote", "aside" -> {
                 if (element.hasClass("onebox")) {
                     val link = element.selectFirst("a[href]")
-                    link?.let { a -> mediaUrl(a.attr("href"))?.let { result.add(ArticleBlock.Embed(it, a.text().ifBlank { "打开链接" })) } }
+                    link?.let { a -> LinuxDoLink.webUrl(a.attr("href"))?.let { result.add(ArticleBlock.Embed(it, a.text().ifBlank { "打开链接" })) } }
                 } else element.children().forEach { walk(it, true) }
             }
             "p", "h1", "h2", "h3", "h4", "li", "summary" -> {
@@ -164,7 +165,7 @@ internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
                         } else append(node.attr("alt"))
                     }
                     "a" -> {
-                        val url = mediaUrl(node.attr("href"))
+                        val url = LinuxDoLink.webUrl(node.attr("href"))
                         if (url != null) withLink(LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))), children)
                         else children()
                     }

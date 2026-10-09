@@ -42,4 +42,19 @@ class LinuxDoLinkTest {
             "https://user@linux.do/t/1", "https://linux.do:444/t/1").forEach { assertNull(LinuxDoLink.parse(it)) }
         assertEquals(Home, LinuxDoLink.parse("https://linux.do/u/bad%2Fname"))
     }
+
+    @Test fun articleRoutingKeepsUnknownPagesForTheWebReader() {
+        assertEquals(Topic(3001000, 8), LinuxDoLink.parseContent("/t/topic/3001000/8?source=article#post_8"))
+        assertEquals(User("stingysheep"), LinuxDoLink.parseContent("/u/stingysheep/activity/"))
+        assertEquals(Category(4), LinuxDoLink.parseContent("/c/develop/4"))
+        assertEquals(Home, LinuxDoLink.parseContent("https://linux.do/"))
+        listOf("https://example.org/help", "/guidelines", "/c/develop", "/t/not-a-topic", "https://linux.do.evil.test/t/1").forEach {
+            assertNull(it, LinuxDoLink.parseContent(it))
+        }
+        assertEquals("https://linux.do/guidelines", LinuxDoLink.webUrl("/guidelines"))
+        assertEquals("https://example.org/help", LinuxDoLink.webUrl("//example.org/help"))
+        listOf("javascript:alert(1)", "file:///etc/passwd", "intent://example.org", "https://user:password@linux.do/", " ").forEach {
+            assertNull(it, LinuxDoLink.webUrl(it))
+        }
+    }
 }

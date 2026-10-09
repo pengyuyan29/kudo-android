@@ -18,7 +18,7 @@ KudoApplication 通过 SingletonImageLoader.Factory 提供全局加载器，AppC
 
 玻璃用 Apache-2.0 的 Kyant Backdrop 1.0.6，封装背景采样、模糊、折射、高光和胶囊选中动画。此版本使用 Android Compose，避免为客户端引入跨平台工程。API 33+ 支持完整玻璃，API 31–32 模糊，较旧系统半透明；用户也能手动选择材质。
 
-官网 WebView 仅用于登录和网页验证，原生请求与其共享受限于 linux.do 的 Cookie。以 /session/current.json 验证会话；写请求附带 /session/csrf 获取的令牌，不使用站点管理员 API Key。只允许可信 HTTPS 来源进入带会话的请求层。写请求不自动重试，避免重复发帖；401、403 验证、429 与一般网络失败有不同反馈。
+WebView 用于登录、网页验证及[应用内网页阅读](../feature/2026-10-10-in-app-web-links.md)，原生请求与其共享受限于 linux.do 的 Cookie。以 /session/current.json 验证会话；写请求附带 /session/csrf 获取的令牌，不使用站点管理员 API Key。只允许可信 HTTPS 来源进入带会话的原生请求层。网页阅读允许 HTTP，由平台维护 Cookie 的域、路径与 Secure 属性，不手工注入社区会话。写请求不自动重试，避免重复发帖；401、403 验证、429 与一般网络失败有不同反馈。
 
 正文按服务端 cooked HTML 解析为原生文字、引用、代码块、图片和链接；复杂嵌入提供浏览器入口。长帖按 post_stream 的 id 补齐，不能用首批返回数量冒充完整话题。
 

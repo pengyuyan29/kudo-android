@@ -8,6 +8,8 @@ Status: implemented
 
 ## Decision
 
+应用内未知页面与外站的回退由[应用内网页](2026-10-10-in-app-web-links.md)部分替代；本篇保留系统入口消费和原生目标格式。
+
 同源 HTTP(S) 链接解析为帖子、用户、分类、首页四种目标；解析与 Android 导航分离。帖子保留 /t/id 兼容，并支持 /t/slug/id/number；用户路径忽略用户名后的子路径；分类支持 /c/id、/c/slug/id 和嵌套 slug 后的有效 ID。每次新 Intent 作为独立事件消费，重建后不重放已消费地址。其他系统传入的站内地址清回首页并选中首页页签，非站内地址不参与路由。显式浏览器动作使用浏览器包名避免自身回环。
 
 正文普通文字链接与 onebox 共用传入的 onLink 回调。Compose 的 LinkAnnotation.Url 默认使用 LocalUriHandler，RichContent 在正文范围提供自己的 UriHandler，避免文字链接绕过应用路由；回调重组时随之更新。文本仍保留选择、链接语义和样式，显式“浏览器打开”继续使用独立浏览器动作。

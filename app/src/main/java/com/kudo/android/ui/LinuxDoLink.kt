@@ -10,6 +10,17 @@ sealed interface LinuxDoDestination {
 }
 
 object LinuxDoLink {
+    /** Normalizes article-relative URLs; CookieManager still decides each origin's cookies. */
+    fun webUrl(value: String): String? = "https://linux.do/".toHttpUrlOrNull()?.resolve(value.trim())
+        ?.takeIf { value.isNotBlank() && it.username.isEmpty() && it.password.isEmpty() }?.toString()
+
+    /** Unknown site pages belong in the web reader, rather than the external-intent home fallback. */
+    fun parseContent(value: String): LinuxDoDestination? {
+        val url = webUrl(value)?.toHttpUrlOrNull() ?: return null
+        val target = parse(url.toString()) ?: return null
+        return target.takeUnless { it == LinuxDoDestination.Home && url.pathSegments.any(String::isNotEmpty) }
+    }
+
     fun parse(value: String): LinuxDoDestination? {
         val url = value.trim().toHttpUrlOrNull() ?: return null
         if (url.host != "linux.do" || url.username.isNotEmpty() || url.password.isNotEmpty() ||

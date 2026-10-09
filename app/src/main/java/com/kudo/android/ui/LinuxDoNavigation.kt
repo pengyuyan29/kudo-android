@@ -5,6 +5,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavHostController
 
+internal fun NavHostController.openWebPage(value: String, invalid: () -> Unit = {}) {
+    val url = LinuxDoLink.webUrl(value) ?: return invalid()
+    navigate("web?url=${Uri.encode(url)}")
+}
+
+internal fun NavHostController.openContentLink(value: String, home: () -> Unit, invalid: () -> Unit = {}) {
+    val target = LinuxDoLink.parseContent(value)
+    if (target != null) openLinuxDoDestination(target, home) else openWebPage(value, invalid)
+}
+
 internal fun NavHostController.openLinuxDoDestination(target: LinuxDoDestination, home: () -> Unit) {
     when (target) {
         is LinuxDoDestination.Topic -> navigate("topic/${target.id}?post=${target.number ?: 0}") { launchSingleTop = true }

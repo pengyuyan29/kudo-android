@@ -9,6 +9,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.kudo.android.ui.IncomingLinuxDoLink
+import com.kudo.android.ui.openContentLink
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -30,6 +31,9 @@ class DeepLinkUiTest {
                 composable("user/{username}") { Text("用户：${it.arguments!!.getString("username")}") }
                 composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) {
                     Text("分类：${it.arguments!!.getInt("id")}")
+                }
+                composable("web?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) {
+                    Text("网页：${it.arguments!!.getString("url")}")
                 }
                 composable("topic/{id}?post={post}", arguments = listOf(navArgument("id") { type = NavType.IntType },
                     navArgument("post") { type = NavType.IntType; defaultValue = 0 })) {
@@ -67,5 +71,24 @@ class DeepLinkUiTest {
         compose.onNodeWithText("分类：4").assertIsDisplayed()
         compose.runOnIdle { nav.popBackStack() }
         compose.onNodeWithText("帖子：3001000 楼层：0").assertIsDisplayed()
+    }
+
+    @Test fun articleLinksOpenNativeTargetsAndUnknownPagesUseTheInAppWebRoute() {
+        show()
+        fun click(value: String) { compose.runOnIdle { nav.openContentLink(value, { selected = 0 }) } }
+        click("/t/topic/3001000/8")
+        compose.onNodeWithText("帖子：3001000 楼层：8").assertIsDisplayed()
+        click("/u/stingysheep/activity/")
+        compose.onNodeWithText("用户：stingysheep").assertIsDisplayed()
+        click("/c/parent/develop/4")
+        compose.onNodeWithText("分类：4").assertIsDisplayed()
+        click("/guidelines")
+        compose.onNodeWithText("网页：https://linux.do/guidelines").assertIsDisplayed()
+        click("https://example.org/help?from=topic&next=%2Ft%2F123#section")
+        compose.onNodeWithText("网页：https://example.org/help?from=topic&next=%2Ft%2F123#section").assertIsDisplayed()
+        compose.runOnIdle { nav.popBackStack() }
+        compose.onNodeWithText("网页：https://linux.do/guidelines").assertIsDisplayed()
+        click("javascript:alert(1)")
+        compose.onNodeWithText("网页：https://linux.do/guidelines").assertIsDisplayed()
     }
 }

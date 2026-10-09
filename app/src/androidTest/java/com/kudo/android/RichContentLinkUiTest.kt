@@ -27,7 +27,7 @@ class RichContentLinkUiTest {
                 override fun openUri(uri: String) { systemLinks += uri }
             }) {
                 KudoTheme(DisplaySettings()) {
-                    RichContent("""<p><a href="/t/topic/3001000/8">打开楼层</a></p><p><a href="https://example.org/help">打开外站</a></p>""",
+                    RichContent("""<p><a href="/t/topic/3001000/8">打开楼层</a></p><p><a href="https://example.org/help">打开外站</a></p><p><a href="http://example.org/help">普通网页</a></p>""",
                         {}, if (updated) ({ currentLinks += it }) else ({ firstLinks += it }))
                 }
             }
@@ -40,8 +40,9 @@ class RichContentLinkUiTest {
         }
         clickText("打开楼层")
         clickText("打开外站")
+        clickText("普通网页")
         compose.runOnIdle {
-            assertEquals(listOf("https://linux.do/t/topic/3001000/8", "https://example.org/help"), currentLinks)
+            assertEquals(listOf("https://linux.do/t/topic/3001000/8", "https://example.org/help", "http://example.org/help"), currentLinks)
             assertEquals(1, firstLinks.size)
             assertTrue(systemLinks.isEmpty())
         }
