@@ -23,9 +23,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -68,6 +70,7 @@ internal fun LiquidModal(
     mode: GlassMode,
     dismiss: () -> Unit,
     actions: @Composable RowScope.() -> Unit,
+    showTitle: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f
@@ -114,7 +117,15 @@ internal fun LiquidModal(
             ) {
                 CompositionLocalProvider(LocalContentColor provides foreground) {
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Text(title, Modifier.padding(bottom = 4.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                        if (showTitle) Text(title, Modifier.padding(bottom = 4.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+                        else Box(Modifier.fillMaxWidth().height(20.dp).pointerInput(dismiss) {
+                            var distance = 0f
+                            detectVerticalDragGestures(onDragStart = { distance = 0f }, onDragEnd = { if (distance > 32.dp.toPx()) dismiss() }) { change, delta ->
+                                change.consume(); distance += delta
+                            }
+                        }, contentAlignment = Alignment.TopCenter) {
+                            Box(Modifier.width(32.dp).height(4.dp).background(foreground.copy(alpha = 0.18f), CircleShape))
+                        }
                         content()
                     }
                     Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically, content = actions)

@@ -36,6 +36,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     fun dismiss() { visibility.targetState = false }
     fun choose(post: Post) { reactionPostId = post.id; visibility.targetState = true }
     val detail = state.detail
+    val actions = LocalTopicActions.current
     val listState = rememberLazyListState()
     var located by rememberSaveable(detail?.id, state.targetNumber) { mutableStateOf(false) }
     LaunchedEffect(detail?.posts, state.loading, state.targetNumber) {
@@ -49,7 +50,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             .then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)
             .focusProperties { onEnter = { if (showing) cancelFocusChange() } }.focusGroup()) {
             Column(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
-                TopicTopBar(state, !showing, back, user, follow) { reactionPostId = null; visibility.targetState = true }
+                TopicTopBar(state, !showing, back, user, follow) { detail?.let { actions.openDetail(it.id, it.originalPost, bookmark) } }
                 LazyColumn(state = listState, modifier = Modifier.testTag("topic-posts"), contentPadding = PaddingValues(bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (state.loading && detail == null) item { LoadingRow() }
                     if (state.error != null) item { ErrorState(state.error, retry, login) }
@@ -101,20 +102,9 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         }
         val selected = detail?.posts?.firstOrNull { it.id == reactionPostId }
             ?: detail?.originalPost?.takeIf { it.id == reactionPostId }
-        LiquidModal(visibility, if (reactionPostId == null) "更多" else "回应", true, modalBackdrop, glass, ::dismiss,
+        LiquidModal(visibility, "回应", true, modalBackdrop, glass, ::dismiss,
             actions = { LiquidModalAction("取消", ::dismiss, Modifier.fillMaxWidth()) }) {
-            if (reactionPostId == null) {
-                TextButton(onClick = { if (visibility.targetState) { dismiss(); share() } }, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Rounded.Share, null, Modifier.size(22.dp)); Spacer(Modifier.width(12.dp)); Text("分享话题")
-                }
-                TextButton(onClick = { if (visibility.targetState) { dismiss(); retry() } }, modifier = Modifier.fillMaxWidth(),
-                    enabled = !state.loading && state.busy.isEmpty() && !state.followBusy) {
-                    Icon(Icons.Rounded.Refresh, null, Modifier.size(22.dp)); Spacer(Modifier.width(12.dp)); Text("刷新话题")
-                }
-                TextButton(onClick = { if (visibility.targetState && detail != null) { dismiss(); openBrowser("https://linux.do/t/${detail.id}") } }, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Rounded.OpenInBrowser, null, Modifier.size(22.dp)); Spacer(Modifier.width(12.dp)); Text("浏览器打开")
-                }
-            } else if (selected != null) {
+            if (selected != null) {
                 TopicReactionChoices(selected, detail?.validReactions.orEmpty(),
                     visibility.targetState && selected.id !in state.busy && (state.viewerId == null || selected.canReact)) {
                     if (visibility.targetState) { dismiss(); react(selected, it) }

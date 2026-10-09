@@ -99,6 +99,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
         fun openLink(url: String) { LinuxDoLink.parse(url)?.let(::destination) ?: openBrowser(url) }
         fun editor(id: Int? = null, number: Int? = null) { authenticated { nav.navigate("compose?topic=${id ?: 0}&reply=${number ?: 0}") } }
         LaunchedEffect(account) { account.events.collect { snackbar.showSnackbar(it) } }
+        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { account.checkSession() } }
         IncomingLinuxDoLink(nav, incomingUrl, linkSequence, { selected = 0 }, consumeLink)
         TopicPresentationEnvironment(app.repository, account.user?.id) {
         AvatarEnvironment(app.repository, account.user?.id) {
@@ -109,6 +110,9 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                 }
                 parseArticle(first?.cooked ?: error("暂时无法读取主帖图片")).filterIsInstance<ArticleBlock.Image>()
             }, openLink = ::openLink, accountKey = account.user?.id) {
+            TopicActionsHost(app.repository, account.user, display.glass, ::login,
+                ignored = { id, username -> account.recordIgnore(id, username, true); refreshEpoch++ },
+                message = { snackbar.showSnackbar(it) }) {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.TopCenter) {
                 NavHost(nav, "root", Modifier.widthIn(max = 840.dp).fillMaxSize(),
                     enterTransition = { fadeIn(tween(280)) }, exitTransition = { fadeOut(tween(180)) },
@@ -190,6 +194,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                     }
                 }
                 SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp).widthIn(max = 600.dp))
+            }
             }
             }
         }

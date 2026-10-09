@@ -41,6 +41,12 @@ class AccountViewModel(
 
     init { viewModelScope.launch { checkSession() } }
 
+    fun recordIgnore(viewerId: Int, username: String, ignored: Boolean) {
+        val current = user?.takeIf { it.id == viewerId } ?: return
+        val names = current.ignoredUsers.filterNot { it.equals(username, ignoreCase = true) }.toSet()
+        user = current.copy(ignoredUsers = if (ignored) names + username else names)
+    }
+
     suspend fun checkSession(): Boolean {
         if (checkingSession) return false
         val epoch = sessionEpoch
