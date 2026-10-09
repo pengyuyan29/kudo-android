@@ -86,7 +86,7 @@ internal fun GalleryImagePage(
             contentDescription = "第 ${page + 1} 张图片"
             stateDescription = if (transform.zoomed) "已放大 ${"%.1f".format(transform.scale)} 倍" else "可双指缩放，下拉或点按关闭"
             onClick("关闭图片") { if (enabled) currentClose(); enabled }
-            onLongClick("图片信息") { if (enabled) currentInformation(); enabled }
+            onLongClick("图片操作") { if (enabled) currentInformation(); enabled }
             customActions = listOf(
                 CustomAccessibilityAction("放大图片") { if (enabled) transform.accessibleZoom(); enabled },
                 CustomAccessibilityAction("还原图片") { if (enabled) transform.resetZoom(); enabled },

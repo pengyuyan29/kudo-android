@@ -41,6 +41,9 @@ import com.kudo.android.ui.components.TopicCard
 import com.kudo.android.ui.components.imageAspectLabel
 import com.kudo.android.ui.theme.KudoTheme
 import com.kudo.android.ui.topic.*
+import com.kudo.android.media.*
+import okhttp3.*
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
@@ -103,7 +106,7 @@ class ImageGalleryUiTest {
         """<div class="lightbox-wrapper"><a class="lightbox" href="${image.originalUrl}"><img src="${image.url}" width="${if (image.url.endsWith("wide.png")) 1688 else 800}" height="${if (image.url.endsWith("wide.png")) 339 else 600}" alt="${image.alt}"><div class="meta"><span class="filename">${image.filename}</span><span class="informations">${image.dimensions} ${image.sizeLabel}</span></div></a></div>"""
     }
 
-    @Composable private fun Detail(main: List<ArticleBlock.Image> = pictures, comments: Boolean = false, openLink: (String) -> Unit = {}) {
+    @Composable private fun Detail(main: List<ArticleBlock.Image> = pictures, comments: Boolean = false, openLink: (String) -> Unit = {}, exports: ImageExportServices? = null) {
         val first = Post(10, 1, author, "<p>查看图片及返回位置</p>" + html(main), "2026-10-09T00:00:00Z", 0, false, null, null, true)
         val replies = if (comments) listOf(
             first.copy(id = 11, number = 2, cooked = html(pictures.take(2))),
@@ -111,12 +114,12 @@ class ImageGalleryUiTest {
         ) else emptyList()
         val posts = listOf(first) + replies
         KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
-            ImageGalleryHost({ pictures }, openLink) {
+            CompositionLocalProvider(LocalImageExportServices provides exports) { ImageGalleryHost({ pictures }, openLink) {
                 val gallery = LocalImageGallery.current
                 SideEffect { observedGallery = gallery }
                 TopicScreen(TopicState(TopicDetail(5, "图片查看器验收", 1, posts, posts.map { it.id }, false), false),
                     GlassMode.LIQUID, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
-            }
+            } }
         }
     }
 
@@ -359,17 +362,54 @@ class ImageGalleryUiTest {
         compose.onNodeWithTag("image-viewer").assertDoesNotExist()
     }
 
-    @Test fun longPressShowsOnlyCurrentPictureInformationAndKeepsTheViewerOpen() {
-        var opened = ""
-        compose.setContent { Detail(openLink = { opened = it }) }
+    @Test fun longPressShowsTheImageMenuAndDismissingKeepsTheCurrentPage() {
+        compose.setContent { Detail() }
         openFirst()
         third()
         compose.onNodeWithTag("gallery-page-2").performTouchInput { longClick() }
-        compose.onNodeWithText("图片信息").assertIsDisplayed()
-        compose.onNodeWithText("figure-3.png").assertIsDisplayed()
-        compose.onNodeWithText("浏览器打开").performTouchInput { click() }
-        compose.runOnIdle { assertEquals(pictures[2].originalUrl, opened) }
+        compose.onNodeWithText("分享图片").assertIsDisplayed()
+        compose.onNodeWithText("保存图片").assertIsDisplayed()
+        compose.onNodeWithText("保存全部图片").assertIsDisplayed()
+        compose.onNodeWithText("图片信息").assertDoesNotExist()
+        capture("gallery-image-action-menu.png")
+        InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("image-action-menu").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithText("3 / 5").assertIsDisplayed()
         compose.onNodeWithTag("image-viewer").assertIsDisplayed()
+    }
+
+    @Test fun sharingAndSavingAfterPagingUseTheCurrentOriginalAndBatchUsesTheWholeAlbum() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val directory = File(context.cacheDir, "gallery-export-fixture-${System.nanoTime()}").apply { mkdirs() }
+        val requests = CopyOnWriteArrayList<String>()
+        val saved = CopyOnWriteArrayList<String>()
+        val shared = CopyOnWriteArrayList<String>()
+        val client = OkHttpClient.Builder().addInterceptor { chain ->
+            requests += chain.request().url.toString()
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                .body(png(32, 32, palette[2], "3").toResponseBody()).build()
+        }.build()
+        val downloader = ImageDownloader(client, directory)
+        val exports = ImageExportServices(downloader, ImageSaver(downloader, ImageStore { saved += it.displayName })) { shared += it.displayName }
+        try {
+            compose.setContent { Detail(exports = exports) }
+            openFirst(); third()
+            compose.onNodeWithTag("gallery-page-2").performTouchInput { longClick() }
+            compose.onNodeWithText("保存图片").performClick()
+            compose.waitUntil(5_000) { saved.size == 1 && compose.onAllNodesWithText("正在处理图片…").fetchSemanticsNodes().isEmpty() }
+            assertEquals(listOf("figure-3.png"), saved.toList())
+            assertEquals(listOf(pictures[2].originalUrl), requests.toList())
+            compose.onNodeWithTag("gallery-page-2").performTouchInput { longClick() }
+            compose.onNodeWithText("分享图片").performClick()
+            compose.waitUntil(5_000) { shared.size == 1 && compose.onAllNodesWithText("正在处理图片…").fetchSemanticsNodes().isEmpty() }
+            assertEquals(listOf("figure-3.png"), shared.toList())
+            compose.onNodeWithTag("gallery-page-2").performTouchInput { longClick() }
+            compose.onNodeWithText("保存全部图片").performClick()
+            compose.waitUntil(10_000) { saved.size == 6 && compose.onAllNodesWithText("正在处理图片…").fetchSemanticsNodes().isEmpty() }
+            assertEquals(pictures.map { it.filename }, saved.drop(1))
+            assertEquals(pictures.map { it.originalUrl }, requests.drop(2))
+            compose.onNodeWithText("3 / 5").assertIsDisplayed()
+        } finally { directory.deleteRecursively() }
     }
 
     @Test fun restoringStateKeepsTheThirdPageAndSystemBackReturnsToItsSource() {

@@ -67,7 +67,8 @@ internal fun ImageScreen(gallery: ImageGalleryState, session: GallerySession, op
     val focus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
-    var information by remember { mutableStateOf(false) }
+    var actionTarget by remember { mutableStateOf<ImageActionTarget?>(null) }
+    var exporting by remember { mutableStateOf(false) }
     LaunchedEffect(pager) {
         snapshotFlow { pager.settledPage }.collect { page ->
             if (session.images === images) session.select(page)
@@ -120,13 +121,13 @@ internal fun ImageScreen(gallery: ImageGalleryState, session: GallerySession, op
     val scrim = moving?.let { lerp(it.fromScrim, it.toScrim, progress.value) } ?: if (entering) 0f else transform.scrimAlpha
     val pageAlpha = if (moving?.painter != null || (entering && moving == null)) 0f
         else if (moving != null) (if (moving.closing) 1f - progress.value else progress.value) else 1f
-    val interactive = !entering && !session.closing && moving == null && !information
+    val interactive = !entering && !session.closing && moving == null && actionTarget == null
     val backgroundTap by rememberUpdatedState { if (interactive) close() }
     Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInWindow() }
         .background(Color.Black.copy(alpha = scrim)).testTag("image-viewer")
         .pointerInput(Unit) { detectTapGestures(onTap = { backgroundTap() }) }
         .semantics { paneTitle = "图片查看器" }
-        .then(if (information) Modifier.clearAndSetSemantics {} else Modifier)
+        .then(if (actionTarget != null) Modifier.clearAndSetSemantics {} else Modifier)
         .focusRequester(focus).onPreviewKeyEvent { event ->
             if (event.type != KeyEventType.KeyUp) false else when (event.key) {
                 Key.Escape -> { close(); true }
@@ -139,7 +140,9 @@ internal fun ImageScreen(gallery: ImageGalleryState, session: GallerySession, op
             userScrollEnabled = interactive && !transform.zoomed && !transform.dragging,
             key = { "${it}:${images[it].originalUrl}" }) { page ->
             GalleryImagePage(images[page], page, transforms[page], interactive,
-                active = page == pager.currentPage, close = ::close, information = { information = true },
+                active = page == pager.currentPage, close = ::close, information = {
+                    if (!exporting) actionTarget = ImageActionTarget(images[pager.currentPage], images.toList())
+                },
                 placeholder = gallery.openingSnapshot?.painter?.takeIf { sameGalleryImage(images[page], session.openingImage) },
                 onPainter = { painters[page] = it }, onPainterDisposed = { painters.remove(page) })
         }
@@ -149,21 +152,10 @@ internal fun ImageScreen(gallery: ImageGalleryState, session: GallerySession, op
             if (session.loading) CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
             if (session.error) TextButton(onClick = session::retryAlbum) { Text("其他图片加载失败，点击重试", color = Color.White) }
             if (images.size > 1) Text("${pager.currentPage + 1} / ${images.size}", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelLarge)
+            if (exporting) Text("正在处理图片…", color = Color.White, style = MaterialTheme.typography.bodySmall)
         }
     }
-    if (information) {
-        val image = images[pager.currentPage]
-        AlertDialog(onDismissRequest = { information = false },
-            title = { Text("图片信息") },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (image.filename.isNotBlank()) Text(image.filename)
-                if (image.dimensions.isNotBlank()) Text(image.dimensions)
-                if (image.sizeLabel.isNotBlank()) Text(image.sizeLabel)
-                if (image.filename.isBlank() && image.dimensions.isBlank() && image.sizeLabel.isBlank()) Text("此图片没有附带文件信息")
-            } },
-            confirmButton = { TextButton(onClick = { information = false; open(image.originalUrl) }) { Text("浏览器打开") } },
-            dismissButton = { TextButton(onClick = { information = false }) { Text("关闭") } })
-    }
+    ImageActions(actionTarget, { actionTarget = null }, { exporting = it })
 }
 
 private tailrec fun Context.galleryActivity(): Activity? = when (this) {
