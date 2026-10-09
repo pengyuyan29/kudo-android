@@ -145,7 +145,8 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                     0 -> FeedScreen(state.forUser(account.user), account.user, feed::select, feed::refresh, feed::more, { topic(it) }, ::user, { nav.navigate("search") }, { if (account.user == null) login() else user(account.user!!.username) }, { account.loadCategories() }, listStyle = display.topicListStyle, pages = pages,
                                         categoryContent = { CategoriesScreen(account.categories, account.categoriesLoading, account.categoryError, account::loadCategories, ::login, inHome = true) { nav.navigate("category/${it.id}") } })
                                     1 -> CategoriesScreen(account.categories, account.categoriesLoading, account.categoryError, account::loadCategories, ::login) { nav.navigate("category/${it.id}") }
-                                    3 -> NotificationsScreen(account, ::login, ::topic)
+                                    3 -> NotificationsScreen(account, ::login, ::topic, ::openWebPage,
+                                        { nav.navigate("personal/${AccountDestination.MESSAGES.name}") })
                                     4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) }, repository = app.repository, about = { nav.navigate("about") },
                                         destination = { destination ->
                                             when (destination) {

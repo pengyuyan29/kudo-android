@@ -18,7 +18,7 @@ AccountViewModel 通过 /session/current.json 确认用户，LoginScreen 提供 
 
 设置页持久化主题、材质和字号，并解释兼容材质。个人主页显示实际账号资料。
 
-已登录个人中心的“我的话题”使用 /topics/created-by/{username}.json，仅列出自己创建的话题，不混用 /posted 的参与记录；浏览历史使用 /read.json。私信独立提供收件箱、已发送、归档，分别使用 private-messages、private-messages-sent、private-messages-archive。原生列表遵循服务端 more_topics_url，复用用户选择的信息流或标题样式；账号参与 ViewModel 身份，切换信箱取消旧请求并核验请求代次。界面继续按[个人中心功能](../../proposed/feature/2026-10-10-member-account-dashboard.md)补齐。
+已登录个人中心的“我的话题”使用 /topics/created-by/{username}.json，仅列出自己创建的话题，不混用 /posted 的参与记录；浏览历史使用 /read.json。私信独立提供收件箱、已发送、归档，分别使用 private-messages、private-messages-sent、private-messages-archive。原生列表遵循服务端 more_topics_url，复用用户选择的信息流或标题样式；账号参与 ViewModel 身份，切换信箱取消旧请求并核验请求代次。完整入口与消息分组见[个人中心功能](2026-10-10-member-account-dashboard.md)。
 
 等级徽标与菜单打开原生 Connect 页面。ConnectRepository 只请求固定 connect.linux.do 来源，从共享 CookieManager 按该 URL 读取会话，拒绝自动跳转；认证跳转交给应用内 WebView。Jsoup 读取服务器标题、周期、环形/条形进度、限制与否决条件，不硬编码阈值；低等级 empty-state 保留网站说明，不虚构评估。页面结构变化明确报错并提供网页恢复，主站 DiscourseClient 的同源限制不放宽。
 

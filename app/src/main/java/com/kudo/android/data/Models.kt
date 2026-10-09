@@ -69,7 +69,8 @@ data class TopicDetail(
 ) {
     val originalPost: Post? get() = posts.firstOrNull { it.number == 1 } ?: pinnedOriginal
 }
-data class Notice(val id: Int, val title: String, val description: String, val topicId: Int?, val postNumber: Int?, val read: Boolean, val time: String)
+data class Notice(val id: Int, val title: String, val description: String, val topicId: Int?, val postNumber: Int?, val read: Boolean, val time: String,
+    val type: Int = 0, val actor: Member? = null, val url: String = "")
 data class SavedTopic(val id: Int, val topicId: Int, val title: String, val excerpt: String, val postNumber: Int?)
 data class PublishResult(val topicId: Int?, val queued: Boolean)
 
@@ -184,10 +185,18 @@ object DiscourseParser {
 
     fun notices(json: JSONObject): List<Notice> = json.optJSONArray("notifications").objects().map { item ->
         val data = item.optJSONObject("data") ?: JSONObject()
-        val kind = when (item.optInt("notification_type")) { 1 -> "提到了你"; 2 -> "回复了你"; 3 -> "引用了你"; 5 -> "赞了你的回复"; 6 -> "发来私信"; 9 -> "发布了新话题"; else -> "有新的动态" }
-        Notice(item.getInt("id"), plainText(data.text("title").ifBlank { data.text("topic_title") }).ifBlank { "社区通知" },
-            "${data.text("display_username").ifBlank { data.text("original_username") }} $kind".trim(),
-            item.positiveInt("topic_id"), item.positiveInt("post_number"), item.optBoolean("read"), item.text("created_at"))
+        val type = item.optInt("notification_type")
+        val kind = when (type) {
+            1, 15 -> "提到了你"; 2 -> "回复了你"; 3 -> "引用了你"; 4 -> "编辑了帖子"
+            5, 19 -> "赞了你的帖子"; 6 -> "发来私信"; 7 -> "邀请你加入私信"; 9, 17 -> "发布了新话题"
+            11 -> "链接了你的帖子"; 12 -> "授予了你徽章"; 13 -> "邀请你参与话题"; 20 -> "你的内容已通过审核"
+            24 -> "收藏提醒"; 25 -> "回应了你的帖子"; 29, 30 -> "有新的聊天消息"; else -> "有新的动态"
+        }
+        val username = data.text("display_username").ifBlank { data.text("original_username") }.ifBlank { item.text("acting_user_username") }
+        val actor = username.takeIf(String::isNotBlank)?.let { Member(item.optInt("acting_user_id"), it, data.text("display_name"), item.text("acting_user_avatar_template")) }
+        Notice(item.getInt("id"), plainText(data.text("title").ifBlank { data.text("topic_title") }.ifBlank { data.text("badge_name") }).ifBlank { kind },
+            "$username $kind".trim(), item.positiveInt("topic_id"), item.positiveInt("post_number"), item.optBoolean("read"), item.text("created_at"),
+            type, actor, data.text("url").ifBlank { data.text("link") }.ifBlank { data.positiveInt("badge_id")?.let { "https://linux.do/badges/$it" }.orEmpty() })
     }
 }
 

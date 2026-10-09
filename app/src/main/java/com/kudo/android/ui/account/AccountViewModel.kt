@@ -29,12 +29,14 @@ class AccountViewModel(
     var noticesError by mutableStateOf<Throwable?>(null); private set
     var noticesLoading by mutableStateOf(false); private set
     var hasMoreNotices by mutableStateOf(true); private set
+    var noticesLoaded by mutableStateOf(false); private set
     var saved by mutableStateOf<List<SavedTopic>>(emptyList()); private set
     var savedError by mutableStateOf<Throwable?>(null); private set
     var savedLoading by mutableStateOf(false); private set
     var hasMoreSaved by mutableStateOf(false); private set
     private var savedPage = 0
     private var noticeOffset = 0
+    private var noticeNext: String? = null
     private var sessionEpoch = 0
     private val messages = Channel<String>(Channel.BUFFERED)
     private var noticeJob: Job? = null
@@ -49,7 +51,7 @@ class AccountViewModel(
             noticeJob?.cancel(); savedJob?.cancel()
             notices = emptyList(); saved = emptyList()
             noticesError = null; savedError = null; noticesLoading = false; savedLoading = false
-            hasMoreNotices = true; hasMoreSaved = false; noticeOffset = 0; savedPage = 0
+            hasMoreNotices = true; noticesLoaded = false; hasMoreSaved = false; noticeOffset = 0; noticeNext = null; savedPage = 0
         }
         user = member
         checkingSession = false
@@ -92,8 +94,11 @@ class AccountViewModel(
         val offset = if (more) noticeOffset else 0
         noticeJob = viewModelScope.launch {
             try {
-                val result = withContext(Dispatchers.IO) { repository.notifications(offset) }
-                if (epoch == sessionEpoch) { notices = (if (more) notices + result else result).distinctBy(Notice::id); hasMoreNotices = result.size == 30; noticeOffset = offset + result.size }
+                val page = withContext(Dispatchers.IO) { repository.noticePage(offset, if (more) noticeNext else null) }
+                if (epoch == sessionEpoch) {
+                    notices = (if (more) notices + page.notices else page.notices).distinctBy(Notice::id)
+                    hasMoreNotices = page.next != null; noticeNext = page.next; noticeOffset = offset + 30; noticesLoaded = true
+                }
             } catch (e: CancellationException) { throw e } catch (e: Exception) { if (epoch == sessionEpoch) noticesError = e }
             finally { if (epoch == sessionEpoch) noticesLoading = false }
         }

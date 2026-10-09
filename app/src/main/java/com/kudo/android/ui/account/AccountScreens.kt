@@ -168,26 +168,13 @@ fun MenuRow(icon: ImageVector, title: String, subtitle: String, click: () -> Uni
 }
 
 @Composable
-fun NotificationsScreen(vm: AccountViewModel, login: () -> Unit, open: (Int, Int?) -> Unit) {
+fun NotificationsScreen(vm: AccountViewModel, login: () -> Unit, open: (Int, Int?) -> Unit,
+    website: (String) -> Unit = {}, privateMessages: () -> Unit = {}) {
     if (vm.user == null) {
         GuestNotificationsScreen(login)
         return
     }
-    Column {
-        RootHeading("消息") { IconButton(onClick = { vm.loadNotices() }) { Icon(Icons.Rounded.Refresh, "刷新通知") }; TextButton(onClick = { vm.markRead() }, enabled = vm.user != null) { Text("全部已读") } }
-        LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            if (vm.noticesLoading && vm.notices.isEmpty()) item { LoadingRow() }
-            items(vm.notices, key = { it.id }) { notice ->
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).clickable { vm.markRead(notice.id); notice.topicId?.let { open(it, notice.postNumber) } }.padding(17.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) { if (!notice.read) { Box(Modifier.size(7.dp).background(LogoYellow, RoundedCornerShape(50))); Spacer(Modifier.width(7.dp)) }; Text(notice.description, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary); Text(relativeTime(notice.time), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    Text(notice.title, style = MaterialTheme.typography.titleSmall)
-                }
-            }
-            vm.noticesError?.let { item { ErrorState(it, { vm.loadNotices() }, login) } }
-            if (vm.user != null && !vm.noticesLoading && vm.notices.isEmpty() && vm.noticesError == null) item { EmptyState("暂时没有新消息", "有人回应你时，会出现在这里。", Icons.Rounded.NotificationsNone) }
-            if (vm.notices.isNotEmpty() && vm.hasMoreNotices) item { TextButton(onClick = { vm.loadNotices(true) }, enabled = !vm.noticesLoading, modifier = Modifier.fillMaxWidth()) { Text(if (vm.noticesLoading) "加载中…" else "加载更多") } }
-        }
-    }
+    key(vm.user?.id) { MemberNotificationsScreen(vm, login, open, website, privateMessages) }
 }
 
 @Composable
