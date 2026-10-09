@@ -22,6 +22,7 @@ class AppContainer(context: Context) {
     val userAgent: String = WebSettings.getDefaultUserAgent(context.applicationContext)
     val client = DiscourseClient(cookies, userAgent = { userAgent })
     val repository = CommunityRepository(client)
+    val connect = ConnectRepository(cookies, userAgent)
     val imageHttpClient = OkHttpClient.Builder().addNetworkInterceptor { chain ->
         val request = chain.request()
         val builder = request.newBuilder().removeHeader("Cookie")

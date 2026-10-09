@@ -151,7 +151,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                             val username = Uri.encode(account.user?.username.orEmpty())
                                             when (destination) {
                                                 AccountDestination.BOOKMARKS -> nav.navigate("bookmarks")
-                                                AccountDestination.TRUST -> openWebPage("https://connect.linux.do/")
+                                                AccountDestination.TRUST -> nav.navigate("trust")
                                                 AccountDestination.TOPICS, AccountDestination.HISTORY, AccountDestination.MESSAGES -> nav.navigate("personal/${destination.name}")
                                                 AccountDestination.DRAFTS -> openWebPage("https://linux.do/u/$username/activity/drafts")
                                                 AccountDestination.CHAT -> openWebPage("https://linux.do/chat")
@@ -188,6 +188,11 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             PersonalTopicsScreen(vm, account.categories, display.topicListStyle, { nav.popBackStack() }, ::login, ::topic, ::user,
                                 { openWebPage("https://linux.do/new-message") })
                         } else Column { AccountPageTopBar("个人内容", { nav.popBackStack() }); EmptyState("登录后查看", "登录后查看自己的社区内容。", actionLabel = "登录", action = ::login) }
+                    }
+                    composable("trust") {
+                        account.user?.let { member ->
+                            TrustScreen(member, app.connect, { nav.popBackStack() }, { openWebPage("https://connect.linux.do/") })
+                        } ?: Column { AccountPageTopBar("等级要求", { nav.popBackStack() }); EmptyState("登录后查看等级", "查看当前账号的等级条件与进度。", actionLabel = "登录", action = ::login) }
                     }
                     composable("web?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry ->
                         WebScreen(entry.arguments!!.getString("url")!!, { nav.popBackStack() }, ::openBrowser)
