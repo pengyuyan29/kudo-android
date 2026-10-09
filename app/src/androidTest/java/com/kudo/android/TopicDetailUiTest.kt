@@ -24,6 +24,8 @@ import com.kudo.android.ui.components.LocalAvatarMetadata
 import com.kudo.android.ui.theme.KudoTheme
 import com.kudo.android.ui.topic.TopicScreen
 import com.kudo.android.ui.topic.TopicState
+import com.kudo.android.ui.topic.LocalTopicActions
+import com.kudo.android.ui.topic.TopicActionsController
 import okio.Buffer
 import org.junit.After
 import org.junit.Assert.*
@@ -155,20 +157,16 @@ class TopicDetailUiTest {
         compose.onNodeWithText(author.displayName).assertIsDisplayed()
     }
 
-    @Test fun moreMenuKeepsBrowserRefreshAndShareAndIsolatesTheUnderlyingPage() {
-        var opened = ""
-        var refreshes = 0
-        var shares = 0
-        compose.setContent { Screen(initial, link = { opened = it }, retry = { refreshes++ }, share = { shares++ }) }
+    @Test fun moreMenuTargetsOriginalPostEvenFromAFloorDeepLink() {
+        var target: Post? = null
+        var topicId = 0
+        compose.setContent {
+            CompositionLocalProvider(LocalTopicActions provides TopicActionsController({}, { id, post, _ -> topicId = id; target = post })) {
+                Screen(initial.copy(detail = detail.copy(posts = listOf(reply), pinnedOriginal = first)))
+            }
+        }
         compose.onNodeWithContentDescription("更多").performTouchInput { click() }
-        compose.onNodeWithText("写回复").assertDoesNotExist()
-        compose.onNodeWithText("浏览器打开").performTouchInput { click() }
-        compose.runOnIdle { assertEquals("https://linux.do/t/5", opened) }
-        compose.onNodeWithContentDescription("更多").performTouchInput { click() }
-        compose.onNodeWithText("刷新话题").performTouchInput { click() }
-        compose.onNodeWithContentDescription("更多").performTouchInput { click() }
-        compose.onNodeWithText("分享话题").performTouchInput { click() }
-        compose.runOnIdle { assertEquals(1, refreshes); assertEquals(1, shares) }
+        compose.runOnIdle { assertEquals(5, topicId); assertEquals(first.id, target?.id) }
     }
 
     @Test fun emojiLoadsAsAnInlineImageAndLargeTextKeepsAVisiblePlaceholderRectangle() {

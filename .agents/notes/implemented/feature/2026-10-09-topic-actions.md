@@ -28,6 +28,10 @@ Status: implemented
 
 ## Testing
 
+最终123项JVM测试通过，RMX2202 / Android13 的34项界面回归通过（56.426秒），覆盖新增8项主题操作、顶部4项、详情5项、列表样式3项、元信息7项、设置7项。初次返回键测试在弹窗渲染前发出系统返回导致Activity结束，补上弹窗已显示的同步断言后通过。构建、Lint通过（0错误/30警告/1提示），笔记门禁通过。日志为 artifacts/topic-actions-final-jvm.txt、topic-actions-verified-device.txt 与 topic-actions-final-package.txt。
+
+已检查 artifacts/topic-actions-ui-final 的复制菜单、暗色大字菜单、举报字数/非法确认、历史差异和期限截图；真实首页与列表/详情液态菜单截图为 topic-actions-real-home.png、topic-actions-real-list-sheet.png、topic-actions-real-detail-sheet.png。真实菜单按主帖字段省略不存在的历史。网站读取验证动态原因与3字下限；报告及忽略写入仅在MockWebServer验证，没有对真实作者提交。
+
 TopicActionsViewModelTest 先复现旧详情重新举报可提交，再修复；覆盖连点单次写入、失败保留草稿、未确认结果跨弹窗阻断、成功原因去重、取消读取不覆盖新目标、忽略期限校验。网络与HTML/差异解析在IO调度器执行，测试先等待取消任务收束再卸载Main调度器。
 
 标签数组和回复对象复现先失败，修复解析后与全部123项JVM回归通过；历史翻页保留网站非连续版本指针。

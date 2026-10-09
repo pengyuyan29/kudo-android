@@ -28,7 +28,7 @@ Status: implemented
 
 ## Testing
 
-2026-10-09 紧凑顶部调整复用 FeedHeaderUiTest 的折叠、反向展开、账号切换与窄屏大字号回归，最终同批功能完成后集中执行。历史验证记录如下。
+2026-10-09 紧凑顶部调整的 FeedHeaderUiTest 4项真机回归全部通过，验证折叠、反向展开、账号切换与窄屏大字号；同批界面共34项通过。真实首页截图 artifacts/topic-actions-real-home.png 已检查，搜索行44dp、Tab最小34dp，黄色渐变贴在文字背后且随文本宽度。历史验证记录如下。
 
 FeedHeaderUiTest 在 RMX2202 / Android13 先复现两个失败：上滑后 Tab 位置不变、横幅仍存在。修复后 2 项通过（4.1秒），验证连续上滑吸顶稳定、反向滑动搜索展开、首屏直接显示话题。日志为 artifacts/home-tabs-repro.txt 与 home-tabs-layout-test.txt。最终24项JVM及32项真机界面回归通过（68.994秒），构建与Lint通过（0错误/27警告）。真实首页、排行榜吸顶与反向展开截图分别为 home-tabs-real-top.png、home-tabs-real-pinned.png、home-tabs-real-expanded.png，已人工检查；吸顶Tab位于状态栏107px下方，40dp高，与同机酷安一致。
 
