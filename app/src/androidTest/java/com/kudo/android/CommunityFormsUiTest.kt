@@ -1,6 +1,9 @@
 package com.kudo.android
 
 import android.graphics.Bitmap
+import android.view.WindowManager
+import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
@@ -10,7 +13,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.CommunityButton
@@ -18,13 +21,21 @@ import com.kudo.android.ui.editor.*
 import com.kudo.android.ui.theme.KudoTheme
 import com.kudo.android.ui.topic.*
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
 
 class CommunityFormsUiTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val categories = listOf(Category(1, "开发调优", "dev", "fff", "", 0), Category(2, "日常闲聊", "chat", "fff", "", 0))
+
+    @Before fun useProductionWindowConfiguration() {
+        compose.runOnUiThread {
+            compose.activity.enableEdgeToEdge()
+            compose.activity.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
+    }
 
     @Test fun newTopicUsesCategorySheetAndOpenInputsAndPreservesToolCallbacks() {
         var draft by mutableStateOf(Draft())
@@ -65,7 +76,10 @@ class CommunityFormsUiTest {
         val expandedBottom = compose.onRoot().fetchSemanticsNode().boundsInRoot.bottom
         compose.runOnIdle { visibility.targetState = true }
         compose.onNodeWithTag("editor-body").assertIsFocused()
-        compose.waitUntil(5000) { ime }
+        try { compose.waitUntil(5000) { ime } } catch (failure: Throwable) {
+            capture("coolapk-reply-keyboard-failure.png")
+            throw failure
+        }
         compose.onNodeWithTag("editor-body").performTextInput("关闭后继续写")
         compose.onNodeWithText("发布", substring = false).assertIsEnabled().assertIsDisplayed()
         val rootBottom = compose.onRoot().fetchSemanticsNode().boundsInRoot.bottom

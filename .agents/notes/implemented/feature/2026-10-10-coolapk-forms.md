@@ -25,8 +25,12 @@ Foundation 输入和自绘单选、开关、扁平按钮形成统一控件。举
 
 ## Testing
 
-EditorLifecycleUiTest 先复现成功后内存草稿仍保留，日志 artifacts/editor-reuse-repro-device.txt，再修复；覆盖不同回复目标隔离、失败保留与成功清理。CommunityFormsUiTest 覆盖发帖分类和工具、回复键盘及拖关重开、整页举报校验。构建已通过，完整单测、Lint 和真机集中回归进行中，不声称尚未完成的检查通过。
+EditorLifecycleUiTest 先复现成功后内存草稿仍保留，日志 artifacts/editor-reuse-repro-device.txt，再修复；不同回复目标隔离、失败保留与成功清理三项全部通过。CommunityFormsUiTest 三项覆盖发帖分类和工具、回复聚焦/键盘避让/拖关重开、深色130%字号整页举报及违法确认校验，全部通过。
+
+键盘验证要求测试 Activity 与 MainActivity 一样使用 edge-to-edge 和 adjustResize。空白测试 Activity 原先使用 adjustPan，系统键盘可见但 Compose 不接收预期的 IME Insets，导致超时；修正测试窗口后通过，不保留无证据的产品延时调整。测试机存在实体键盘，临时通过系统设置打开“使用屏幕键盘”完成测试，结束恢复 show_ime_with_hard_keyboard=0。单项通过日志 artifacts/reply-production-window-device.txt；整批36项全部通过日志 artifacts/coolapk-forms-final-device.txt。129项 JVM 测试、Debug/测试 APK 构建通过，Lint 为0错误、30条现有警告和1条提示。
+
+截图 artifacts/coolapk-new-topic.png、artifacts/coolapk-reply-keyboard.png、artifacts/coolapk-report-dark-large.png 由 Compose 根节点捕获，键盘自身属于独立系统窗口，不包含在回复截图中；避让由真实 IME Insets 与面板/按钮边界断言验证。举报和发布使用夹具验证，不向社区提交测试内容。应用正常入口和话题列表进入详情另行检查；本轮通过 adb 直接打开话题链接的补充检查被自动审批拦截，未提供具体理由，因此不将其计入本轮验证。
 
 ## Consequences
 
-回复不再通过 compose 导航返回，需要显式连接成功刷新；键盘首次返回应先收起键盘。大字、横屏和长正文必须能滚动且提交按钮可达。
+回复不再通过 compose 导航返回，需要显式连接成功刷新；键盘首次返回应先收起键盘。大字和短窗口由自动化覆盖，横屏、其他输入法与设备仍需实际验收。当前真机未登录，未进行真实举报、上传或发布请求。

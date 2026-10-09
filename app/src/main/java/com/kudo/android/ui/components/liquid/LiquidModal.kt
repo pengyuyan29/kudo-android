@@ -17,17 +17,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -99,16 +95,16 @@ internal fun LiquidModal(
                 .clickable(interactionSource = null, indication = null, onClickLabel = "关闭弹窗", onClick = dismiss)
                 .testTag("modal-scrim"))
             Column(
-                Modifier.align(if (actionSheet) Alignment.BottomCenter else Alignment.Center)
+                Modifier.align(Alignment.Center)
                     .padding(safeInsets).padding(horizontal = 16.dp, vertical = 16.dp)
                     .widthIn(max = 440.dp).fillMaxWidth()
                     .animateEnterExit(
-                        enter = if (actionSheet) slideInVertically(tween(240)) { it } else scaleIn(tween(180), initialScale = 0.94f),
-                        exit = if (actionSheet) slideOutVertically(tween(180)) { it } else scaleOut(tween(140), targetScale = 0.96f))
+                        enter = scaleIn(tween(180), initialScale = 0.94f),
+                        exit = scaleOut(tween(140), targetScale = 0.96f))
                     .focusRequester(focus)
                     .focusProperties { onExit = { if (visibility.targetState) cancelFocusChange() } }
                     .focusGroup()
-                    .drawBackdrop(backdrop, shape = { RoundedRectangle(if (actionSheet) 28.dp else 36.dp) },
+                    .drawBackdrop(backdrop, shape = { RoundedRectangle(36.dp) },
                         effects = {
                             if (canBlur) {
                                 colorControls(brightness = if (light) 0.2f else 0f, saturation = 1.5f)
@@ -120,20 +116,12 @@ internal fun LiquidModal(
                     .heightIn(max = maxPanelHeight)
                     .pointerInput(Unit) { detectTapGestures(onTap = {}) }
                     .semantics { dialog(); paneTitle = title }
-                    .testTag(if (actionSheet) "liquid-action-sheet" else "liquid-dialog")
+                    .testTag("liquid-dialog")
                     .padding(20.dp),
             ) {
                 CompositionLocalProvider(LocalContentColor provides foreground) {
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         if (showTitle) Text(title, Modifier.padding(bottom = 4.dp), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                        else Box(Modifier.fillMaxWidth().height(20.dp).pointerInput(dismiss) {
-                            var distance = 0f
-                            detectVerticalDragGestures(onDragStart = { distance = 0f }, onDragEnd = { if (distance > 32.dp.toPx()) dismiss() }) { change, delta ->
-                                change.consume(); distance += delta
-                            }
-                        }, contentAlignment = Alignment.TopCenter) {
-                            Box(Modifier.width(32.dp).height(4.dp).background(foreground.copy(alpha = 0.18f), CircleShape))
-                        }
                         content()
                     }
                     Row(Modifier.fillMaxWidth().padding(top = 18.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically, content = actions)

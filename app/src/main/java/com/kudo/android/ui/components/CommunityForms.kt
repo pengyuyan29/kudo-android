@@ -78,7 +78,7 @@ internal fun CommunitySwitch(checked: Boolean, change: (Boolean) -> Unit, modifi
     val neutral = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
     Box(modifier.size(54.dp, 48.dp).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = change), contentAlignment = Alignment.Center) {
         Box(Modifier.size(50.dp, 30.dp).clip(RoundedCornerShape(50)).background(if (checked) LogoYellow.copy(alpha = if (enabled) 1f else .4f) else neutral)) {
-            Box(Modifier.offset(x = x, y = 3.dp).size(24.dp).background(Color.White, RoundedCornerShape(50)))
+            Box(Modifier.offset { IntOffset(x.roundToPx(), 3.dp.roundToPx()) }.size(24.dp).background(Color.White, RoundedCornerShape(50)))
         }
     }
 }

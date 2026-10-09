@@ -23,8 +23,10 @@ LiquidModal 的 actionSheet 分支委托新面板，说明和破坏性确认保�
 
 ## Testing
 
-SheetGestureUiTest 先在旧实现失败，无法找到设置面板拖动条，日志 artifacts/sheet-repro-device.txt。组件与设置集成构建通过；整批功能完成后集中验证拖动跟手、回弹、关闭与滚动、模态隔离、键盘、大字和短窗口，当前不声称新增手势真机通过。
+SheetGestureUiTest 先在旧实现失败，无法找到设置面板拖动条，日志 artifacts/sheet-repro-device.txt。RMX2202 / Android 13 上三项手势用例通过：把手跟手、小幅回弹与长拖关闭；长内容先滚动、到顶后的下拉关闭；320dp 短窗口与130%字号下取消可达、忙碌时拖动和遮罩不能关闭。
+
+集中回归36项全部通过，日志 artifacts/coolapk-forms-final-device.txt，同时覆盖设置、详情操作、楼中楼、详情、签名开关和列表样式。129项 JVM 测试通过。最终 Debug 与测试 APK 构建通过，Lint 为0错误、30条现有警告和1条提示，日志 artifacts/coolapk-final-build.txt；笔记门禁通过。实色贴边面板与黄色选中状态截图为 artifacts/coolapk-settings-sheet-light.png、artifacts/coolapk-topic-actions-detail-light.png。
 
 ## Consequences
 
-自定义手势需要验证滚动、键盘、焦点和系统动画关闭时的交互；同窗口面板不能依赖系统 Dialog 自动处理这些行为。
+同窗口面板显式处理滚动、键盘、焦点和遮罩，不能依赖系统 Dialog 自动处理。真机覆盖一台 Android 13 手机，短窗口与大字由测试约束覆盖，平板、折叠屏和其他系统版本仍需实际设备验收。
