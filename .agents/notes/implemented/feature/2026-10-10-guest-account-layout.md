@@ -1,0 +1,35 @@
+# Agent Note: 酷安式未登录个人中心
+
+Status: implemented
+
+## Problem
+
+“我的”页将未登录引导放在大面积黄色头像卡中，搭配大标题及带副标题的纵向菜单，与用户给定的酷安个人中心参考在层级和密度上不同。用户要求分阶段：先验收未登录版，用户确认并登录真实账号后才改登录后的资料、统计、信任等级及 Connect 数据展示。
+
+## Decision
+
+ProfileScreen 在访客分支使用独立布局，登录后的卡片、资料补齐和背景图保持现有实现。访客页采用背景色工具栏、右侧设置和白色小圆角登录区，黄色只强调居中登录按钮。下方按用户修订保留“界面与显示”“关于酷DO”两条横向菜单行，保留说明文字并收紧字号、行高和间距；移除访客收藏入口，不增加夜间模式或图标网格。登录区说明和入口文字允许随字号、宽度换行，内容可滚动并预留底栏空间。
+
+关于入口进入独立简洁页面，复用设置页同一段应用说明并显示真实构建版本。登录和设置保留原路由，不修改显示偏好。
+
+## Existing note audit
+
+检索账号、未登录、个人中心、等级、Connect 和 AccountScreens。[账号与草稿](../../implemented/feature/2026-10-07-account-and-composer.md)部分重叠，保留会话确认、登录和草稿边界；[用户装饰](../../implemented/feature/2026-10-10-user-decoration.md)部分重叠，登录后的资料卡背景图继续成立；[酷安密度](../../implemented/feature/2026-10-07-coolapk-density-and-motion.md)部分重叠，遵循按内容角色设字号和大字增高；[设置模态](../../implemented/feature/2026-10-08-glass-settings-modals.md)部分重叠，继续复用显示偏好及现有设置页。无完全吸收、过时或被推翻的决策。
+
+## Alternatives considered
+
+- 缩小现有黄色欢迎卡，调整圆角即可保留全部现有结构，修改最少；但大色块和带头像的欢迎结构仍不符合用户给定的白色登录区与居中按钮布局。
+- 同时重做登录与未登录分支，能一次统一组件；但用户明确要求先验收访客态并登录真实账号，第二阶段的真实数据组织需要届时验证。
+- 四列图标入口能接近参考图并让更多快捷操作保持首屏可达，但用户修订要求只保留现有样式的两条菜单行，使用收紧的文字与间距。
+
+## Verification
+
+GuestProfileUiTest 四项覆盖登录、设置和关于各自回调、无收藏和夜间入口、账号与访客切换、280dp宽 / 420dp高 / 深色130%字号下的滚动与完整文字、关于页真实版本和返回。两项既有 AvatarUiTest 保证账号卡片仍使用原背景及本人资质展示；设置模态和拖动面板回归同时通过。Android 13 上合计16项通过（29.381秒），见 artifacts/guest-profile-final-device.txt。
+
+首轮测试以 TextLayoutResult.hasVisualOverflow 判定宽度失败，但截图中文字完整，诊断结果是语义接口保留720px段落可用宽、实际文字布局290px；改为检查每行实际 getLineRight、是否省略和高度。测试外层 Surface 的最小约束也让初版280dp窗口铺满屏幕，增加松约束外层 Box 后截图确认为840×1260px，并重新通过全部回归；这两项是夹具修正，不以放宽字号或扩大产品窗口绕过问题。首轮和诊断记录为 artifacts/guest-profile-device.txt、artifacts/guest-profile-overflow-device.txt。
+
+135项 JVM 测试通过，Debug 与测试 APK 构建成功，Lint 0错误、30条原有警告与1条提示；见 artifacts/guest-profile-final-build.txt、artifacts/guest-profile-final-lint.txt。已查看浅色、深色窄屏130%截图，以及真实应用 artifacts/guest-profile-live.png 和 guest-profile-live-about.png。真机关于入口进入独立页面，返回恢复未登录“我的”；未修改用户显示偏好，未使用真实账号声称登录后的数据验收。测试截图中按压涟漪是瞬间状态，静态外观以真实应用截图为准。
+
+## Consequences
+
+未登录页面减少大色块和重复入口，登录入口更明确；关于页新增独立导航目标，与设置说明共享文案。窄窗口或大字号下说明允许换行，内容增高时需要滚动。真机当前仅 Android 13；登录后的重排、等级入口和 Connect 数据展示等待用户验收访客态并登录后实施。

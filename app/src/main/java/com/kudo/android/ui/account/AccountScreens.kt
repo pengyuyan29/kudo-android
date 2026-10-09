@@ -15,9 +15,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.kudo.android.BuildConfig
+import com.kudo.android.R
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
 import com.kudo.android.ui.theme.Ink
@@ -56,10 +65,14 @@ fun CategoriesScreen(categories: List<Category>, loading: Boolean, error: Throwa
 }
 
 @Composable
-fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookmarks: () -> Unit, profile: () -> Unit, repository: CommunityRepository? = null) {
-    var decoration by remember(user?.id, user?.username) { mutableStateOf<Member?>(null) }
-    LaunchedEffect(user?.id, user?.username, repository) {
-        if (user != null && repository != null) try {
+fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookmarks: () -> Unit, profile: () -> Unit, repository: CommunityRepository? = null, about: () -> Unit = settings) {
+    if (user == null) {
+        GuestProfileScreen(login, settings, about)
+        return
+    }
+    var decoration by remember(user.id, user.username) { mutableStateOf<Member?>(null) }
+    LaunchedEffect(user.id, user.username, repository) {
+        if (repository != null) try {
             decoration = withContext(Dispatchers.IO) { repository.user(user.username) }
                 .takeIf { it.id == user.id && it.username.equals(user.username, ignoreCase = true) }
         } catch (e: CancellationException) { throw e } catch (_: Exception) { }
@@ -68,19 +81,19 @@ fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookma
         RootHeading("我的") { IconButton(onClick = settings) { Icon(Icons.Rounded.Settings, "设置") } }
         LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item {
-                UserBackground((decoration ?: user)?.cardBackground.orEmpty(), LogoYellow,
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).clickable(onClick = if (user == null) login else profile)) { hasBackground ->
+                UserBackground((decoration ?: user).cardBackground, LogoYellow,
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).clickable(onClick = profile)) { hasBackground ->
                 val foreground = if (hasBackground) Color.White else Ink
                 Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Avatar(user, 60.dp, presentation = AvatarPresentation.ACCOUNT)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(user?.displayName ?: "你好，DO 友", style = MaterialTheme.typography.headlineSmall, color = foreground)
-                            Text(user?.let { "@${it.username}  ·  Lv.${it.trustLevel}" } ?: "登录，加入每一次精彩讨论", style = MaterialTheme.typography.bodyMedium, color = foreground.copy(alpha = 0.8f))
+                            Text(user.displayName, style = MaterialTheme.typography.headlineSmall, color = foreground)
+                            Text("@${user.username}  ·  Lv.${user.trustLevel}", style = MaterialTheme.typography.bodyMedium, color = foreground.copy(alpha = 0.8f))
                         }
                         Icon(Icons.Rounded.ChevronRight, null, tint = foreground)
                     }
-                    Text(if (user == null) "登录 Linux.do  →" else "查看个人主页  →", style = MaterialTheme.typography.labelLarge, color = foreground)
+                    Text("查看个人主页  →", style = MaterialTheme.typography.labelLarge, color = foreground)
                 }
                 }
             }
@@ -94,6 +107,84 @@ fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookma
                 }
             }
             item { Text("真诚 · 友善 · 团结 · 专业", Modifier.fillMaxWidth().padding(18.dp), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+    }
+}
+
+@Composable
+private fun GuestProfileScreen(login: () -> Unit, settings: () -> Unit, about: () -> Unit) {
+    Column(Modifier.fillMaxSize().semantics { paneTitle = "我的" }.testTag("guest-profile")) {
+        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp).heightIn(min = 48.dp),
+            horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(48.dp).clip(RoundedCornerShape(50))
+                .clickable(role = Role.Button, onClick = settings), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Settings, "设置", Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surface).padding(horizontal = 24.dp, vertical = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                    Box(Modifier.widthIn(max = 208.dp).fillMaxWidth().clip(RoundedCornerShape(50))
+                        .background(LogoYellow).clickable(role = Role.Button, onClick = login)
+                        .heightIn(min = 48.dp).padding(horizontal = 24.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+                        Text("点击登录", color = Ink, fontSize = 16.sp, lineHeight = 24.sp, textAlign = TextAlign.Center)
+                    }
+                    Text("登录后参与社区讨论", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp, lineHeight = 20.sp, textAlign = TextAlign.Center)
+                }
+            }
+            item {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)) {
+                    GuestMenuRow(Icons.Rounded.Palette, "界面与显示", "主题、字号与液态玻璃", settings)
+                    HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    GuestMenuRow(Icons.Rounded.Info, "关于酷DO", "一个用心的 Linux.do 原生客户端", about)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GuestMenuRow(icon: ImageVector, title: String, subtitle: String, click: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = click)
+        .heightIn(min = 72.dp).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, fontSize = 15.sp, lineHeight = 22.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
+    }
+}
+
+internal const val KudoAboutText = "用原生体验，连接值得交流的人与内容。\n\n酷DO 是独立的 Linux.do 第三方客户端。"
+
+@Composable
+fun AboutScreen(back: () -> Unit) {
+    Column(Modifier.fillMaxSize()) {
+        PageTopBar("关于酷DO", back)
+        LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            item {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(painterResource(R.drawable.ic_kudo), null, Modifier.size(64.dp), tint = Color.Unspecified)
+                    Text("酷DO", style = MaterialTheme.typography.titleLarge)
+                    Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            item {
+                Text(KudoAboutText, Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface).padding(20.dp),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+            }
+            item {
+                Text("真诚 · 友善 · 团结 · 专业", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            }
         }
     }
 }

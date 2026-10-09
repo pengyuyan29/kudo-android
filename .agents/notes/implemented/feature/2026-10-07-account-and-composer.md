@@ -16,6 +16,8 @@ AccountViewModel 通过 /session/current.json 确认用户，LoginScreen 提供 
 
 设置页持久化主题、材质和字号，并解释兼容材质。个人主页显示实际账号资料。
 
+未登录“我的”的页面层级由[酷安式未登录个人中心](2026-10-10-guest-account-layout.md)接管：白色登录区和两条菜单行，关于入口使用独立页面；登录后的资料和会话契约继续成立。
+
 EditorViewModel 按用户 id、话题和回复楼层隔离持久草稿。上传限制 10 MB 和明确图片 MIME 类型，成功后插入 Markdown。发送期间禁止再次发送；未知网络结果不重试，草稿保留，返回待审核则明确提示。只有服务端确认接收才删除草稿。
 
 ## Alternatives considered
