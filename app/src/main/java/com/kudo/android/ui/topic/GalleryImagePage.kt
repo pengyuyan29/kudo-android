@@ -37,7 +37,7 @@ import kotlin.math.sqrt
 internal fun GalleryImagePage(
     image: ArticleBlock.Image, page: Int, transform: GalleryTransformState,
     enabled: Boolean, active: Boolean, close: () -> Unit, information: () -> Unit,
-    placeholder: Painter? = null, onPainter: (Painter) -> Unit = {},
+    placeholder: Painter? = null, onPainter: (Painter) -> Unit = {}, onPainterDisposed: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -48,8 +48,10 @@ internal fun GalleryImagePage(
     var loaded by remember(image.originalUrl) { mutableStateOf(false) }
     var retry by remember(image.originalUrl) { mutableIntStateOf(0) }
     var settling by remember { mutableStateOf<Job?>(null) }
+    DisposableEffect(image.originalUrl) { onDispose { animation?.stop(); onPainterDisposed() } }
     val currentClose by rememberUpdatedState(close)
     val currentInformation by rememberUpdatedState(information)
+    val currentEnabled by rememberUpdatedState(enabled)
     val flingVelocity = with(LocalDensity.current) { 1_000.dp.toPx() }
     val viewport = transform.viewport
     val request = remember(image.originalUrl, viewport, retry) {
@@ -74,8 +76,11 @@ internal fun GalleryImagePage(
         .galleryGestures(transform, enabled, flingVelocity,
             start = { settling?.cancel(); transform.dismissOffset = androidx.compose.ui.geometry.Offset.Zero },
             finish = { dismiss ->
-                if (dismiss) currentClose()
-                else settling = scope.launch { transform.restoreDismiss() }
+                if (currentEnabled) {
+                    if (dismiss) currentClose()
+                    else if (galleryMotionEnabled(context)) settling = scope.launch { transform.restoreDismiss() }
+                    else transform.dismissOffset = androidx.compose.ui.geometry.Offset.Zero
+                }
             })
         .semantics {
             contentDescription = "第 ${page + 1} 张图片"
@@ -87,7 +92,7 @@ internal fun GalleryImagePage(
                 CustomAccessibilityAction("还原图片") { if (enabled) transform.resetZoom(); enabled },
             )
         }) {
-        AsyncImage(request, null, Modifier.fillMaxSize().graphicsLayer {
+        key(retry) { AsyncImage(request, null, Modifier.fillMaxSize().graphicsLayer {
             scaleX = transform.scale * transform.dismissScale
             scaleY = scaleX
             translationX = transform.offset.x + transform.dismissOffset.x
@@ -105,6 +110,7 @@ internal fun GalleryImagePage(
                 animation = drawable
                 if (!active || !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) drawable?.stop()
             })
+        }
         if (!loaded && !failed && placeholder == null) CircularProgressIndicator(Modifier.align(Alignment.Center).size(24.dp), color = Color.White, strokeWidth = 2.dp)
         if (failed) Column(Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.7f)).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("图片加载失败", color = Color.White)

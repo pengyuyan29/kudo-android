@@ -46,6 +46,12 @@ CommunityUiTest 的整栏抬升与取消复位检查同样按真实16ms间隔推
 
 ## Verification
 
+2026-10-09 图片相册与来源过渡：93项JVM通过；RMX2202 / Android13完整41项真机回归85.027秒通过，另1项补齐相册后不翻页直接缩回的像素专项2.619秒通过。系统关闭动画5项9.794秒通过，结束三项缩放恢复1。Debug/测试APK和Lint通过，0 errors / 28 existing warnings。日志为 gallery-final-build.txt / gallery-final-instrumentation.txt / gallery-retained-painter-check.txt / gallery-reduced-motion.txt。
+
+相册补齐的时序测试使用原生MotionEvent并冻结下一次Compose重组，先复现真实横滑越界，再复现旧单图Pager把当前第5张重置到第1张；普通Compose触摸助手隐式同步会掩盖第一个问题。最后一指抬起NaN、原图重试、正文返回被底栏遮挡、缩放被相册补齐重置均先复现后修复。失败与修复日志、真实录屏和夹具区分见[相册](../feature/2026-10-09-image-gallery-and-transitions.md)及[来源过渡](../feature/2026-10-09-image-origin-animation.md)。中断续作后构建脚本恢复显式Debug签名环境，设备拒绝了一次签名不符的测试APK，重新签名后覆盖安装成功，主应用数据保留。
+
+分发APK为 artifacts/kudo-image-gallery.apk（22,118,212字节），构建、分发与设备已安装APK的SHA256一致：4e2eeac0af2942de1c11244c669512de87c21d765717d8cae019d1a6cb8b8b8e，记录 gallery-apk-verification.json。真实列表和正文均完成第1张打开、第3张返回；尺寸/文件信息只出现在长按菜单，静态比例与转场帧分别查看。录屏不作为帧率基准。
+
 2026-10-09 详情作者、回应与行内表情：先复现emoji丢图、其他回应误当爱心、撤销路径错误、服务器返回值被忽略、分页覆盖状态及深链主帖旧副本覆盖；完整76项JVM通过。RMX2202 / Android13的详情、Surface、头像和社区28项通过，59.081秒，写回复内容靠左收尾后Surface 5项再通过，10.395秒。Debug/测试APK与Lint通过，0 errors / 28 existing warnings。日志为 topic-emoji-repro.txt / topic-reaction-repro.txt / topic-state-repro.txt / topic-pinned-repro.txt / topic-final-build.txt / topic-final-instrumentation.txt / topic-aligned-instrumentation.txt。真实站点只读截图、尺寸测量、APK安装哈希见[详情记录](../feature/2026-10-09-topic-author-and-responses.md)，不把夹具回应写入当作线上变更验收。
 
 2026-10-09 导航几何测试时钟：18项导航回归中旧抬升检查失败，镜片171.05px低于底栏176.40px，日志 `artifacts/navigation-rims-regression.txt`。该检查改为与既有多位置停顿测试一致的真实逐帧等待后，独立用例通过，2.985秒，日志 `navigation-rims-clock-fixed.txt`；原尺寸上下限与取消恢复断言全部保留。

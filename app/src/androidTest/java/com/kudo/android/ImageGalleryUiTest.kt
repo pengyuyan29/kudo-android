@@ -4,12 +4,19 @@ import android.accessibilityservice.AccessibilityService
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.os.SystemClock
+import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
@@ -34,6 +41,7 @@ import com.kudo.android.ui.components.TopicCard
 import com.kudo.android.ui.theme.KudoTheme
 import com.kudo.android.ui.topic.*
 import okio.Buffer
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -42,7 +50,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicBoolean
 
 @RunWith(AndroidJUnit4::class)
 @OptIn(coil3.annotation.DelicateCoilApi::class)
@@ -51,6 +61,7 @@ class ImageGalleryUiTest {
     private var observedGallery: ImageGalleryState? = null
     private val author = Member(21, "gallery", "图片测试作者", "", avatarDetailsLoaded = true)
     private val loaded = CopyOnWriteArrayList<String>()
+    private val failOriginal = AtomicBoolean(false)
     private lateinit var previousLoader: ImageLoader
     private lateinit var loader: ImageLoader
     private val palette = listOf(0xFFFFCF52.toInt(), 0xFF46C598.toInt(), 0xFF508CF0.toInt(), 0xFFEB819B.toInt(), 0xFF9F81EA.toInt())
@@ -68,9 +79,12 @@ class ImageGalleryUiTest {
                 override fun create(data: Uri, options: Options, imageLoader: ImageLoader): Fetcher? {
                     if (!data.toString().startsWith("https://gallery.test/")) return null
                     return object : Fetcher {
-                        override suspend fun fetch(): SourceFetchResult = SourceFetchResult(
-                            ImageSource(Buffer().write(bytes.getValue(data.toString().substringAfterLast('/'))), options.fileSystem),
-                            "image/png", DataSource.MEMORY)
+                        override suspend fun fetch(): SourceFetchResult {
+                            val name = data.toString().substringAfterLast('/')
+                            if (name == "failed.png" && failOriginal.get()) throw IOException("fixture offline")
+                            return SourceFetchResult(ImageSource(Buffer().write(bytes.getValue(if (name == "failed.png") "1.png" else name)), options.fileSystem),
+                                "image/png", DataSource.MEMORY)
+                        }
                     }
                 }
             })
@@ -237,6 +251,194 @@ class ImageGalleryUiTest {
         InstrumentationRegistry.getInstrumentation().uiAutomation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("image-viewer").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("article-image-post-10-2").assertIsDisplayed()
+    }
+
+    @Test fun failedOriginalCanRetryWithoutClosingOrLosingThePreview() {
+        failOriginal.set(true)
+        compose.setContent { Detail(listOf(pictures.first().copy(originalUrl = "https://gallery.test/failed.png"))) }
+        openFirst()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("图片加载失败").fetchSemanticsNodes().isNotEmpty() }
+        failOriginal.set(false)
+        compose.onNodeWithText("重试").performTouchInput { click() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("图片加载失败").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("image-viewer").assertIsDisplayed()
+    }
+
+    @Test fun fillingAListAlbumDoesNotResetAnInProgressZoom() {
+        val album = CompletableDeferred<List<ArticleBlock.Image>>()
+        val topic = Topic(9, "列表多图测试", "", author, 1, emptyList(), 0, 0, 0, pictures.first().url, "2026-10-09T00:00:00Z")
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+            ImageGalleryHost({ album.await() }, {}) {
+                Column(Modifier.fillMaxSize().statusBarsPadding()) { TopicCard(topic, null, {}, {}) }
+            }
+        } }
+        compose.waitUntil(5_000) { loaded.contains(pictures.first().url) }
+        compose.onNodeWithTag("topic-image-9").performTouchInput { click() }
+        compose.onNodeWithTag("gallery-page-0").performTouchInput {
+            down(0, Offset(width * 0.4f, height * 0.5f))
+            down(1, Offset(width * 0.6f, height * 0.5f))
+            moveTo(0, Offset(width * 0.2f, height * 0.5f), delayMillis = 200)
+            moveTo(1, Offset(width * 0.8f, height * 0.5f), delayMillis = 200)
+            up(0); up(1)
+        }
+        compose.runOnIdle { album.complete(pictures) }
+        compose.onNodeWithText("1 / 5").assertIsDisplayed()
+        compose.onNodeWithTag("gallery-page-0").assert(SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "已放大 3.0 倍"))
+    }
+
+    @Test fun removingTheSourceWhileViewingStillAllowsClosing() {
+        var show by mutableStateOf(true)
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+            ImageGalleryHost({ pictures }, {}) {
+                Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
+                    if (show) RichContent(html(pictures), {}, {}) else Text("原内容已更新")
+                }
+            }
+        } }
+        compose.waitUntil(5_000) { loaded.contains(pictures.first().url) }
+        compose.onNodeWithTag("article-image-article-0").performTouchInput { click() }
+        compose.runOnIdle { show = false }
+        compose.onNodeWithTag("gallery-page-0").performTouchInput { click() }
+        compose.onNodeWithTag("image-viewer").assertDoesNotExist()
+        compose.onNodeWithText("原内容已更新").assertIsDisplayed()
+    }
+
+    @Test fun fillingAListAlbumWhileDraggingKeepsPagerPagesConsistent() {
+        val album = CompletableDeferred<List<ArticleBlock.Image>>()
+        val topic = Topic(9, "延迟补齐相册", "", author, 1, emptyList(), 0, 0, 0, pictures.first().url, "2026-10-09T00:00:00Z")
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+            ImageGalleryHost({ album.await() }, {}) {
+                val gallery = LocalImageGallery.current
+                SideEffect { observedGallery = gallery }
+                Column(Modifier.fillMaxSize().statusBarsPadding()) { TopicCard(topic, null, {}, {}) }
+            }
+        } }
+        compose.waitUntil(5_000) { loaded.contains(pictures.first().url) }
+        compose.onNodeWithTag("topic-image-9").performTouchInput { click() }
+        val pager = compose.onNodeWithTag("image-pager")
+        val bounds = pager.fetchSemanticsNode().boundsInRoot
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val downTime = SystemClock.uptimeMillis()
+        fun pointer(action: Int, fraction: Float) {
+            val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action,
+                bounds.left + bounds.width * fraction, bounds.center.y, 0)
+            try { instrumentation.sendPointerSync(event) } finally { event.recycle() }
+        }
+        // Android can measure a dragged page before Compose recomposes the album owner.
+        // Native events avoid the Compose input helper's implicit clock/idle synchronization.
+        compose.mainClock.autoAdvance = false
+        try {
+            pointer(MotionEvent.ACTION_DOWN, 0.8f)
+            SystemClock.sleep(60)
+            pointer(MotionEvent.ACTION_MOVE, 0.6f)
+            compose.runOnUiThread { album.complete(pictures) }
+            compose.waitUntil(5_000) { observedGallery?.session?.albumLoaded == true }
+            SystemClock.sleep(100)
+            pointer(MotionEvent.ACTION_MOVE, 0.2f)
+            pointer(MotionEvent.ACTION_UP, 0.2f)
+        } finally { compose.mainClock.autoAdvance = true }
+        repeat(4) { pager.performTouchInput { swipeLeft(durationMillis = 500) } }
+        compose.onNodeWithText("5 / 5").assertIsDisplayed()
+        compose.onNodeWithTag("gallery-page-4").performTouchInput { click() }
+        compose.onNodeWithTag("image-viewer").assertDoesNotExist()
+        compose.onNodeWithTag("topic-image-9").performTouchInput { click() }
+        compose.waitUntil(5_000) { observedGallery?.session?.albumLoaded == true }
+        compose.runOnIdle { assertEquals("再次打开第5张预览，补齐相册不能跳回第1张", 4, observedGallery?.session?.index) }
+        compose.onNodeWithText("5 / 5").assertIsDisplayed()
+    }
+
+    @Test fun completingAnAlbumKeepsTheDisplayedImageForTheClosingAnimation() {
+        val album = CompletableDeferred<List<ArticleBlock.Image>>()
+        val topic = Topic(9, "补齐后关闭当前图", "", author, 1, emptyList(), 0, 0, 0, pictures.first().url, "2026-10-09T00:00:00Z")
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+            ImageGalleryHost({ album.await() }, {}) {
+                Column(Modifier.fillMaxSize().statusBarsPadding()) { TopicCard(topic, null, {}, {}) }
+            }
+        } }
+        compose.waitUntil(5_000) { loaded.contains(pictures.first().url) }
+        compose.onNodeWithTag("topic-image-9").performTouchInput { click() }
+        compose.waitUntil(5_000) { loaded.count { it == pictures.first().url } >= 2 }
+        compose.runOnIdle { album.complete(pictures) }
+        compose.onNodeWithText("1 / 5").assertIsDisplayed()
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.onNodeWithTag("gallery-page-0").performClick()
+            awaitTransition()
+            val start = coloredBounds(palette[0])
+            compose.mainClock.advanceTimeBy(80)
+            assertTrue("补齐相册不能丢掉当前画面并退化为淡出", coloredBounds(palette[0]).width < start.width)
+            compose.mainClock.advanceTimeBy(500)
+            compose.onNodeWithTag("image-viewer").assertDoesNotExist()
+        } finally { compose.mainClock.autoAdvance = true }
+    }
+
+    @Test fun transitionPixelsGrowFromFirstSourceAndShrinkToTheThirdSource() {
+        compose.setContent { Detail() }
+        compose.waitUntil(5_000) { loaded.contains(pictures.first().url) }
+        val source = compose.onNodeWithTag("article-image-post-10-0").fetchSemanticsNode().boundsInRoot
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithTag("article-image-post-10-0").performClick()
+        awaitTransition()
+        val opening = coloredBounds(palette[0])
+        assertNear(source, opening, 4f)
+        compose.mainClock.advanceTimeBy(80)
+        val middle = coloredBounds(palette[0])
+        assertTrue("放大过程应保持可见图片，且比来源更宽：$source → $middle", middle.width > source.width && middle.width < 1080f)
+        compose.mainClock.advanceTimeBy(500)
+        val expanded = coloredBounds(palette[0])
+        assertTrue(expanded.width > source.width)
+        compose.onNodeWithTag("gallery-transition").assertDoesNotExist()
+        compose.mainClock.autoAdvance = true
+        third()
+        compose.mainClock.autoAdvance = false
+        val fullThird = coloredBounds(palette[2])
+        compose.onNodeWithTag("gallery-page-2").performClick()
+        awaitTransition()
+        val closing = coloredBounds(palette[2])
+        assertNear(fullThird, closing, 4f)
+        compose.mainClock.advanceTimeBy(80)
+        val shrinking = coloredBounds(palette[2])
+        assertTrue("缩小的应是蓝色第3张：$fullThird → $shrinking", shrinking.width < fullThird.width)
+        compose.mainClock.advanceTimeBy(600)
+        compose.onNodeWithTag("image-viewer").assertDoesNotExist()
+        val target = compose.onNodeWithTag("article-image-post-10-2").fetchSemanticsNode().boundsInRoot
+        assertNear(target, coloredBounds(palette[2]), 3f)
+        assertTrue("应缩向当前第3张位置", shrinking.center.y in fullThird.center.y..target.center.y)
+        compose.mainClock.autoAdvance = true
+    }
+
+    private fun awaitTransition() {
+        repeat(65) {
+            if (compose.onAllNodesWithTag("gallery-transition").fetchSemanticsNodes().isNotEmpty()) return
+            compose.mainClock.advanceTimeByFrame()
+            android.os.SystemClock.sleep(16)
+        }
+        fail("图片转场应在来源完成定位后开始")
+    }
+
+    private fun coloredBounds(color: Int): Rect {
+        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        var left = bitmap.width
+        var top = bitmap.height
+        var right = -1
+        var bottom = -1
+        for (y in 0 until bitmap.height) for (x in 0 until bitmap.width) {
+            if ((pixels[y * bitmap.width + x] and 0xFFFFFF) == (color and 0xFFFFFF)) {
+                left = minOf(left, x); right = maxOf(right, x); top = minOf(top, y); bottom = maxOf(bottom, y)
+            }
+        }
+        assertTrue("必须在真实绘制像素中找到当前图片", right > left && bottom > top)
+        return Rect(left.toFloat(), top.toFloat(), (right + 1).toFloat(), (bottom + 1).toFloat())
+    }
+
+    private fun assertNear(expected: Rect, actual: Rect, tolerance: Float) {
+        assertEquals("left: $expected → $actual", expected.left, actual.left, tolerance)
+        assertEquals("top: $expected → $actual", expected.top, actual.top, tolerance)
+        assertEquals("right: $expected → $actual", expected.right, actual.right, tolerance)
+        assertEquals("bottom: $expected → $actual", expected.bottom, actual.bottom, tolerance)
     }
 
     private fun png(width: Int, height: Int, color: Int, label: String): ByteArray {

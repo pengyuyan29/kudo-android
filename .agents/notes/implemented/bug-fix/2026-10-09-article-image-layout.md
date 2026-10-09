@@ -26,7 +26,9 @@ Status: implemented
 
 ## Verification
 
-1688×339 比例及 lightbox 信息泄露两项先失败，日志 artifacts/image-layout-repro.txt；修复后 ContentParserTest 的 14 项通过，日志 image-layout-fixed.txt。覆盖横图、长图、缺失/非法尺寸、原图 HTTPS 边界、嵌套附件信息与图注/emoji 混排。加载后实际尺寸与视觉留白的真机检查随相册交互统一执行。
+1688×339比例及lightbox信息泄露两项先失败，日志 artifacts/image-layout-repro.txt；修复后ContentParserTest的14项通过，日志 image-layout-fixed.txt。覆盖横图、长图、缺失/非法尺寸、原图HTTPS边界、嵌套附件信息与图注/emoji混排。
+
+真机夹具 gallery-wide-inline.png 使用1688×339原比例，实际边界断言与截图均确认没有上下灰边，文件名/尺寸/体积不进入正文。真实帖子 gallery-live-inline.png 保留作者图注，gallery-live-information.png 将2770×1400、232KB等附件信息放在长按菜单；gallery-live-tall-motion.mp4 检查长图。图片比例、元信息和相册交互进入93项JVM与42项真机测试；完整分批结果见[来源过渡](../feature/2026-10-09-image-origin-animation.md)。
 
 ## Consequences
 

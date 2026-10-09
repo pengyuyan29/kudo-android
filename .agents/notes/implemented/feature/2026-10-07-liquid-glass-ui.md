@@ -40,7 +40,7 @@ FeedScreen 按社区筛选展示原生卡片，FeedViewModel 取消过时请求�
 
 分类元数据请求与话题加载结果隔离；分类返回 429 不能把成功的话题列表改为失败。FeedViewModelTest 使用模拟服务先返回话题再返回分类限流，复现并验证这一边界。
 
-RichContent 使用 Jsoup 解析 cooked HTML，输出可选择文本、可点击链接、横向代码块、引用和图片；链接只接受 HTTPS。[行内表情](../bug-fix/2026-10-09-inline-emoji-images.md)保留站点图片并随字号缩放。TopicViewModel 基于 post_stream id 加载缺失楼层，回应和收藏成功后更新该楼层，进行中的操作锁住同一楼层。[详情作者与回应](2026-10-09-topic-author-and-responses.md)负责固定楼主栏、关注、服务端回应状态和分页并发合并。图片页面提供双指缩放。
+RichContent 使用 Jsoup 解析 cooked HTML，输出可选择文本、可点击链接、横向代码块、引用和图片；链接只接受 HTTPS。[行内表情](../bug-fix/2026-10-09-inline-emoji-images.md)保留站点图片并随字号缩放。TopicViewModel 基于 post_stream id 加载缺失楼层，回应和收藏成功后更新该楼层，进行中的操作锁住同一楼层。[详情作者与回应](2026-10-09-topic-author-and-responses.md)负责固定楼主栏、关注、服务端回应状态和分页并发合并。正文图片按[真实比例](../bug-fix/2026-10-09-article-image-layout.md)布局；列表、主帖及各条评论使用[分组相册](2026-10-09-image-gallery-and-transitions.md)，在同窗口全屏覆盖层缩放、滑动浏览，并[缩回当前图片](2026-10-09-image-origin-animation.md)。
 
 ## Alternatives considered
 

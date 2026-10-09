@@ -12,7 +12,9 @@ Status: implemented
 
 查看器放在同一窗口的根覆盖层，保留原页面组合、滚动位置和图片定位信息；不把整组图片编码进导航 URL。覆盖层隔离背景焦点与可访问语义。关闭先固定当前索引再调用来源定位，期间的翻页和重复关闭不改变目标；来源失效不阻塞关闭。会话保存地址、索引和元信息，不保存 LayoutCoordinates、Painter 或回调；来源以 rememberSaveable 的实例 ID 在重建后重新注册。切换账号重置会话。
 
-相册使用 Compose HorizontalPager 与现有 Coil 加载器。列表请求完成只更新仍活跃、未关闭的同一会话；匹配已显示的原图或 Discourse 上传缩略图，并保留原顺序及重复项。独立封面不在正文中时保留封面作为额外首张。[全屏手势](2026-10-09-image-viewer-motion.md)负责图片变换与沉浸窗口。
+相册使用 Compose HorizontalPager 与现有 Coil 加载器。列表请求完成只更新仍活跃、未关闭的同一会话；匹配已显示的原图或 Discourse 上传缩略图，并保留原顺序及重复项。补齐相册沿用当前图片的变换状态，不重置正在进行的缩放。独立封面不在正文中时保留封面作为额外首张。[全屏手势](2026-10-09-image-viewer-motion.md)负责图片变换与沉浸窗口，[来源过渡](2026-10-09-image-origin-animation.md)负责实际进出画面。
+
+每次组合固定图片列表及对应变换状态，Pager的页数、键、页面回调和信息菜单使用同一份数据。Android可以在重组前测量页面，回调不能读取新会话的页数却访问旧的变换列表。旧Pager的页码通知只在相册身份未变时生效；关闭发生在重组前时使用新相册已经匹配好的当前索引，避免旧单图页码0覆盖第5张预览的位置。
 
 ## Existing note audit
 
@@ -31,8 +33,12 @@ Status: implemented
 
 ## Verification
 
-ImageGalleryStateTest 的 6 项与正文解析 14 项通过，日志 artifacts/gallery-state-tests.txt；Kotlin 编译通过，日志 gallery-core-build.txt。覆盖第 3 次图片出现位置、重复 URL、原图/缩略图匹配、失败后重试、晚到的网络结果、关闭中的重复事件与纯数据状态保存。交互与真实定位随全屏过渡统一真机验证。
+ImageGalleryStateTest 的6项与正文解析14项通过，日志 artifacts/gallery-state-tests.txt。覆盖第3次图片出现位置、重复URL、原图/缩略图匹配、失败重试、晚到结果、重复关闭与纯数据状态保存。补齐相册重置缩放先由 gallery-album-zoom-repro.txt 复现；保留变换状态后通过。
+
+真机录屏发现单图补齐5张后立即横滑越界，现场为 gallery-live-list-crash.mp4 / gallery-live-list-crash.txt。新增用例冻结Compose时钟并发送原生MotionEvent，使补齐完成早于下一次重组，先复现相同IndexOutOfBoundsException，日志 gallery-late-album-repro.txt。普通Compose触摸助手隐式同步时钟会隐藏此窗口，不能替代原生输入。后续同一用例又复现第5张预览重开后被旧Pager重置为0，日志 gallery-reopen-repro.txt；修复后该用例3.215秒通过，日志 gallery-late-album-fixed.txt，并进入41项完整回归及5项关闭动画回归。
+
+最终93项JVM、41项真机回归及额外1项当前画面退场测试全部通过；同机列表和正文当前图片返回的真实录屏、截图与耗时见[来源过渡](2026-10-09-image-origin-animation.md)。真实列表初开含独立封面共5页，正文相册4页；返回正文中的图片后重新打开仍显示相同原图，页码按该次完整相册计算。
 
 ## Consequences
 
-列表、正文与评论复用同一相册，返回目标使用当前图片而非初始索引。列表完整相册首次需要一次只读主帖请求；独立封面可能额外占一页。来源保留回调只到该组合销毁，源内容刷新或消失时只能关闭而不能定位。超大静态图片继续受 Coil 采样约束，不承诺无限原像素缩放。
+列表、正文与评论复用同一相册，返回目标使用当前图片而非初始索引。列表完整相册首次需要一次只读主帖请求；独立封面可能额外占一页，随后从正文图片重开时页数可能不同，但当前原图保持。来源保留回调只到该组合销毁，源内容刷新或消失时只能关闭而不能定位。超大静态图片继续受 Coil 采样约束，不承诺无限原像素缩放。

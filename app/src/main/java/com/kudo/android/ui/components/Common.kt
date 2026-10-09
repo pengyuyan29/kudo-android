@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -122,6 +123,7 @@ private fun TopicPreviewImage(topicId: Int, url: String, openTopic: () -> Unit) 
     }
     AsyncImage(preview.url, "话题图片，点击放大", Modifier.fillMaxWidth().heightIn(max = 190.dp).aspectRatio(1.9f)
         .bringIntoViewRequester(anchor.requester).onGloballyPositioned { anchor.coordinates = it }
+        .graphicsLayer { alpha = if (gallery?.hiddenAnchor === anchor) 0f else 1f }
         .testTag("topic-image-$topicId").clip(RoundedCornerShape(10.dp)).clickable {
             if (gallery == null) openTopic() else gallery.open(listOf(preview), 0, origin, anchor, topicId)
         }, contentScale = ContentScale.Crop, onSuccess = { anchor.painter = it.painter })

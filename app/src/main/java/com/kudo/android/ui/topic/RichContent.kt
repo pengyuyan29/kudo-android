@@ -17,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -219,6 +220,7 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
 
 @Composable
 private fun ArticleImage(image: ArticleBlock.Image, anchor: GalleryThumbnailAnchor, tag: String, open: () -> Unit) {
+    val gallery = LocalImageGallery.current
     var decodedRatio by remember(image.url) { mutableStateOf<Float?>(null) }
     val cornerRadius = with(LocalDensity.current) { 11.dp.toPx() }
     SideEffect { anchor.cornerRadius = cornerRadius }
@@ -226,6 +228,7 @@ private fun ArticleImage(image: ArticleBlock.Image, anchor: GalleryThumbnailAnch
     AsyncImage(image.url, image.alt.ifBlank { "帖子图片，点击放大" },
         Modifier.fillMaxWidth().aspectRatio(decodedRatio ?: image.ratio ?: 1.6f)
             .bringIntoViewRequester(anchor.requester).onGloballyPositioned { anchor.coordinates = it }.testTag(tag)
+            .graphicsLayer { alpha = if (gallery?.hiddenAnchor === anchor) 0f else 1f }
             .clip(RoundedCornerShape(11.dp)).clickable(onClick = open),
         contentScale = ContentScale.Fit,
         onSuccess = { state ->

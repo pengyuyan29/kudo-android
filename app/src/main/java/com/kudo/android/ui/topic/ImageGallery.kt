@@ -54,7 +54,10 @@ internal class GallerySession(
     val origin: String, images: List<ArticleBlock.Image>, index: Int,
     val topicId: Int? = null, val restored: Boolean = false,
 ) {
+    val openingImage = images[index]
     var images by mutableStateOf(images)
+        private set
+    var transforms by mutableStateOf(images.map { GalleryTransformState(it.ratio) })
         private set
     var index by mutableIntStateOf(index.coerceIn(images.indices))
         private set
@@ -75,11 +78,15 @@ internal class GallerySession(
 
     internal fun replaceAlbum(album: List<ArticleBlock.Image>) {
         val displayed = current
+        val displayedTransform = transforms[index]
         val matched = album.indexOfFirst { sameGalleryImage(it, displayed) }
         // A separately configured topic cover may not occur in the post body.
         val replacement = if (matched < 0) listOf(displayed) + album else album
         androidx.compose.runtime.snapshots.Snapshot.withMutableSnapshot {
             images = replacement
+            transforms = replacement.mapIndexed { page, image ->
+                if (page == matched.coerceAtLeast(0)) displayedTransform else GalleryTransformState(image.ratio)
+            }
             index = matched.coerceAtLeast(0)
             albumLoaded = true
         }
@@ -118,11 +125,16 @@ internal class ImageGalleryState {
     internal val origins = mutableMapOf<String, GalleryOrigin>()
     var openingAnchor: GalleryThumbnailAnchor? = null
         private set
+    var openingSnapshot: GalleryAnchorSnapshot? = null
+        private set
+    var hiddenAnchor by mutableStateOf<GalleryThumbnailAnchor?>(null)
+        internal set
 
     fun open(images: List<ArticleBlock.Image>, index: Int, origin: String,
              anchor: GalleryThumbnailAnchor? = null, topicId: Int? = null) {
         if (session != null || images.isEmpty() || index !in images.indices) return
         openingAnchor = anchor
+        openingSnapshot = anchor?.snapshot()
         session = GallerySession(origin, images, index, topicId)
     }
 
@@ -157,7 +169,7 @@ internal class ImageGalleryState {
         } finally { if (session === target) clear() }
     }
 
-    fun clear() { session = null; openingAnchor = null }
+    fun clear() { session = null; openingAnchor = null; openingSnapshot = null; hiddenAnchor = null }
 
     companion object {
         @Suppress("UNCHECKED_CAST")
