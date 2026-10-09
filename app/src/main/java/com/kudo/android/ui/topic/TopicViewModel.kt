@@ -99,7 +99,7 @@ class TopicViewModel(
     fun resolveContext() {
         contextJob?.cancel()
         val initial = _state.value.allPosts
-        if (initial.none { post -> post.replyTo?.let { it > 1 && it < post.number && initial.none { parent -> parent.number == it } } == true }) return
+        if (missingReplyParents(initial).isEmpty()) return
         val token = generation
         _state.update { it.copy(contextLoading = true, contextError = null) }
         contextJob = viewModelScope.launch {
@@ -119,7 +119,8 @@ class TopicViewModel(
                     }
                 }
                 _state.update { current -> if (token != generation) current else current.copy(
-                    related = (current.related + found).distinctBy(Post::id), contextLoading = false, contextError = failure) }
+                    related = (current.related + found).distinctBy(Post::id), contextLoading = false,
+                    contextError = failure.takeIf { missingReplyParents(current.allPosts + found).isNotEmpty() }) }
             } catch (e: CancellationException) { throw e }
         }
     }
@@ -149,6 +150,7 @@ class TopicViewModel(
                         val known = latest.allPosts.map(Post::id).toSet()
                         val active = latest.replyLoads[root.id] ?: load
                         latest.copy(related = latest.related + replies.filterNot { it.id in known }.distinctBy(Post::id),
+                            contextError = latest.contextError.takeIf { missingReplyParents(latest.allPosts + replies).isNotEmpty() },
                             replyLoads = latest.replyLoads + (root.id to active.copy(cursors = active.cursors +
                                 (parent.id to ReplyCursor(cursor, page.size < 20 || cursor <= after)))))
                     }

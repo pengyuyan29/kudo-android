@@ -1,0 +1,72 @@
+package com.kudo.android
+
+import android.graphics.Bitmap
+import android.view.KeyEvent
+import androidx.compose.runtime.*
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.platform.app.InstrumentationRegistry
+import com.kudo.android.data.*
+import com.kudo.android.ui.theme.KudoTheme
+import com.kudo.android.ui.topic.*
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import java.io.File
+
+class NestedReplyUiTest {
+    @get:Rule val compose = createComposeRule()
+    private val author = Member(1, "root", "一级作者", "", avatarDetailsLoaded = true)
+    private val first = Post(1, 1, author, "<p>主帖正文</p>", "", 0, false, null, null, true)
+    private val root = first.copy(id = 2, number = 2, cooked = "<p>一级评论正文</p>", replyTo = 1)
+    private val children = (3..7).map { root.copy(id = it, number = it, author = author.copy(id = it, username = "child$it", name = "子作者$it"), cooked = "<p>子回复正文$it</p>", replyTo = if (it == 7) 3 else 2) }
+    private val detail = TopicDetail(5, "楼中楼话题", 1, listOf(first, root) + children, (1..7).toList(), false)
+    @Composable private fun Screen(target: Int? = null, reply: (Post?) -> Unit = {}, bookmark: (Post) -> Unit = {}, settings: DisplaySettings = DisplaySettings(), ignored: Set<String> = emptySet()) {
+        KudoTheme(settings) { CompositionLocalProvider(LocalIgnoredUsers provides ignored) {
+            TopicScreen(TopicState(detail, false, targetNumber = target), GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, bookmark, reply, {}, {}, {}, {})
+        } }
+    }
+    @Test fun previewShowsThreeRepliesAndFullThreadActionsUseActualFloors() {
+        var replied = 0; var saved = 0
+        compose.setContent { Screen(reply = { replied = it!!.number }, bookmark = { saved = it.number }) }
+        compose.onNodeWithTag("reply-preview-2").performScrollTo().assertIsDisplayed()
+        (3..5).forEach { compose.onNodeWithTag("reply-preview-post-$it").assertExists() }
+        compose.onNodeWithTag("reply-preview-post-6").assertDoesNotExist()
+        compose.onNodeWithTag("post-3").assertDoesNotExist()
+        compose.onNodeWithText("回复 #2").assertDoesNotExist()
+        capture("nested-reply-preview.png")
+        compose.onNodeWithTag("reply-preview-post-3").performClick()
+        compose.onNodeWithText("评论回复").assertIsDisplayed()
+        capture("nested-reply-thread.png")
+        compose.onNode(hasText("回复") and hasClickAction() and hasAnyAncestor(hasTestTag("post-3"))).performClick()
+        compose.onNode(hasContentDescription("收藏此楼层") and hasAnyAncestor(hasTestTag("post-3"))).performClick()
+        compose.runOnIdle { assertEquals(3, replied); assertEquals(3, saved) }
+    }
+    @Test fun deepLinkOpensTheThreadAtTheTargetAndSystemBackRestoresTheTopic() {
+        compose.setContent { Screen(target = 7) }
+        compose.onNodeWithText("评论回复").assertIsDisplayed()
+        compose.onNodeWithTag("post-7").assertIsDisplayed()
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        compose.onNodeWithText("楼中楼话题").assertExists()
+        compose.onNodeWithText("评论回复").assertDoesNotExist()
+    }
+
+    @Test fun darkLargeTextKeepsIgnoredRepliesHiddenUntilExplicitlyRevealed() {
+        compose.setContent { Screen(settings = DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f), ignored = setOf("child3")) }
+        compose.onNodeWithTag("reply-preview-2").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("reply-preview-post-3").assertTextEquals("子作者3：内容已忽略").performClick()
+        compose.onNodeWithTag("post-3").assertIsDisplayed()
+        compose.onNodeWithText("子回复正文3").assertDoesNotExist()
+        compose.onNode(hasText("查看此楼层") and hasAnyAncestor(hasTestTag("post-3"))).performClick()
+        compose.onNodeWithText("子回复正文3").assertIsDisplayed()
+        capture("nested-reply-dark-large-text.png")
+    }
+
+    private fun capture(name: String) {
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val screenshot = instrumentation.uiAutomation.takeScreenshot()
+        File(instrumentation.targetContext.getExternalFilesDir(null), name).outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        screenshot.recycle()
+    }
+}

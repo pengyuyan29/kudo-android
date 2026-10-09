@@ -26,7 +26,9 @@ reply_to_post_number > 1 的帖子按实际父链归入一级评论，更深后�
 
 ## Testing
 
-功能编译通过。集中验证覆盖直接/深层回复、未加载父帖、无效关系、引用混入、20条分页游标、失败重试、刷新竞态、操作同步、忽略、发布后刷新及楼层定位；真机检查3条预览、完整内容、深色大字和系统返回。新增测试尚未运行。
+ThreadAndDecorationTest 的5项测试与全部129项JVM通过，覆盖分组、无效和缺失父帖、深链祖先补齐、引用混入、未过滤游标和逐父分页、失败重试。补齐父帖后旧错误未消失先由新断言复现，再修复，日志 artifacts/nested-context-error-repro.txt 与 community-features-regression-build.txt。首轮真机用例发现中文编码损坏，修复前日志 artifacts/community-features-first-device.txt。
+
+NestedReplyUiTest 的3项测试随50项真机回归通过，日志 artifacts/community-features-final-device.txt：三条预览、外层不重复、展开后的回复与收藏使用实际楼层；深链直达第7楼及系统返回；深色130%字体下忽略内容先隐藏、显式查看后显示。已查看 nested-reply-preview.png、nested-reply-thread.png 和 nested-reply-dark-large-text.png。写入回调为测试替身，未向真实社区发帖或收藏。
 
 ## Consequences
 

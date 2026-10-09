@@ -2,6 +2,11 @@ package com.kudo.android.data
 
 data class PostThread(val root: Post, val replies: List<Post>)
 
+fun missingReplyParents(posts: List<Post>): List<Int> {
+    val numbers = posts.map(Post::number).toSet()
+    return posts.mapNotNull { post -> post.replyTo?.takeIf { it > 1 && it < post.number && it !in numbers } }.distinct()
+}
+
 /** Only explicit, earlier parent floors belong to a thread. Quotes do not establish parents. */
 fun postThreads(posts: List<Post>): List<PostThread> {
     val unique = posts.distinctBy(Post::id).sortedBy(Post::number)

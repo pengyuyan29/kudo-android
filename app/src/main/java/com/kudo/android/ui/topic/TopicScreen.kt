@@ -91,8 +91,8 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                                 }
                             }
                         }
-                        if (state.contextLoading) item { Text("?????????", Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall) }
-                        if (state.contextError != null) item { TextButton(onClick = resolveContext) { Text("???????????????") } }
+                        if (state.contextLoading) item { Text("正在补齐回复关系…", Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall) }
+                        if (state.contextError != null) item { TextButton(onClick = resolveContext) { Text("部分原评论暂不可访问，点击重试") } }
                         if (state.loadingMore) item { LoadingRow() }
                         else if (state.moreError != null) item { ErrorState(state.moreError, more, login) }
                         else if (detail.stream.any { id -> state.allPosts.none { it.id == id } }) item { TextButton(onClick = more, modifier = Modifier.fillMaxWidth()) { Text("加载更多楼层（已显示 ${state.allPosts.size.coerceAtMost(detail.stream.size)} / ${detail.stream.size}）") } }
@@ -117,8 +117,8 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         }
         Box(Modifier.fillMaxSize().then(if (reactionShowing) Modifier.clearAndSetSemantics {} else Modifier)
             .focusProperties { onEnter = { if (reactionShowing) cancelFocusChange() } }.focusGroup()) {
-            LiquidModal(threadVisibility, "????", true, modalBackdrop, glass, { threadVisibility.targetState = false },
-                actions = { LiquidModalAction("??", { threadVisibility.targetState = false }, Modifier.fillMaxWidth()) }) {
+            LiquidModal(threadVisibility, "评论回复", true, modalBackdrop, glass, { threadVisibility.targetState = false },
+                actions = { LiquidModalAction("关闭", { threadVisibility.targetState = false }, Modifier.fillMaxWidth()) }) {
                 if (thread != null && detail != null) {
                     LazyColumn(state = threadList, modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("thread-posts")) {
                         item("root") { TopicPost(thread.root, detail, state, !reactionShowing, like, bookmark, reply, user, image, openLink, ::choose) }
@@ -129,10 +129,10 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                         val load = state.replyLoads[thread.root.id]
                         if (load?.loading == true) item { LoadingRow() }
                         else if (load?.error != null) item { ErrorState(load.error, { loadReplies(thread.root, false) }, login) }
-                        else if (state.hasMoreReplies(thread.root)) item { TextButton({ loadReplies(thread.root, false) }, Modifier.fillMaxWidth()) { Text("??????") } }
-                        else item { Text("???????", Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        else if (state.hasMoreReplies(thread.root)) item { TextButton({ loadReplies(thread.root, false) }, Modifier.fillMaxWidth()) { Text("加载更多回复") } }
+                        else item { Text("已显示全部回复", Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
-                } else Text("???????????????")
+                } else Text("原评论暂不可访问，请关闭后重试")
             }
         }
         val selected = state.allPosts.firstOrNull { it.id == reactionPostId }
