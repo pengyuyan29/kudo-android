@@ -135,6 +135,13 @@ class WebScreenUiTest {
         awaitPage("指南")
     }
 
+    @Test fun cssViewportHeightDoesNotCollapseEmbeddedFrames() {
+        show()
+        val dimensions = JSONArray(javascript("[innerHeight, document.getElementById('vh').offsetHeight, document.getElementById('frame').offsetHeight]"))
+        assertEquals("100vh must match the viewport", dimensions.getDouble(0), dimensions.getDouble(1), 2.0)
+        assertEquals("Viewport cap must not hide the frame", 76.0, dimensions.getDouble(2), 1.0)
+    }
+
     private inner class FixtureWebView(context: Context) : WebView(context) {
         var released = false
         private val pendingError = AtomicReference<Pair<WebResourceRequest, WebResourceResponse>?>(null)
@@ -155,7 +162,9 @@ class WebScreenUiTest {
                         value.contains("other-fixture") -> "其他网站"
                         else -> "指南"
                     }
-                    val html = """<html><head><meta name="viewport" content="width=device-width"><title>$title</title></head><body>
+                    val html = """<!doctype html><html><head><meta name="viewport" content="width=device-width"><title>$title</title>
+                        <style>#vh {position:absolute;visibility:hidden;height:100vh} #frame {border:0;height:76px;max-height:min(1000px,200vh)}</style></head><body>
+                        <div id="vh"></div><iframe id="frame" srcdoc="fixture"></iframe>
                         <h1>$title</h1>
                         <a id="topic" href="https://linux.do/t/topic/3001000/8">帖子</a>
                         <a id="profile" href="https://linux.do/u/stingysheep/activity/">用户</a>

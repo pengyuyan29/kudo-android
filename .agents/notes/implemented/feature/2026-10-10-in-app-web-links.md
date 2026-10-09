@@ -14,6 +14,8 @@ WebView 使用 CookieManager 默认存储，与 LoginScreen 和 AndroidSessionCo
 
 ## Existing note audit
 
+WebView 原生布局使用[有界视口](../bug-fix/2026-10-10-webview-viewport.md)，保证 vh 与 iframe 高度随可用空间正常计算。
+
 [站内深链](../../implemented/feature/2026-10-09-linuxdo-links.md)部分重叠：保留外部 Intent 消费、帖子/用户格式和系统未知地址首页回退，应用内未知网页采用新回退。[原生客户端](../../implemented/architecture/2026-10-07-native-community-client.md)部分重叠：保留原生正文和受限网络契约，扩展 WebView 用途为网页阅读。[官网会话](../../implemented/feature/2026-10-07-account-and-composer.md)保留登录与 current_user 验证，复用同一 Cookie 存储。[酷安表单](../../implemented/feature/2026-10-10-coolapk-forms.md)只提供顶部栏/控件样式，不改变编辑流程。无完全吸收或过时提案。
 
 ## Alternatives considered

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.view.ViewGroup
 import android.webkit.*
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -77,6 +78,8 @@ internal fun WebScreen(url: String, back: () -> Unit, openBrowser: (String) -> U
         Box(Modifier.weight(1f).fillMaxWidth().navigationBarsPadding().imePadding()) {
             AndroidView(factory = { context ->
                 webViewFactory(context).apply {
+                    // Keep CSS viewport units bounded; AndroidView otherwise defaults to WRAP_CONTENT.
+                    layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                     settings.javaScriptEnabled = true
                     settings.domStorageEnabled = true
                     settings.allowFileAccess = false

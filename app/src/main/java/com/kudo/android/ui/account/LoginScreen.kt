@@ -1,7 +1,9 @@
 package com.kudo.android.ui.account
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Bitmap
+import android.view.ViewGroup
 import android.webkit.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,7 +17,8 @@ import kotlinx.coroutines.launch
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun LoginScreen(vm: AccountViewModel, back: () -> Unit, verified: () -> Unit) {
+fun LoginScreen(vm: AccountViewModel, back: () -> Unit, verified: () -> Unit,
+    webViewFactory: (Context) -> WebView = { WebView(it) }) {
     val scope = rememberCoroutineScope()
     var loading by remember { mutableStateOf(true) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -35,7 +38,9 @@ fun LoginScreen(vm: AccountViewModel, back: () -> Unit, verified: () -> Unit) {
         message?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
         if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         AndroidView(factory = { context ->
-            WebView(context).apply {
+            webViewFactory(context).apply {
+                // WRAP_CONTENT makes Chromium's CSS viewport units resolve to zero in AndroidView.
+                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.allowFileAccess = false
