@@ -58,6 +58,7 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                         SettingRow("主题风格", settings.theme.label, !showing) { show("theme") }
                         SettingRow("界面材质效果", settings.glass.label, !showing) { show("glass") }
                         SettingRow("字体大小", if (settings.fontScale == 1f) "跟随系统" else "${(settings.fontScale * 100).toInt()}%", !showing) { show("font") }
+                        SettingRow("主题列表样式", settings.topicListStyle.label, !showing) { show("list") }
                     }
                 }
                 item { Text(if (Build.VERSION.SDK_INT >= 33) "液态玻璃会随背景内容呈现模糊、折射和高光。可切换半透明以减少视觉效果。" else "此系统使用兼容材质显示；完整液态玻璃需要 Android 13 或更高版本。", Modifier.padding(horizontal = 9.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
@@ -82,9 +83,10 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                 if (user != null) item { OutlinedButton(onClick = { show("logout") }, enabled = !showing, modifier = Modifier.fillMaxWidth()) { Text("退出登录") } }
             }
         }
-        val actionSheet = dialog in listOf("theme", "glass", "font")
+        val actionSheet = dialog in listOf("theme", "glass", "font", "list")
         val title = when (dialog) {
             "theme" -> "主题风格"; "glass" -> "界面材质效果"; "font" -> "字体大小"
+            "list" -> "主题列表样式"
             "privacy" -> "隐私说明"; "licenses" -> "开源致谢"; "logout" -> "退出登录？"; else -> "酷DO"
         }
         LiquidModal(visibility, title, actionSheet, backdrop, settings.glass, ::dismiss,
@@ -100,10 +102,11 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                 val options = when (dialog) {
                     "theme" -> ThemeMode.entries.map { it.label }
                     "glass" -> GlassMode.entries.map { it.label }
+                    "list" -> TopicListStyle.entries.map { it.label }
                     else -> listOf("较小 · 85%", "跟随系统", "较大 · 115%", "大号 · 130%")
                 }
                 val selected = when (dialog) {
-                    "theme" -> settings.theme.ordinal; "glass" -> settings.glass.ordinal; else -> scales.indexOf(settings.fontScale)
+                    "theme" -> settings.theme.ordinal; "glass" -> settings.glass.ordinal; "list" -> settings.topicListStyle.ordinal; else -> scales.indexOf(settings.fontScale)
                 }
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     options.forEachIndexed { index, label ->
@@ -114,6 +117,7 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                                 update(when (dialog) {
                                     "theme" -> settings.copy(theme = ThemeMode.entries[index])
                                     "glass" -> settings.copy(glass = GlassMode.entries[index])
+                                    "list" -> settings.copy(topicListStyle = TopicListStyle.entries[index])
                                     else -> settings.copy(fontScale = scales[index])
                                 })
                                 dismiss()

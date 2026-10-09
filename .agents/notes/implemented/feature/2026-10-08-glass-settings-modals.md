@@ -16,6 +16,8 @@ SettingsScreen 用独立目标内容和 MutableTransitionState 控制模态，�
 
 ## Existing note audit
 
+界面显示增加“主题列表样式”，使用同一单选 ActionSheet。TopicListStyle 默认 FEED，持久化名称而非序号，缺失或未知值回退信息流。首页、分类、搜索使用同一设置；传统行将头像、标题及分类标签放在左侧，回复数和更新时间放在右侧，以分隔线代替卡片间距，不渲染摘要和图片。布局编译通过，TopicListStyleUiTest 提供切换、点击、选择取消和偏好重建用例，集中真机执行。
+
 - [官方玻璃组件](../../implemented/architecture/2026-10-07-backdrop-demo-navigation.md)：部分重叠，保留导航/详情的来源与业务隔离；本篇负责模态层采样和关闭契约，互链。
 - [黄色玻璃与原生阅读](../../implemented/feature/2026-10-07-liquid-glass-ui.md)：部分重叠，主题与兼容材质继续适用，不归档。
 - [客户端验证](../../implemented/testing/2026-10-07-client-verification.md)：部分重叠，延续真机和夹具规则；新增选择、取消、返回、退出及大字号滚动验证。

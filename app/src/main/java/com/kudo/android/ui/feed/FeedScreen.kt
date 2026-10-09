@@ -42,7 +42,7 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit, search: () -> Unit, login: () -> Unit, categories: () -> Unit, modifier: Modifier = Modifier, categoryTitle: String? = null, back: () -> Unit = {}) {
+fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit, search: () -> Unit, login: () -> Unit, categories: () -> Unit, modifier: Modifier = Modifier, categoryTitle: String? = null, back: () -> Unit = {}, listStyle: TopicListStyle = TopicListStyle.FEED) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).then(if (categoryTitle == null) Modifier.statusBarsPadding().nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier)) {
         if (categoryTitle != null) PageTopBar(categoryTitle, back)
@@ -83,11 +83,16 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
         val nearEnd by remember { derivedStateOf { val info = listState.layoutInfo; info.totalItemsCount > 3 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 3 } }
         LaunchedEffect(nearEnd, state.next) { if (nearEnd && state.next != null && state.moreError == null) more() }
         PullToRefreshBox(isRefreshing = state.loading && state.topics.isNotEmpty(), onRefresh = refresh, modifier = Modifier.weight(1f).background(MaterialTheme.colorScheme.background)) {
-            LazyColumn(state = listState, contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
+            val traditional = listStyle == TopicListStyle.TITLE
+            LazyColumn(state = listState, contentPadding = if (traditional) PaddingValues(bottom = 112.dp) else PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(if (traditional) 0.dp else 8.dp), modifier = Modifier.fillMaxSize()) {
                 if (state.loading && state.topics.isEmpty()) item { LoadingRow() }
                 if (state.error != null) item { ErrorState(state.error, refresh, login) }
                 if (!state.loading && state.error == null && state.topics.isEmpty()) item { EmptyState("暂时没有话题", "换个分类，或者稍后再来看看。") }
-                items(state.topics, key = { "topic-${it.id}" }) { topic -> TopicCard(topic, state.categories.firstOrNull { it.id == topic.categoryId }, { openTopic(topic.id) }, openUser) }
+                items(state.topics, key = { "topic-${it.id}" }, contentType = { listStyle }) { topic ->
+                    val category = state.categories.firstOrNull { it.id == topic.categoryId }
+                    if (traditional) TopicTitleRow(topic, category, { openTopic(topic.id) }, openUser)
+                    else TopicCard(topic, category, { openTopic(topic.id) }, openUser)
+                }
                 if (state.loadingMore) item { LoadingRow() }
                 else if (state.moreError != null) item { ErrorState(state.moreError, more, login) }
                 else if (state.next != null) item { TextButton(onClick = more, modifier = Modifier.fillMaxWidth()) { Text("加载更多话题") } }

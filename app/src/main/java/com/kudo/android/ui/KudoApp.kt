@@ -134,7 +134,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         Box(Modifier.fillMaxSize()) {
                             Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.background)) {
                                 when (selected) {
-                                    0 -> FeedScreen(state.forUser(account.user), account.user, feed::select, feed::refresh, feed::more, { topic(it) }, ::user, { nav.navigate("search") }, { if (account.user == null) login() else user(account.user!!.username) }, { selected = 1 })
+                                    0 -> FeedScreen(state.forUser(account.user), account.user, feed::select, feed::refresh, feed::more, { topic(it) }, ::user, { nav.navigate("search") }, { if (account.user == null) login() else user(account.user!!.username) }, { selected = 1 }, listStyle = display.topicListStyle)
                                     1 -> CategoriesScreen(account.categories, account.categoriesLoading, account.categoryError, account::loadCategories, ::login) { nav.navigate("category/${it.id}") }
                                     3 -> NotificationsScreen(account, ::login, ::topic)
                                     4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) })
@@ -151,12 +151,12 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val vm = model("category-$id") { FeedViewModel(app.repository, id, account.user) }
                         val state by vm.state.collectAsStateWithLifecycle()
                         RefreshFeedOnResume(vm, account.user)
-                        FeedScreen(state.forUser(account.user, inCategory = true), account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, categoryTitle = account.categories.firstOrNull { it.id == id }?.name ?: "社区分类", back = { nav.popBackStack() })
+                        FeedScreen(state.forUser(account.user, inCategory = true), account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, categoryTitle = account.categories.firstOrNull { it.id == id }?.name ?: "社区分类", back = { nav.popBackStack() }, listStyle = display.topicListStyle)
                     }
                     composable("search") {
                         val vm = model("search") { SearchViewModel(app.repository) }
                         val state by vm.state.collectAsStateWithLifecycle()
-                        SearchScreen(state, vm::search, { nav.popBackStack() }, { topic(it) }, ::user, ::login)
+                        SearchScreen(state, vm::search, { nav.popBackStack() }, { topic(it) }, ::user, ::login, listStyle = display.topicListStyle)
                     }
                     composable("topic/{id}?post={post}",
                         arguments = listOf(navArgument("id") { type = NavType.IntType }, navArgument("post") { type = NavType.IntType; defaultValue = 0 }),
@@ -175,9 +175,9 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             follow = { authenticated { vm.follow() } }, react = { post, reaction -> authenticated { vm.react(post, reaction) } }, openBrowser = ::openBrowser)
                     }
                     composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); scope.launch { snackbar.showSnackbar("欢迎回来，${account.user?.displayName}") } }) }
-                    composable("settings") { SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openLink) }
+                    composable("settings") { SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openBrowser) }
                     composable("bookmarks") { LaunchedEffect(account.user?.id) { account.loadSaved() }; BookmarksScreen(account, { nav.popBackStack() }, ::login, ::topic) }
-                    composable("user/{username}") { entry -> UserScreen(entry.arguments!!.getString("username")!!, app.repository, { nav.popBackStack() }, ::login, ::openLink) }
+                    composable("user/{username}") { entry -> UserScreen(entry.arguments!!.getString("username")!!, app.repository, { nav.popBackStack() }, ::login, ::openBrowser) }
                     composable("compose?topic={topic}&reply={reply}", arguments = listOf(navArgument("topic") { type = NavType.IntType; defaultValue = 0 }, navArgument("reply") { type = NavType.IntType; defaultValue = 0 })) { entry ->
                         val topicId = entry.arguments!!.getInt("topic").takeIf { it > 0 }
                         val replyTo = entry.arguments!!.getInt("reply").takeIf { it > 0 }
