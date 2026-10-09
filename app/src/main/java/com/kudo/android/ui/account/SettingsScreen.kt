@@ -61,7 +61,7 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                         SettingRow("主题列表样式", settings.topicListStyle.label, !showing) { show("list") }
                         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("显示用户签名", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-                            Switch(settings.showSignatures, { update(settings.copy(showSignatures = it)) }, enabled = !showing,
+                            CommunitySwitch(settings.showSignatures, { update(settings.copy(showSignatures = it)) }, enabled = !showing,
                                 modifier = Modifier.testTag("show-signatures"))
                         }
                     }
@@ -91,7 +91,10 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                         SettingRow("隐私说明", "账号与草稿仅保存在本机", !showing) { show("privacy") }
                     }
                 }
-                if (user != null) item { OutlinedButton(onClick = { show("logout") }, enabled = !showing, modifier = Modifier.fillMaxWidth()) { Text("退出登录") } }
+                if (user != null) item {
+                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)
+                        .clickable(enabled = !showing) { show("logout") }.padding(16.dp), contentAlignment = Alignment.Center) { Text("退出登录", color = MaterialTheme.colorScheme.error) }
+                }
             }
         }
         val actionSheet = dialog in listOf("theme", "glass", "font", "list")
@@ -101,6 +104,7 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
             "privacy" -> "隐私说明"; "licenses" -> "开源致谢"; "logout" -> "退出登录？"; else -> "酷DO"
         }
         LiquidModal(visibility, title, actionSheet, backdrop, settings.glass, ::dismiss,
+            sheetBackground = MaterialTheme.colorScheme.background,
             actions = {
                 if (actionSheet) LiquidModalAction("取消", ::dismiss, Modifier.fillMaxWidth())
                 else if (dialog == "logout") {
@@ -119,10 +123,10 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                 val selected = when (dialog) {
                     "theme" -> settings.theme.ordinal; "glass" -> settings.glass.ordinal; "list" -> settings.topicListStyle.ordinal; else -> scales.indexOf(settings.fontScale)
                 }
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface)) {
                     options.forEachIndexed { index, label ->
-                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
-                            .background(if (selected == index) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f) else androidx.compose.ui.graphics.Color.Transparent)
+                        if (index > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                        Row(Modifier.fillMaxWidth()
                             .selectable(selected = selected == index, role = Role.RadioButton, onClick = {
                                 if (!visibility.targetState) return@selectable
                                 update(when (dialog) {
@@ -132,9 +136,9 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                                     else -> settings.copy(fontScale = scales[index])
                                 })
                                 dismiss()
-                            }).heightIn(min = 52.dp).padding(horizontal = 12.dp, vertical = 12.dp).testTag("modal-choice-$index"),
+                            }).heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 14.dp).testTag("modal-choice-$index"),
                             verticalAlignment = Alignment.CenterVertically) {
-                            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, color = if (selected == index) LogoYellow else MaterialTheme.colorScheme.onSurface)
                             if (selected == index) Icon(Icons.Rounded.Check, null, Modifier.padding(start = 12.dp).size(22.dp), tint = LogoYellow)
                         }
                     }
@@ -159,9 +163,10 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
 
 @Composable
 private fun SettingRow(title: String, value: String, enabled: Boolean, action: () -> Unit) {
-    Column(Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = action).padding(horizontal = 18.dp, vertical = 17.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge); Icon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp), MaterialTheme.colorScheme.outline) }
-        Text(value, Modifier.padding(top = 5.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = action).heightIn(min = 68.dp).padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Text(value, Modifier.widthIn(max = 190.dp).padding(start = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.Rounded.ChevronRight, null, Modifier.padding(start = 5.dp).size(18.dp), MaterialTheme.colorScheme.outline)
     }
 }
 

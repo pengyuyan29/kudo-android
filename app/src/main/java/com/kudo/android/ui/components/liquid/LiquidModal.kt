@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import com.kudo.android.data.GlassMode
 import com.kudo.android.ui.theme.Ink
 import com.kudo.android.ui.theme.LogoYellow
+import com.kudo.android.ui.components.CommunitySheet
+import com.kudo.android.ui.components.LocalSheetActions
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
@@ -71,8 +73,13 @@ internal fun LiquidModal(
     dismiss: () -> Unit,
     actions: @Composable RowScope.() -> Unit,
     showTitle: Boolean = true,
+    sheetBackground: Color = MaterialTheme.colorScheme.surface,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (actionSheet) {
+        CommunitySheet(visibility, title, dismiss, showTitle = showTitle, containerColor = sheetBackground, actions = actions, content = content)
+        return
+    }
     val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f
     val foreground = MaterialTheme.colorScheme.onSurface
     val container = MaterialTheme.colorScheme.surface.copy(alpha = if (light) 0.6f else 0.4f)
@@ -137,6 +144,13 @@ internal fun LiquidModal(
 
 @Composable
 internal fun LiquidModalAction(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, primary: Boolean = false) {
+    if (LocalSheetActions.current) {
+        Box(modifier.background(if (primary) LogoYellow else Color.Transparent)
+            .clickable(role = Role.Button, onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 14.dp), contentAlignment = Alignment.Center) {
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = if (primary) Ink else LocalContentColor.current)
+        }
+        return
+    }
     Box(modifier.clip(RoundedCornerShape(50))
         .background(if (primary) LogoYellow else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f))
         .clickable(role = Role.Button, onClick = onClick)
