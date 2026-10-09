@@ -21,6 +21,8 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
     private var user = initialUser
     private val _state = MutableStateFlow(FeedState(filter = defaultFeedFilter(user, categoryId != null), accountId = user?.id))
     val state = _state.asStateFlow()
+    private val _pages = MutableStateFlow<Map<String, FeedState>>(emptyMap())
+    val pages = _pages.asStateFlow()
     private var job: Job? = null
     private var moreJob: Job? = null
     private var generation = 0L
@@ -35,6 +37,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
     fun setUser(value: Member?): Boolean {
         if (value?.id == user?.id && value?.unifiedNew == user?.unifiedNew) return false
         user = value
+        _pages.value = emptyMap()
         baseline = null
         acknowledgeOnProbe = false
         _state.value = FeedState(filter = defaultFeedFilter(value, categoryId != null), accountId = value?.id)
@@ -45,10 +48,15 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
     fun select(filter: String) {
         if (FeedFilter.available(user != null, categoryId != null).none { it.value == filter }) return
         if (filter == _state.value.filter) return
-        baseline = null
+        val previous = _state.value
+        _pages.update { it + (previous.filter to previous.copy(loading = previous.loading && previous.topics.isEmpty(), loadingMore = false)) }
+        job?.cancel(); moreJob?.cancel(); generation++
         acknowledgeOnProbe = false
-        _state.value = FeedState(categories = _state.value.categories, filter = filter, accountId = user?.id)
-        refresh()
+        val cached = _pages.value[filter]?.takeIf { !it.loading }
+        baseline = cached?.topics?.associateBy(Topic::id)
+        _state.value = cached?.copy(categories = previous.categories, loadingMore = false)
+            ?: FeedState(categories = previous.categories, filter = filter, accountId = user?.id)
+        if (cached == null) refresh()
         restartUpdates()
     }
     fun refreshFromNavigation() {
@@ -59,6 +67,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
     fun refreshIfRequested(epoch: Int) {
         if (epoch <= 0 || epoch == lastRefreshEpoch) return
         lastRefreshEpoch = epoch
+        _pages.value = emptyMap()
         refresh()
     }
 

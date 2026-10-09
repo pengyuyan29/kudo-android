@@ -36,7 +36,7 @@ class FeedHeaderUiTest {
     @Test fun scrollingCollapsesSearchPinsTabsAndReverseExpandsSearch() {
         content()
         val initialTop = compose.onNodeWithText("最新").fetchSemanticsNode().boundsInRoot.top
-        val list = compose.onAllNodes(hasScrollAction())[1]
+        val list = compose.onNodeWithTag("feed-list-latest")
         list.performTouchInput { swipeUp(durationMillis = 800) }
         compose.onNodeWithText("最新").assertIsDisplayed()
         val pinnedTop = compose.onNodeWithText("最新").fetchSemanticsNode().boundsInRoot.top
@@ -111,10 +111,10 @@ class FeedHeaderUiTest {
         }
         capture("home-tabs-dark-large-end.png")
         compose.onNodeWithText("未读").performScrollTo().performClick()
-        compose.onAllNodes(hasScrollAction())[1].performTouchInput { swipeUp(durationMillis = 600) }
+        compose.onNodeWithTag("feed-list-unread").performTouchInput { swipeUp(durationMillis = 600) }
         compose.onNodeWithText("未读").assertIsDisplayed()
-        compose.onAllNodes(hasScrollAction())[1].performTouchInput { swipeDown(durationMillis = 800) }
-        compose.onAllNodes(hasScrollAction())[1].performTouchInput { swipeDown(durationMillis = 800) }
+        compose.onNodeWithTag("feed-list-unread").performTouchInput { swipeDown(durationMillis = 800) }
+        compose.onNodeWithTag("feed-list-unread").performTouchInput { swipeDown(durationMillis = 800) }
         compose.runOnIdle { assertTrue("顶部展开后仍能下拉刷新", refreshes > 0) }
         capture("home-tabs-dark-large.png")
     }

@@ -50,7 +50,7 @@ class HomeRefreshUiTest {
                 }
             }
         }
-        val list = compose.onAllNodes(hasScrollAction())[1]
+        val list = compose.onNodeWithTag("feed-list-latest")
         list.performTouchInput { swipeUp(durationMillis = 800) }
         val position = list.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value()
         assertTrue(position > 0f)
@@ -109,7 +109,7 @@ class HomeRefreshUiTest {
                 } else Text("帖子详情")
             }
         }
-        compose.onAllNodes(hasScrollAction())[1].performScrollToIndex(12)
+        compose.onNodeWithTag("feed-list-latest").performScrollToIndex(12)
         compose.onNodeWithText("更新测试话题 13").assertIsDisplayed()
         compose.runOnIdle { visible = false }
         compose.onNodeWithText("帖子详情").assertIsDisplayed()

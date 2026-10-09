@@ -8,6 +8,8 @@ Status: implemented
 
 ## Decision
 
+筛选切换清空和类别跳转的部分由[首页横向分页](2026-10-10-home-pager.md)替代，现有权限、计数和账号边界保留；下述原始切换理由供重访。
+
 访客按最新、热门、排行榜、类别显示；账号按未读、最新、新、热门、排行榜、我的帖子、已读、书签、类别显示。首页登录默认未读、退出默认最新；分类详情保留最新默认，只提供适用于分类的筛选。类别复用底部分类入口，个人标签直接更新首页列表。
 
 列表使用 Discourse 的 latest / hot / top / unread / new / posted / read / bookmarks 过滤接口，保留服务端分页链接。FeedFilter 统一接口许可、登录要求和显示顺序，类别作为单独页面动作。新话题数量使用 /u/{username}/topic-tracking-state.json 的跟踪结果，按 topic_id 去重；created_in_new_period 为真、last_read_post_number 为空、notification_level 为空或至少为2，且未看、未删除才计入新话题。账号启用 unified_new_enabled 时按官网约定同时计入跟踪中的未读话题。分类页不显示首页全站计数。数量与分类元数据均为辅助请求，失败不得覆盖成功的话题；数量未知时只显示“新”。

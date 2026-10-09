@@ -123,6 +123,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                     composable("root") {
                         val feed = model("feed") { FeedViewModel(app.repository, initialUser = account.user, updates = DiscourseMessageBus(app.client, userAgent = app.userAgent)) }
                         val state by feed.state.collectAsStateWithLifecycle()
+                        val pages by feed.pages.collectAsStateWithLifecycle()
                         val backdrop = rememberLayerBackdrop()
                         ObserveHomeUpdates(feed, account.user)
                         LaunchedEffect(refreshEpoch) { feed.refreshIfRequested(refreshEpoch) }
@@ -133,7 +134,8 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         Box(Modifier.fillMaxSize()) {
                             Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.background)) {
                                 when (selected) {
-                                    0 -> FeedScreen(state.forUser(account.user), account.user, feed::select, feed::refresh, feed::more, { topic(it) }, ::user, { nav.navigate("search") }, { if (account.user == null) login() else user(account.user!!.username) }, { selected = 1 }, listStyle = display.topicListStyle)
+                                    0 -> FeedScreen(state.forUser(account.user), account.user, feed::select, feed::refresh, feed::more, { topic(it) }, ::user, { nav.navigate("search") }, { if (account.user == null) login() else user(account.user!!.username) }, { account.loadCategories() }, listStyle = display.topicListStyle, pages = pages,
+                                        categoryContent = { CategoriesScreen(account.categories, account.categoriesLoading, account.categoryError, account::loadCategories, ::login, inHome = true) { nav.navigate("category/${it.id}") } })
                                     1 -> CategoriesScreen(account.categories, account.categoriesLoading, account.categoryError, account::loadCategories, ::login) { nav.navigate("category/${it.id}") }
                                     3 -> NotificationsScreen(account, ::login, ::topic)
                                     4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) }, repository = app.repository)

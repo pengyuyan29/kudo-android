@@ -211,7 +211,7 @@ class AvatarUiTest {
         compose.setContent { Content { FeedScreen(FeedState(topics = topics, loading = false, accountId = user.id), user, {}, {}, {}, {}, {}, {}, {}, {}) } }
         fun running() = rendered.filter { it.first.endsWith("header.png") }.mapNotNull { it.second as? Animatable }.any { it.isRunning }
         compose.waitUntil(5000) { running() }
-        val list = compose.onAllNodes(hasScrollAction())[1]
+        val list = compose.onNodeWithTag("feed-list-latest")
         list.performTouchInput { swipeUp(durationMillis = 800) }
         compose.onNodeWithContentDescription("当前用户的头像", useUnmergedTree = true).assertIsNotDisplayed()
         compose.waitUntil(5000) { !running() }

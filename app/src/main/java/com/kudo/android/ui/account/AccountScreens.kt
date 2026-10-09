@@ -35,8 +35,8 @@ fun RootHeading(title: String, action: @Composable RowScope.() -> Unit = {}) {
 }
 
 @Composable
-fun CategoriesScreen(categories: List<Category>, loading: Boolean, error: Throwable?, refresh: () -> Unit, login: () -> Unit, select: (Category) -> Unit) {
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+fun CategoriesScreen(categories: List<Category>, loading: Boolean, error: Throwable?, refresh: () -> Unit, login: () -> Unit, inHome: Boolean = false, select: (Category) -> Unit) {
+    Column(Modifier.fillMaxSize().then(if (inHome) Modifier else Modifier.statusBarsPadding())) {
         LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (loading && categories.isEmpty()) item { LoadingRow() }
             if (error != null) item { ErrorState(error, refresh, login) }
