@@ -25,7 +25,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.painterResource
@@ -51,13 +55,13 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
             scrollBehavior.state.heightOffsetLimit = -placeable.height.toFloat()
             val offset = scrollBehavior.state.heightOffset.roundToInt()
             layout(placeable.width, (placeable.height + offset).coerceAtLeast(0)) { placeable.placeRelative(0, offset) }
-        }.background(MaterialTheme.colorScheme.surface).padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.size(48.dp).clickable(onClick = login), contentAlignment = Alignment.Center) {
-                if (user == null) Image(painterResource(R.drawable.ic_linux_do), "Linux.do 社区 Logo", Modifier.size(36.dp))
-                else Avatar(user, 36.dp, presentation = AvatarPresentation.ACCOUNT)
+        }.background(MaterialTheme.colorScheme.surface).padding(horizontal = 12.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.size(40.dp).clickable(onClick = login), contentAlignment = Alignment.Center) {
+                if (user == null) Image(painterResource(R.drawable.ic_linux_do), "Linux.do 社区 Logo", Modifier.size(28.dp))
+                else Avatar(user, 28.dp, presentation = AvatarPresentation.ACCOUNT)
             }
-            Box(Modifier.weight(1f).heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = search), contentAlignment = Alignment.Center) {
-                Row(Modifier.fillMaxWidth().heightIn(min = 32.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f).heightIn(min = 40.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = search), contentAlignment = Alignment.Center) {
+                Row(Modifier.fillMaxWidth().heightIn(min = 30.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("真诚 · 友善 · 团结 · 专业", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Icon(Icons.Rounded.Search, "搜索", Modifier.size(20.dp), MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -110,10 +114,14 @@ private fun FeedTabBar(tabs: List<Pair<String, String>>, selected: String, selec
                 val active = selected == value
                 val bringIntoView = remember { BringIntoViewRequester() }
                 LaunchedEffect(active) { if (active) bringIntoView.bringIntoView() }
-                Box(Modifier.bringIntoViewRequester(bringIntoView).selectable(active, role = Role.Tab, onClick = { select(value) }).heightIn(min = 40.dp).padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-                    Text(label, Modifier.padding(vertical = 7.dp), fontSize = if (active) 19.sp else 16.sp, lineHeight = if (active) 26.sp else 22.sp,
+                Box(Modifier.bringIntoViewRequester(bringIntoView).selectable(active, role = Role.Tab, onClick = { select(value) }).heightIn(min = 34.dp).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                    Text(label, Modifier.padding(vertical = 5.dp).drawBehind {
+                        if (active) drawRoundRect(
+                            brush = Brush.horizontalGradient(listOf(LogoYellow.copy(alpha = 0.25f), LogoYellow.copy(alpha = 0.95f), LogoYellow.copy(alpha = 0.4f))),
+                            topLeft = Offset(0f, size.height * 0.58f), size = Size(size.width, size.height * 0.34f),
+                            cornerRadius = CornerRadius(3.dp.toPx()))
+                    }, fontSize = if (active) 17.sp else 15.sp, lineHeight = if (active) 24.sp else 21.sp,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Normal, color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                    Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp).width(22.dp).height(3.dp).background(if (active) LogoYellow else Color.Transparent, CircleShape))
                 }
             }
         }
