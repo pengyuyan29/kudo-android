@@ -8,6 +8,8 @@ Status: implemented
 
 ## Decision
 
+编辑器的页面呈现与回复承载由[酷安式表单](2026-10-10-coolapk-forms.md)部分替代，以下登录、上传与草稿契约继续成立。
+
 AccountViewModel 通过 /session/current.json 确认用户，LoginScreen 提供 HTTPS 官网 WebView，关闭文件和内容访问。通知和收藏按需分页，成功标记已读后更新界面。退出登录清除本机 Cookie 和账号草稿，账号代次阻止过期通知请求重新写回。
 
 会话验证也绑定账号代次：退出后较早的 current_user 响应不能恢复旧用户；清理期间禁止新的会话验证。AccountViewModelTest 先复现延迟响应导致退出后重新登录的问题，再验证修复。

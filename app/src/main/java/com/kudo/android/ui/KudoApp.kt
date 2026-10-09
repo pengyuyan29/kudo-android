@@ -10,6 +10,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -18,6 +20,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.Lifecycle
@@ -171,9 +176,34 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val nonce by entry.savedStateHandle.getStateFlow("refresh", 0L).collectAsStateWithLifecycle()
                         LaunchedEffect(nonce) { if (nonce != 0L) vm.refresh() }
                         LaunchedEffect(vm) { vm.events.collect { snackbar.showSnackbar(it) } }
-                        TopicScreen(state, display.glass, { nav.popBackStack() }, vm::refresh, vm::more, ::login, { authenticated { vm.like(it) } }, { authenticated { vm.bookmark(it) } }, { editor(id, it?.number) }, ::user, {}, ::openLink,
+                        var replyTarget by rememberSaveable(account.user?.id) { mutableStateOf<Int?>(null) }
+                        val replyVisibility = remember(account.user?.id) { MutableTransitionState(replyTarget != null) }
+                        val keyboard = LocalSoftwareKeyboardController.current
+                        val replyShowing = replyVisibility.currentState || replyVisibility.targetState
+                        LaunchedEffect(replyVisibility.currentState, replyVisibility.targetState) {
+                            if (!replyVisibility.currentState && !replyVisibility.targetState) replyTarget = null
+                        }
+                        Box(Modifier.fillMaxSize()) {
+                        Box(Modifier.fillMaxSize().then(if (replyShowing) Modifier.clearAndSetSemantics {} else Modifier)
+                            .focusProperties { onEnter = { if (replyShowing) cancelFocusChange() } }.focusGroup()) {
+                        TopicScreen(state, display.glass, { nav.popBackStack() }, vm::refresh, vm::more, ::login, { authenticated { vm.like(it) } }, { authenticated { vm.bookmark(it) } }, { post -> authenticated { replyTarget = post?.number ?: 0; replyVisibility.targetState = true } }, ::user, {}, ::openLink,
                             { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${state.detail?.title.orEmpty()}\nhttps://linux.do/t/$id") }, "分享话题")) },
                             follow = { authenticated { vm.follow() } }, react = { post, reaction -> authenticated { vm.react(post, reaction) } }, openBrowser = ::openBrowser, loadReplies = vm::loadReplies, resolveContext = vm::resolveContext)
+                        }
+                        val currentUser = account.user
+                        val target = replyTarget
+                        if (currentUser != null && target != null) {
+                            val editorVm = model("reply-${currentUser.id}-$id-$target") { EditorViewModel(app, currentUser.id, id, target.takeIf { it > 0 }) }
+                            LaunchedEffect(editorVm) { editorVm.published.collect { result ->
+                                keyboard?.hide(); replyVisibility.targetState = false
+                                vm.refresh(); refreshEpoch++
+                                snackbar.showSnackbar(if (result.queued) "内容已提交，等待社区审核" else "发布成功")
+                            } }
+                            ReplyEditorSheet(replyVisibility, editorVm.sending, { replyVisibility.targetState = false }) {
+                                EditorScreen(editorVm, account.categories, account.categoryError, account::loadCategories, { keyboard?.hide(); replyVisibility.targetState = false })
+                            }
+                        }
+                        }
                     }
                     composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); scope.launch { snackbar.showSnackbar("欢迎回来，${account.user?.displayName}") } }) }
                     composable("settings") { SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openBrowser, { nav.navigate("ignored-users") }) }

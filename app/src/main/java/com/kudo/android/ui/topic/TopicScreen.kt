@@ -41,6 +41,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     val threads = state.threads
     fun dismiss() { visibility.targetState = false }
     fun choose(post: Post) { reactionPostId = post.id; visibility.targetState = true }
+    fun replyTo(post: Post?) { threadVisibility.targetState = false; visibility.targetState = false; reply(post) }
     val detail = state.detail
     val actions = LocalTopicActions.current
     val ignoredUsers = LocalIgnoredUsers.current
@@ -84,7 +85,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                                 if (!state.contextLoading && thread.root.number > 1) loadReplies(thread.root, true)
                             }
                             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-                                TopicPost(thread.root, detail, state, !showing, like, bookmark, reply, user, image, openLink, ::choose,
+                                TopicPost(thread.root, detail, state, !showing, like, bookmark, ::replyTo, user, image, openLink, ::choose,
                                     revealOriginal) { revealOriginal = true }
                                 if (thread.root.number > 1) ReplyPreview(thread, state.replyLoads[thread.root.id], state.hasMoreReplies(thread.root), !showing) {
                                     openThread(thread.root, it)
@@ -100,7 +101,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                     }
                 }
             }
-            TopicBottomBar(state, backdrop, glass, !showing, { reply(null) }, like, bookmark, share, ::choose,
+            TopicBottomBar(state, backdrop, glass, !showing, { replyTo(null) }, like, bookmark, share, ::choose,
                 Modifier.align(Alignment.BottomCenter))
         }
         val thread = threads.firstOrNull { it.root.id == threadRootId }
@@ -121,10 +122,10 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                 actions = { LiquidModalAction("关闭", { threadVisibility.targetState = false }, Modifier.fillMaxWidth()) }) {
                 if (thread != null && detail != null) {
                     LazyColumn(state = threadList, modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("thread-posts")) {
-                        item("root") { TopicPost(thread.root, detail, state, !reactionShowing, like, bookmark, reply, user, image, openLink, ::choose) }
+                        item("root") { TopicPost(thread.root, detail, state, !reactionShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose) }
                         items(thread.replies, key = { it.id }) { post ->
                             HorizontalDivider()
-                            TopicPost(post, detail, state, !reactionShowing, like, bookmark, reply, user, image, openLink, ::choose)
+                            TopicPost(post, detail, state, !reactionShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose)
                         }
                         val load = state.replyLoads[thread.root.id]
                         if (load?.loading == true) item { LoadingRow() }

@@ -1,54 +1,124 @@
 package com.kudo.android.ui.editor
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import com.kudo.android.data.Category
-import com.kudo.android.ui.components.PageTopBar
-import com.kudo.android.ui.theme.Ink
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.*
+import androidx.compose.ui.platform.*
+import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.*
+import com.kudo.android.data.*
+import com.kudo.android.ui.components.*
+import com.kudo.android.ui.components.liquid.LiquidModalAction
 import com.kudo.android.ui.theme.LogoYellow
 
 @Composable
 fun EditorScreen(vm: EditorViewModel, categories: List<Category>, categoryError: Throwable?, reloadCategories: () -> Unit, back: () -> Unit) {
     val context = LocalContext.current
-    var categoryMenu by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { vm.upload(context, it) } }
-    val locked = vm.sending
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).imePadding()) {
-        PageTopBar(if (vm.topicId == null) "发布话题" else "写回复", back) {
-            Button(onClick = vm::publish, enabled = !locked && !vm.uploading && vm.draft.raw.isNotBlank(), colors = ButtonDefaults.buttonColors(containerColor = LogoYellow, contentColor = Ink)) { Text(if (locked) "发布中…" else "发布") }
-        }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            if (vm.topicId == null) {
-                OutlinedTextField(vm.draft.title, { vm.edit(vm.draft.copy(title = it)) }, Modifier.fillMaxWidth(), label = { Text("一个清楚、有吸引力的标题") }, enabled = !locked, maxLines = 3)
-                Box {
-                    OutlinedButton(onClick = { categoryMenu = true }, enabled = !locked) { Icon(Icons.Rounded.Tag, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(categories.firstOrNull { it.id == vm.draft.categoryId }?.name ?: "选择发布分类"); Icon(Icons.Rounded.ExpandMore, null) }
-                    DropdownMenu(categoryMenu, { categoryMenu = false }, modifier = Modifier.heightIn(max = 320.dp)) { categories.forEach { category -> DropdownMenuItem(text = { Text(category.name) }, onClick = { vm.edit(vm.draft.copy(categoryId = category.id)); categoryMenu = false }) } }
+    BackHandler(vm.sending) { /* Keep the active request attached to its editor. */ }
+    EditorForm(vm.draft, categories, vm::edit, vm::publish, { picker.launch("image/*") }, back,
+        reply = vm.topicId != null, categoryError = categoryError, reloadCategories = reloadCategories,
+        sending = vm.sending, uploading = vm.uploading, error = vm.error)
+}
+
+@Composable
+internal fun ReplyEditorSheet(visibility: MutableTransitionState<Boolean>, sending: Boolean, dismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    CommunitySheet(visibility, "写回复", { if (!sending) { keyboard?.hide(); dismiss() } }, showTitle = false,
+        dismissEnabled = !sending, scrollContent = false, showActions = false, contentPadding = PaddingValues(0.dp), content = content)
+}
+
+@Composable
+internal fun EditorForm(draft: Draft, categories: List<Category>, edit: (Draft) -> Unit, publish: () -> Unit,
+    pickImage: () -> Unit, back: () -> Unit, reply: Boolean = false, categoryError: Throwable? = null,
+    reloadCategories: () -> Unit = {}, sending: Boolean = false, uploading: Boolean = false, error: String? = null) {
+    val categorySheet = remember { MutableTransitionState(false) }
+    val categoryShowing = categorySheet.currentState || categorySheet.targetState
+    val bodyFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val enabled = !sending && !categoryShowing
+    val canPublish = enabled && !uploading && draft.raw.isNotBlank() && (reply || (draft.title.isNotBlank() && draft.categoryId > 0))
+    LaunchedEffect(reply) {
+        if (reply) { withFrameNanos { }; bodyFocus.requestFocus(); keyboard?.show() }
+    }
+    val publishText = if (sending) "发布中…" else "发布"
+    Box(Modifier.then(if (reply) Modifier.fillMaxWidth() else Modifier.fillMaxSize()).background(MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.then(if (reply) Modifier.fillMaxWidth().heightIn(max = 300.dp) else Modifier.fillMaxSize().imePadding())
+            .then(if (categoryShowing) Modifier.clearAndSetSemantics {} else Modifier)
+            .focusProperties { onEnter = { if (categoryShowing) cancelFocusChange() } }.focusGroup().testTag("editor-form")) {
+            if (!reply) {
+                Row(Modifier.fillMaxWidth().statusBarsPadding().heightIn(min = 56.dp).padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CommunityIconButton(Icons.Rounded.Close, "关闭编辑器", back, enabled = !sending)
+                    Text("发布话题", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                    CommunityButton(publishText, publish, enabled = canPublish, compact = true)
                 }
-                if (categories.isEmpty()) TextButton(onClick = reloadCategories) { Text(categoryError?.message ?: "加载可发布分类") }
-            } else Text(if (vm.replyTo != null) "回复 #${vm.replyTo} 楼" else "回复话题", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-            OutlinedTextField(vm.draft.raw, { vm.edit(vm.draft.copy(raw = it)) }, Modifier.fillMaxWidth().heightIn(min = 290.dp), label = { Text("分享你的想法…") }, placeholder = { Text("支持 Markdown、代码块和图片。\n认真交流，让好内容发生。") }, enabled = !locked, minLines = 10)
-            vm.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-            if (vm.uploading || locked) LinearProgressIndicator(Modifier.fillMaxWidth())
-            Text("草稿已自动保存在本机 · ${vm.draft.raw.length} 字", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(Modifier.fillMaxWidth().clickable(enabled = enabled) { keyboard?.hide(); categorySheet.targetState = true }
+                    .heightIn(min = 64.dp).padding(horizontal = 20.dp, vertical = 12.dp).testTag("editor-category"), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.AddBox, null, Modifier.size(24.dp), tint = LogoYellow)
+                    Text("发布到", Modifier.padding(start = 14.dp), style = MaterialTheme.typography.bodyLarge)
+                    Text(categories.firstOrNull { it.id == draft.categoryId }?.name ?: "选择分类", Modifier.weight(1f).padding(start = 16.dp),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                    Icon(Icons.Rounded.ChevronRight, null, Modifier.padding(start = 8.dp).size(20.dp), tint = MaterialTheme.colorScheme.outline)
+                }
+                HorizontalDivider(Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            Column(Modifier.weight(1f, fill = !reply).then(if (!reply) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                .padding(horizontal = 20.dp)) {
+                if (!reply) {
+                    CommunityTextField(draft.title, { edit(draft.copy(title = it)) }, Modifier.fillMaxWidth().padding(vertical = 20.dp).testTag("editor-title"),
+                        placeholder = "标题", enabled = enabled, maxLines = 3,
+                        textStyle = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+                CommunityTextField(draft.raw, { edit(draft.copy(raw = it)) }, Modifier.fillMaxWidth()
+                    .then(if (reply) Modifier.heightIn(min = 80.dp, max = 180.dp) else Modifier.heightIn(min = 280.dp))
+                    .padding(vertical = 14.dp).focusRequester(bodyFocus).testTag("editor-body"), placeholder = if (reply) "写下你的回复…" else "正文",
+                    enabled = enabled, minLines = if (reply) 3 else 8)
+            }
+            error?.let { Text(it, Modifier.padding(horizontal = 20.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+            Text(if (uploading) "正在上传图片…" else if (sending) "正在发布…" else "草稿已自动保存 · ${draft.raw.length} 字",
+                Modifier.padding(horizontal = 20.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth().then(if (reply) Modifier else Modifier.navigationBarsPadding()).padding(start = 8.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                CommunityIconButton(Icons.Rounded.AddPhotoAlternate, "上传图片", pickImage, enabled = enabled && !uploading)
+                CommunityIconButton(Icons.Rounded.Code, "插入代码块", { edit(draft.copy(raw = draft.raw + "\n```\n\n```\n")) }, enabled = enabled)
+                CommunityIconButton(Icons.Rounded.FormatQuote, "插入引用", { edit(draft.copy(raw = draft.raw + "\n> ")) }, enabled = enabled)
+                Spacer(Modifier.weight(1f))
+                if (reply) CommunityButton(publishText, publish, enabled = canPublish, compact = true)
+                else Text("Markdown", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
-        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 13.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { picker.launch("image/*") }, enabled = !locked && !vm.uploading) { Icon(Icons.Rounded.AddPhotoAlternate, "上传图片") }
-            IconButton(onClick = { vm.edit(vm.draft.copy(raw = vm.draft.raw + "\n```\n\n```\n")) }, enabled = !locked) { Icon(Icons.Rounded.Code, "插入代码块") }
-            IconButton(onClick = { vm.edit(vm.draft.copy(raw = vm.draft.raw + "\n> ")) }, enabled = !locked) { Icon(Icons.Rounded.FormatQuote, "插入引用") }
-            Spacer(Modifier.weight(1f))
-            Text("Markdown", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!reply) CommunitySheet(categorySheet, "发布到", { categorySheet.targetState = false },
+            containerColor = MaterialTheme.colorScheme.background,
+            actions = { LiquidModalAction("取消", { categorySheet.targetState = false }, Modifier.fillMaxWidth()) }) {
+            if (categories.isEmpty()) {
+                Text(categoryError?.message ?: "分类暂未加载", style = MaterialTheme.typography.bodyMedium)
+                CommunityButton("重新加载", reloadCategories)
+            }
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)) {
+                categories.forEachIndexed { index, category ->
+                    if (index > 0) HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    Row(Modifier.fillMaxWidth().selectable(draft.categoryId == category.id, role = Role.RadioButton, onClick = {
+                        if (categorySheet.targetState) { edit(draft.copy(categoryId = category.id)); categorySheet.targetState = false }
+                    }).heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(category.name, Modifier.weight(1f), color = if (draft.categoryId == category.id) LogoYellow else MaterialTheme.colorScheme.onSurface)
+                        if (draft.categoryId == category.id) Icon(Icons.Rounded.Check, null, Modifier.size(22.dp), tint = LogoYellow)
+                    }
+                }
+            }
         }
     }
 }

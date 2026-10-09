@@ -38,8 +38,9 @@ class NestedReplyUiTest {
         compose.onNodeWithTag("reply-preview-post-3").performClick()
         compose.onNodeWithText("评论回复").assertIsDisplayed()
         capture("nested-reply-thread.png")
-        compose.onNode(hasText("回复") and hasClickAction() and hasAnyAncestor(hasTestTag("post-3"))).performClick()
         compose.onNode(hasContentDescription("收藏此楼层") and hasAnyAncestor(hasTestTag("post-3"))).performClick()
+        compose.onNode(hasText("回复") and hasClickAction() and hasAnyAncestor(hasTestTag("post-3"))).performClick()
+        compose.onNodeWithText("评论回复").assertDoesNotExist()
         compose.runOnIdle { assertEquals(3, replied); assertEquals(3, saved) }
     }
     @Test fun deepLinkOpensTheThreadAtTheTargetAndSystemBackRestoresTheTopic() {

@@ -10,7 +10,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 
-class EditorViewModel(private val app: AppContainer, userId: Int, val topicId: Int?, val replyTo: Int?) : ViewModel() {
+class EditorViewModel(private val app: AppContainer, userId: Int, val topicId: Int?, val replyTo: Int?,
+    private val publishRequest: suspend (Draft) -> PublishResult = { draft -> app.repository.publish(draft.raw, draft.title, draft.categoryId.takeIf { it > 0 }, topicId, replyTo) },
+) : ViewModel() {
     private val draftKey = "${userId}_${topicId ?: "new"}_${replyTo ?: 0}"
     var draft by mutableStateOf(app.settings.draft(draftKey)); private set
     var sending by mutableStateOf(false); private set
@@ -28,8 +30,10 @@ class EditorViewModel(private val app: AppContainer, userId: Int, val topicId: I
         val snapshot = draft
         viewModelScope.launch {
             try {
-                val result = withContext(Dispatchers.IO) { app.repository.publish(snapshot.raw, snapshot.title, snapshot.categoryId.takeIf { it > 0 }, topicId, replyTo) }
+                val result = withContext(Dispatchers.IO) { publishRequest(snapshot) }
                 app.settings.clearDraft(draftKey)
+                draft = Draft()
+                sending = false
                 results.send(result)
             } catch (e: CancellationException) { throw e } catch (e: Exception) { error = e.message ?: "发布失败，草稿已保留"; sending = false }
         }
