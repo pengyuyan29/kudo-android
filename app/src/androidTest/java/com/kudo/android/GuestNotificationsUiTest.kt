@@ -69,8 +69,8 @@ class GuestNotificationsUiTest {
         signedIn.set(false)
         compose.runOnIdle { vm.viewModelScope.launch { vm.checkSession() } }
         compose.waitUntil(5000) { vm.user == null && !vm.checkingSession }
-        // Cached VM data deliberately remains; it must not be rendered by the guest branch.
-        compose.runOnIdle { assertEquals(1, vm.notices.size) }
+        // Session transitions must also clear cached account data.
+        compose.runOnIdle { assertEquals(0, vm.notices.size) }
         compose.onNodeWithText("账号通知夹具").assertDoesNotExist()
         compose.onNodeWithContentDescription("刷新通知").assertDoesNotExist()
         compose.onNodeWithText("全部已读").assertDoesNotExist()

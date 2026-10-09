@@ -37,9 +37,23 @@ class AccountViewModel(
     private var noticeOffset = 0
     private var sessionEpoch = 0
     private val messages = Channel<String>(Channel.BUFFERED)
+    private var noticeJob: Job? = null
+    private var savedJob: Job? = null
     val events = messages.receiveAsFlow()
 
     init { viewModelScope.launch { checkSession() } }
+
+    private fun acceptSession(member: Member?) {
+        if (user?.id != member?.id || user?.username != member?.username) {
+            sessionEpoch++
+            noticeJob?.cancel(); savedJob?.cancel()
+            notices = emptyList(); saved = emptyList()
+            noticesError = null; savedError = null; noticesLoading = false; savedLoading = false
+            hasMoreNotices = true; hasMoreSaved = false; noticeOffset = 0; savedPage = 0
+        }
+        user = member
+        checkingSession = false
+    }
 
     fun recordIgnore(viewerId: Int, username: String, ignored: Boolean) {
         val current = user?.takeIf { it.id == viewerId } ?: return
@@ -54,10 +68,10 @@ class AccountViewModel(
         return try {
             resetSession()
             val receivedUser = withContext(Dispatchers.IO) { repository.currentUser() }
-            if (epoch != sessionEpoch) false else { user = receivedUser; receivedUser != null }
+            if (epoch != sessionEpoch) false else { acceptSession(receivedUser); receivedUser != null }
         } catch (e: CancellationException) { throw e } catch (e: Exception) {
             if (epoch == sessionEpoch) {
-                if ((e as? ApiFailure)?.kind == FailureKind.SIGN_IN) user = null else sessionError = e
+                if ((e as? ApiFailure)?.kind == FailureKind.SIGN_IN) acceptSession(null) else sessionError = e
             }
             false
         } finally { if (epoch == sessionEpoch) checkingSession = false }
@@ -76,7 +90,7 @@ class AccountViewModel(
         val epoch = sessionEpoch
         noticesLoading = true; noticesError = null
         val offset = if (more) noticeOffset else 0
-        viewModelScope.launch {
+        noticeJob = viewModelScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) { repository.notifications(offset) }
                 if (epoch == sessionEpoch) { notices = (if (more) notices + result else result).distinctBy(Notice::id); hasMoreNotices = result.size == 30; noticeOffset = offset + result.size }
@@ -85,12 +99,13 @@ class AccountViewModel(
         }
     }
     fun markRead(id: Int? = null) {
+        if (user == null) return
         val epoch = sessionEpoch
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) { repository.readNotification(id) }
                 if (epoch == sessionEpoch) notices = notices.map { if (id == null || it.id == id) it.copy(read = true) else it }
-            } catch (e: CancellationException) { throw e } catch (e: Exception) { messages.send(e.message ?: "标记失败") }
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { if (epoch == sessionEpoch) messages.send(e.message ?: "标记失败") }
         }
     }
     fun loadSaved(more: Boolean = false) {
@@ -99,7 +114,7 @@ class AccountViewModel(
         val epoch = sessionEpoch
         savedLoading = true; savedError = null
         val page = if (more) savedPage + 1 else 0
-        viewModelScope.launch {
+        savedJob = viewModelScope.launch {
             try {
                 val (result, hasMore) = withContext(Dispatchers.IO) { repository.bookmarks(username, page) }
                 if (epoch == sessionEpoch) { saved = (if (more) saved + result else result).distinctBy(SavedTopic::id); hasMoreSaved = hasMore; savedPage = page }
