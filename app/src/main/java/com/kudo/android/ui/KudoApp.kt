@@ -148,16 +148,12 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                     3 -> NotificationsScreen(account, ::login, ::topic)
                                     4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) }, repository = app.repository, about = { nav.navigate("about") },
                                         destination = { destination ->
-                                            val username = Uri.encode(account.user?.username.orEmpty())
                                             when (destination) {
                                                 AccountDestination.BOOKMARKS -> nav.navigate("bookmarks")
                                                 AccountDestination.TRUST -> nav.navigate("trust")
                                                 AccountDestination.TOPICS, AccountDestination.HISTORY, AccountDestination.MESSAGES -> nav.navigate("personal/${destination.name}")
                                                 AccountDestination.DRAFTS -> nav.navigate("drafts")
-                                                AccountDestination.CHAT -> openWebPage("https://linux.do/chat")
-                                                AccountDestination.PENDING -> openWebPage("https://linux.do/u/$username/activity/pending")
-                                                AccountDestination.BADGES -> openWebPage("https://linux.do/u/$username/badges")
-                                                AccountDestination.INVITES -> openWebPage("https://linux.do/u/$username/invited/pending")
+                                                AccountDestination.CHAT, AccountDestination.PENDING, AccountDestination.BADGES, AccountDestination.INVITES -> nav.navigate("account-records/${destination.name}")
                                             }
                                         }, statusBarStyle = { darkStatusIcons = it })
                                 }
@@ -193,6 +189,18 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         account.user?.let { member ->
                             TrustScreen(member, app.connect, { nav.popBackStack() }, { openWebPage("https://connect.linux.do/") })
                         } ?: Column { AccountPageTopBar("等级要求", { nav.popBackStack() }); EmptyState("登录后查看等级", "查看当前账号的等级条件与进度。", actionLabel = "登录", action = ::login) }
+                    }
+                    composable("account-records/{destination}") { entry ->
+                        val member = account.user
+                        val destination = AccountDestination.entries.firstOrNull { it.name == entry.arguments?.getString("destination") }
+                        if (member != null && destination != null) key(member.id, destination) {
+                            AccountRecordsScreen(destination, member, app.repository, app.settings, { nav.popBackStack() }, ::login,
+                                ::openWebPage, ::topic, { id -> openWebPage("https://linux.do/chat/c/-/$id") }, ::editor) { text ->
+                                (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                                    .setPrimaryClip(android.content.ClipData.newPlainText("邀请链接", text))
+                                scope.launch { snackbar.showSnackbar("已复制邀请链接") }
+                            }
+                        } else Column { AccountPageTopBar("个人功能", { nav.popBackStack() }); EmptyState("请先登录", "登录后查看个人内容。", actionLabel = "登录", action = ::login) }
                     }
                     composable("drafts") {
                         val member = account.user

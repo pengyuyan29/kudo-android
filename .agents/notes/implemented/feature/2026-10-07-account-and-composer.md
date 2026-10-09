@@ -26,6 +26,8 @@ EditorViewModel 按用户 id、话题和回复楼层隔离持久草稿。上传�
 
 草稿页合并按用户 ID 过滤的本机草稿和 /drafts.json 云端分页；本机回复保留目标楼层。云端编辑使用 /drafts/{key}.json，编辑同步保存本机恢复副本，显式保存携带 sequence，冲突或未知结果保留副本。修改正文保留原 JSON 的 tags、recipients 和插件字段，发布传 draft_key 由服务器清理对应草稿；未确认接收不清除本机副本。云端副本在本机列表可达，退出账号按既有策略清除。删除使用确认面板和原 sequence，写操作不重试。
 
+徽章列表按 user_badges 的 badge_id 关联已获得徽章，不把徽章目录误当作本人徽章。待审核内容只读取 /posts/{username}/pending.json；撤回使用 DELETE /review/{id}，重新编辑前保留本机副本且检查现有草稿冲突。服务器不返回原回复目标时明确提示直接回复话题。邀请列表兼容顶层数组与对象包装，点击仅复制，不访问或消耗邀请；创建固定一次使用，由用户选择有效期和邮箱限制，成功以返回链接为准。聊天频道独立读取 /chat/api/me/channels，不能与论坛私信混用。
+
 ## Alternatives considered
 
 - 在原生表单收集密码：交互可以统一，但需要自行处理 MFA、OAuth 和站点验证变化；采用官网流程。

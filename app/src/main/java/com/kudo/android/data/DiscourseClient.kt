@@ -48,6 +48,7 @@ class DiscourseClient(
 
     suspend fun get(path: String, query: Map<String, String> = emptyMap()): JSONObject = request("GET", path, query)
     suspend fun getArray(path: String): JSONArray = request("GET", path, arrayResponse = true).getJSONArray("items")
+    internal suspend fun getCollection(path: String): JSONObject = request("GET", path, collectionResponse = true)
     internal suspend fun siteSettingsHtml(): String = request("GET", "/latest", htmlResponse = true).getString("html")
     internal suspend fun tagIcons(): Map<String, TagIconStyle> =
         parseTagIconSettings(request("GET", "/latest", htmlResponse = true).getString("html"))
@@ -62,7 +63,7 @@ class DiscourseClient(
         return request(method, path, body = body ?: FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build(), token = token)
     }
 
-    private suspend fun request(method: String, path: String, query: Map<String, String> = emptyMap(), body: RequestBody? = null, token: String? = null, redirects: Int = 0, arrayResponse: Boolean = false, htmlResponse: Boolean = false): JSONObject {
+    private suspend fun request(method: String, path: String, query: Map<String, String> = emptyMap(), body: RequestBody? = null, token: String? = null, redirects: Int = 0, arrayResponse: Boolean = false, htmlResponse: Boolean = false, collectionResponse: Boolean = false): JSONObject {
         val url = resolve(path).newBuilder().apply { query.forEach { (key, value) -> addQueryParameter(key, value) } }.build()
         val request = Request.Builder().url(url).method(method, body)
             .header("Accept", if (htmlResponse) "text/html" else "application/json")
@@ -82,7 +83,7 @@ class DiscourseClient(
                 if (target != null) {
                     resolve(target.toString())
                     it.close()
-                    return request("GET", target.toString(), redirects = redirects + 1, arrayResponse = arrayResponse, htmlResponse = htmlResponse)
+                    return request("GET", target.toString(), redirects = redirects + 1, arrayResponse = arrayResponse, htmlResponse = htmlResponse, collectionResponse = collectionResponse)
                 }
             }
             val text = it.body?.string().orEmpty()
@@ -102,6 +103,8 @@ class DiscourseClient(
                         ?: throw ApiFailure(FailureKind.SERVER, "服务器未返回话题跟踪列表")
                     return JSONObject().put("items", array)
                 }
+                json == null && collectionResponse -> return JSONObject().put("items", runCatching { JSONArray(text) }.getOrNull()
+                    ?: throw ApiFailure(FailureKind.VERIFICATION, "社区返回了网页，请完成验证后重试"))
                 json == null -> throw ApiFailure(FailureKind.VERIFICATION, "社区返回了网页，请完成验证后重试")
                 json.optBoolean("success", true).not() -> throw ApiFailure(FailureKind.SERVER, reason ?: "操作未成功，请稍后重试")
                 else -> return json

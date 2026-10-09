@@ -204,12 +204,12 @@ private fun GuestNotificationsScreen(login: () -> Unit) {
 @Composable
 fun BookmarksScreen(vm: AccountViewModel, back: () -> Unit, login: () -> Unit, open: (Int, Int?) -> Unit) {
     Column {
-        PageTopBar("我的收藏", back) { IconButton(onClick = { vm.loadSaved() }) { Icon(Icons.Rounded.Refresh, "刷新收藏") } }
-        LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        AccountPageTopBar("我的收藏", back) { CommunityIconButton(Icons.Rounded.Refresh, "刷新收藏", { vm.loadSaved() }) }
+        LazyColumn(contentPadding = PaddingValues(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (vm.user == null) item { EmptyState("把好内容留在这里", "登录后查看你的社区收藏。", Icons.Rounded.BookmarkBorder, "登录", login) }
             if (vm.savedLoading) item { LoadingRow() }
             items(vm.saved, key = { it.id }) { topic ->
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp)).background(MaterialTheme.colorScheme.surface).clickable { open(topic.topicId, topic.postNumber) }.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).clickable { open(topic.topicId, topic.postNumber) }.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(topic.title, style = MaterialTheme.typography.titleMedium)
                     if (topic.excerpt.isNotBlank()) Text(topic.excerpt, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
