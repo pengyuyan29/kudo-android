@@ -13,13 +13,14 @@ data class TopicState(
     val viewerId: Int? = null, val authorProfile: Member? = null, val authorLoading: Boolean = false,
     val authorError: Throwable? = null, val followBusy: Boolean = false,
     val originalLoading: Boolean = false, val originalError: Throwable? = null,
+    val targetNumber: Int? = null,
 )
 
 class TopicViewModel(
     private val repository: CommunityRepository, val topicId: Int, private val number: Int? = null,
     viewerId: Int? = null,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(TopicState(viewerId = viewerId))
+    private val _state = MutableStateFlow(TopicState(viewerId = viewerId, targetNumber = number))
     val state = _state.asStateFlow()
     private var refreshJob: Job? = null
     private var moreJob: Job? = null

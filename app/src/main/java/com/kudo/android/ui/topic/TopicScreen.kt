@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -26,7 +27,7 @@ import com.kudo.android.ui.components.liquid.LiquidModal
 import com.kudo.android.ui.components.liquid.LiquidModalAction
 
 @Composable
-fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }) {
+fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink) {
     val backdrop = rememberLayerBackdrop()
     val modalBackdrop = rememberLayerBackdrop()
     val visibility = remember { MutableTransitionState(false) }
@@ -36,6 +37,13 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     fun choose(post: Post) { reactionPostId = post.id; visibility.targetState = true }
     val detail = state.detail
     val listState = rememberLazyListState()
+    var located by rememberSaveable(detail?.id, state.targetNumber) { mutableStateOf(false) }
+    LaunchedEffect(detail?.posts, state.loading, state.targetNumber) {
+        if (!located && !state.loading && state.error == null && state.targetNumber != null) {
+            val index = detail?.posts?.indexOfFirst { it.number == state.targetNumber } ?: -1
+            if (index >= 0) { listState.scrollToItem(index + 1); located = true }
+        }
+    }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Box(Modifier.fillMaxSize().layerBackdrop(modalBackdrop)
             .then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)
@@ -102,7 +110,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                     enabled = !state.loading && state.busy.isEmpty() && !state.followBusy) {
                     Icon(Icons.Rounded.Refresh, null, Modifier.size(22.dp)); Spacer(Modifier.width(12.dp)); Text("刷新话题")
                 }
-                TextButton(onClick = { if (visibility.targetState && detail != null) { dismiss(); openLink("https://linux.do/t/${detail.id}") } }, modifier = Modifier.fillMaxWidth()) {
+                TextButton(onClick = { if (visibility.targetState && detail != null) { dismiss(); openBrowser("https://linux.do/t/${detail.id}") } }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Rounded.OpenInBrowser, null, Modifier.size(22.dp)); Spacer(Modifier.width(12.dp)); Text("浏览器打开")
                 }
             } else if (selected != null) {

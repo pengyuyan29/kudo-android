@@ -1,6 +1,8 @@
 package com.kudo.android.ui
 
 import android.content.Intent
+import android.content.ComponentName
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -64,7 +66,7 @@ private fun ObserveHomeUpdates(feed: FeedViewModel, user: Member?) {
 }
 
 @Composable
-fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
+fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long = 0L, consumeLink: () -> Unit = {}) {
     val display by app.settings.display.collectAsStateWithLifecycle()
     KudoTheme(display) {
         val account = model("account") { AccountViewModel(app) }
@@ -73,24 +75,38 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
         var refreshEpoch by rememberSaveable { mutableIntStateOf(0) }
-        fun openLink(url: String) {
-            if (Uri.parse(url).scheme != "https") return
-            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        var selected by rememberSaveable { mutableIntStateOf(0) }
+        fun openBrowser(url: String) {
+            if (Uri.parse(url).scheme !in listOf("https", "http")) return
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                val browser = context.packageManager.resolveActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse("https://example.org")), PackageManager.MATCH_DEFAULT_ONLY)
+                    ?.activityInfo?.packageName?.takeUnless { it == "android" || it == context.packageName }
+                if (browser != null) context.startActivity(intent.setPackage(browser))
+                else context.startActivity(Intent.createChooser(intent, "浏览器打开").putExtra(
+                    Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(context, com.kudo.android.MainActivity::class.java))))
+            }
             catch (_: Exception) { scope.launch { snackbar.showSnackbar("没有可打开此链接的浏览器") } }
         }
         fun login() { nav.navigate("login") { launchSingleTop = true } }
         fun authenticated(action: () -> Unit) { if (account.user == null) login() else action() }
         fun topic(id: Int, number: Int? = null) { if (id > 0) nav.navigate("topic/$id?post=${number ?: 0}") }
         fun user(username: String) { if (username.isNotBlank()) nav.navigate("user/${Uri.encode(username)}") }
+        fun destination(target: LinuxDoDestination) {
+            when (target) {
+                is LinuxDoDestination.Topic -> nav.navigate("topic/${target.id}?post=${target.number ?: 0}") { launchSingleTop = true }
+                is LinuxDoDestination.User -> nav.navigate("user/${Uri.encode(target.username)}") { launchSingleTop = true }
+                LinuxDoDestination.Home -> { selected = 0; nav.popBackStack("root", false) }
+            }
+        }
+        fun openLink(url: String) { LinuxDoLink.parse(url)?.let(::destination) ?: openBrowser(url) }
         fun editor(id: Int? = null, number: Int? = null) { authenticated { nav.navigate("compose?topic=${id ?: 0}&reply=${number ?: 0}") } }
         LaunchedEffect(account) { account.events.collect { snackbar.showSnackbar(it) } }
-        LaunchedEffect(incomingUrl) {
+        LaunchedEffect(incomingUrl, linkSequence) {
             incomingUrl?.let { value ->
-                val uri = Uri.parse(value)
-                if (uri.scheme == "https" && uri.host == "linux.do" && uri.pathSegments.firstOrNull() == "t") {
-                    val numbers = uri.pathSegments.drop(1).mapNotNull(String::toIntOrNull)
-                    numbers.firstOrNull()?.let { topic(it, numbers.getOrNull(1)) }
-                }
+                LinuxDoLink.parse(value)?.let(::destination)
+                consumeLink()
             }
         }
         AvatarEnvironment(app.repository, account.user?.id) {
@@ -108,7 +124,6 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                     composable("root") {
                         val feed = model("feed") { FeedViewModel(app.repository, initialUser = account.user, updates = DiscourseMessageBus(app.client, userAgent = app.userAgent)) }
                         val state by feed.state.collectAsStateWithLifecycle()
-                        var selected by rememberSaveable { mutableIntStateOf(0) }
                         val backdrop = rememberLayerBackdrop()
                         ObserveHomeUpdates(feed, account.user)
                         LaunchedEffect(refreshEpoch) { feed.refreshIfRequested(refreshEpoch) }
@@ -157,7 +172,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null) {
                         LaunchedEffect(vm) { vm.events.collect { snackbar.showSnackbar(it) } }
                         TopicScreen(state, display.glass, { nav.popBackStack() }, vm::refresh, vm::more, ::login, { authenticated { vm.like(it) } }, { authenticated { vm.bookmark(it) } }, { editor(id, it?.number) }, ::user, {}, ::openLink,
                             { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${state.detail?.title.orEmpty()}\nhttps://linux.do/t/$id") }, "分享话题")) },
-                            follow = { authenticated { vm.follow() } }, react = { post, reaction -> authenticated { vm.react(post, reaction) } })
+                            follow = { authenticated { vm.follow() } }, react = { post, reaction -> authenticated { vm.react(post, reaction) } }, openBrowser = ::openBrowser)
                     }
                     composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); scope.launch { snackbar.showSnackbar("欢迎回来，${account.user?.displayName}") } }) }
                     composable("settings") { SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openLink) }

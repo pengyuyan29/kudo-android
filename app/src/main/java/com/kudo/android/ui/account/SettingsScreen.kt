@@ -1,6 +1,9 @@
 package com.kudo.android.ui.account
 
 import android.os.Build
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
@@ -34,6 +38,7 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 @Composable
 fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit, user: Member?, logout: () -> Unit, back: () -> Unit, openLink: (String) -> Unit) {
+    val context = LocalContext.current
     var dialog by rememberSaveable { mutableStateOf("theme") }
     val visibility = remember { MutableTransitionState(false) }
     val backdrop = rememberLayerBackdrop()
@@ -56,6 +61,15 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                     }
                 }
                 item { Text(if (Build.VERSION.SDK_INT >= 33) "液态玻璃会随背景内容呈现模糊、折射和高光。可切换半透明以减少视觉效果。" else "此系统使用兼容材质显示；完整液态玻璃需要 Android 13 或更高版本。", Modifier.padding(horizontal = 9.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
+                item { SectionLabel("链接打开") }
+                item {
+                    Column(Modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface)) {
+                        SettingRow("Linux.do 站内链接", "在系统中允许酷DO打开支持的链接", !showing) {
+                            val action = if (Build.VERSION.SDK_INT >= 31) Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS else Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                            context.startActivity(Intent(action, Uri.parse("package:${context.packageName}")))
+                        }
+                    }
+                }
                 item { SectionLabel("关于酷DO") }
                 item {
                     Column(Modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface)) {
