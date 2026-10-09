@@ -47,6 +47,8 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit, search: () -> Unit, login: () -> Unit, categories: () -> Unit, modifier: Modifier = Modifier, categoryTitle: String? = null, back: () -> Unit = {}, listStyle: TopicListStyle = TopicListStyle.FEED) {
+    val ignored = com.kudo.android.ui.topic.LocalIgnoredUsers.current
+    val visibleTopics = state.topics.filterNot { it.author?.username?.lowercase(java.util.Locale.ROOT) in ignored }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).then(if (categoryTitle == null) Modifier.statusBarsPadding().nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier)) {
         if (categoryTitle != null) PageTopBar(categoryTitle, back)
@@ -91,8 +93,8 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
             LazyColumn(state = listState, contentPadding = if (traditional) PaddingValues(bottom = 112.dp) else PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(if (traditional) 0.dp else 8.dp), modifier = Modifier.fillMaxSize()) {
                 if (state.loading && state.topics.isEmpty()) item { LoadingRow() }
                 if (state.error != null) item { ErrorState(state.error, refresh, login) }
-                if (!state.loading && state.error == null && state.topics.isEmpty()) item { EmptyState("暂时没有话题", "换个分类，或者稍后再来看看。") }
-                items(state.topics, key = { "topic-${it.id}" }, contentType = { listStyle }) { topic ->
+                if (!state.loading && state.error == null && visibleTopics.isEmpty()) item { EmptyState("暂时没有可显示话题", "换个分类，或者稍后再来看看。") }
+                items(visibleTopics, key = { "topic-${it.id}" }, contentType = { listStyle }) { topic ->
                     val category = state.categories.firstOrNull { it.id == topic.categoryId }
                     if (traditional) TopicTitleRow(topic, category, { openTopic(topic.id) }, openUser)
                     else TopicCard(topic, category, { openTopic(topic.id) }, openUser)

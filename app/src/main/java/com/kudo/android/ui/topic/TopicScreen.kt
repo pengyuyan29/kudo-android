@@ -37,6 +37,9 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     fun choose(post: Post) { reactionPostId = post.id; visibility.targetState = true }
     val detail = state.detail
     val actions = LocalTopicActions.current
+    val ignoredUsers = LocalIgnoredUsers.current
+    var revealOriginal by remember(detail?.id, ignoredUsers) { mutableStateOf(false) }
+    val originalIgnored = detail?.author?.username?.lowercase(java.util.Locale.ROOT) in ignoredUsers
     val listState = rememberLazyListState()
     var located by rememberSaveable(detail?.id, state.targetNumber) { mutableStateOf(false) }
     LaunchedEffect(detail?.posts, state.loading, state.targetNumber) {
@@ -55,7 +58,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                     if (state.loading && detail == null) item { LoadingRow() }
                     if (state.error != null) item { ErrorState(state.error, retry, login) }
                     if (detail != null) {
-                        item("title") {
+                        if (!originalIgnored || revealOriginal) item("title") {
                             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text(detail.title, style = MaterialTheme.typography.headlineSmall)
                                 if (detail.tags.isNotEmpty()) TopicTags(detail.tags)
@@ -66,6 +69,14 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                             }
                         }
                         items(detail.posts, key = { it.id }) { post ->
+                            var revealed by remember(post.id, ignoredUsers) { mutableStateOf(false) }
+                            val ignored = post.author.username.lowercase(java.util.Locale.ROOT) in ignoredUsers
+                            if (ignored && !(if (post.number == 1) revealOriginal else revealed)) {
+                                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp)) {
+                                    Text("@${post.author.username} 的内容已忽略", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    TextButton(onClick = { if (post.number == 1) revealOriginal = true else revealed = true }) { Text("查看此楼层") }
+                                }
+                            } else {
                             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 if (post.number != 1) Row(Modifier.heightIn(min = 48.dp).clickable(enabled = !showing) { user(post.author.username) }, verticalAlignment = Alignment.CenterVertically) {
                                     Avatar(post.author, 32.dp)
@@ -88,6 +99,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                                     IconButton(onClick = { bookmark(post) }, enabled = !showing && post.id !in state.busy) { Icon(if (post.bookmarkId != null) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, "收藏此楼层", Modifier.size(20.dp)) }
                                     TextButton(onClick = { reply(post) }, enabled = !showing && !detail.closed) { Text("回复") }
                                 }
+                            }
                             }
                         }
                         if (state.loadingMore) item { LoadingRow() }
