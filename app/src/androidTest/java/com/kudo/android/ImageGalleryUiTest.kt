@@ -73,7 +73,8 @@ class ImageGalleryUiTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         previousLoader = SingletonImageLoader.get(context)
         val bytes = (1..5).associate { "$it.png" to png(800, 600, palette[it - 1], it.toString()) } +
-            mapOf("wide.png" to png(1688, 339, palette[0], "1688 x 339"))
+            mapOf("wide.png" to png(1688, 339, palette[0], "1688 x 339"),
+                "tall.png" to png(100, 500, palette[1], "长图"))
         loader = ImageLoader.Builder(context).components {
             add(object : Fetcher.Factory<Uri> {
                 override fun create(data: Uri, options: Options, imageLoader: ImageLoader): Fetcher? {
@@ -138,6 +139,36 @@ class ImageGalleryUiTest {
         compose.onNodeWithText(wide.filename).assertDoesNotExist()
         compose.onNodeWithText("1688×339 22.8 KB").assertDoesNotExist()
         capture("gallery-wide-inline.png")
+    }
+
+    @Test fun tallPreviewHasABoundedHeightAndShrinksItsWidthBeforeOpeningTheOriginal() {
+        var opened = ""
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+            Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp).verticalScroll(rememberScrollState())) {
+                RichContent("""<a class="lightbox" href="https://gallery.test/original-tall.png"><img src="https://gallery.test/tall.png" width="100" height="500"></a><p>长图后面的回复</p>""",
+                    { opened = it }, {})
+            }
+        } }
+        compose.waitUntil(5_000) { loaded.contains("https://gallery.test/tall.png") }
+        val preview = compose.onNodeWithTag("article-image-article-0")
+        preview.assertHeightIsEqualTo(300.dp).assertWidthIsEqualTo(60.dp)
+        val bounds = preview.fetchSemanticsNode().boundsInRoot
+        assertEquals(with(compose.density) { 16.dp.toPx() }, bounds.left, 1f)
+        compose.onNodeWithText("长图后面的回复").assertIsDisplayed()
+        preview.performTouchInput { click() }
+        compose.runOnIdle { assertEquals("https://gallery.test/original-tall.png", opened) }
+        capture("image-preview-tall-bounded.png")
+    }
+
+    @Test fun tallPreviewWithoutHtmlDimensionsBecomesBoundedAfterDecode() {
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+            Column(Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState())) {
+                RichContent("""<img src="https://gallery.test/tall.png"><p>下一条内容</p>""", {}, {})
+            }
+        } }
+        compose.waitUntil(5_000) { loaded.contains("https://gallery.test/tall.png") }
+        compose.onNodeWithTag("article-image-article-0").assertHeightIsEqualTo(300.dp).assertWidthIsEqualTo(60.dp)
+        compose.onNodeWithText("下一条内容").assertIsDisplayed()
     }
 
     @Test fun postPagerClosesToThirdImageAboveTheBottomActions() {

@@ -226,7 +226,7 @@ private fun ArticleImage(image: ArticleBlock.Image, anchor: GalleryThumbnailAnch
     SideEffect { anchor.cornerRadius = cornerRadius }
     DisposableEffect(anchor) { onDispose { anchor.coordinates = null; anchor.painter = null } }
     AsyncImage(image.url, image.alt.ifBlank { "帖子图片，点击放大" },
-        Modifier.fillMaxWidth().aspectRatio(decodedRatio ?: image.ratio ?: 1.6f)
+        Modifier.heightIn(max = 300.dp).aspectRatio(decodedRatio ?: image.ratio ?: 1.6f)
             .bringIntoViewRequester(anchor.requester).onGloballyPositioned { anchor.coordinates = it }.testTag(tag)
             .graphicsLayer { alpha = if (gallery?.hiddenAnchor === anchor) 0f else 1f }
             .clip(RoundedCornerShape(11.dp)).clickable(onClick = open),
