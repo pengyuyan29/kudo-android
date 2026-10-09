@@ -24,7 +24,9 @@ Post 读取 user_signature（图片 URL 或 cooked HTML），Member 读取 profi
 
 ## Testing
 
-集中验证覆盖图片 URL、HTML、缺失和错误类型；默认关闭、持久化及立即切换；GIF/APNG/WebP 实际动画与后台暂停；两类背景及失败回退；账号切换不串资料。功能开发期间尚未运行本批新增测试，不以已有解码器测试代替新入口验收。
+129项JVM测试通过，覆盖图片 URL、HTML、缺失和错误类型。50项真机回归全部通过（artifacts/community-features-final-device.txt），其中 SignatureSettingsUiTest 验证默认关闭、持久化及立即切换；AvatarUiTest 在签名实际图片像素上采集 GIF/APNG/WebP 的三色帧，并验证后台暂停、恢复和关闭停止，同时验证卡片与资料背景分别使用及失败回退。
+
+首轮动画断言将绿色 #43a047 的亮度阈值误设为0.7，修正为颜色主通道差值后通过，未更改产品解码器。新增签名 HTML 截图放在暂停前，使用 Compose 内容截图避开 Android CLI 持有 UiAutomationService 的冲突；调整后独立重跑通过，日志 artifacts/signature-compose-capture-device.txt。已查看 user-signature-animated.png 和 profile-card-background.png。账号响应隔离由按账号重建的取消作用域与响应身份校验守住，未使用真实账号切换声称网络端验收。
 
 ## Consequences
 

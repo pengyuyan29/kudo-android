@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
@@ -34,12 +35,14 @@ import coil3.request.SuccessResult
 import com.kudo.android.data.*
 import com.kudo.android.media.communityAnimations
 import com.kudo.android.ui.account.ProfileScreen
+import com.kudo.android.ui.account.UserBackground
 import com.kudo.android.ui.components.*
 import com.kudo.android.ui.feed.FeedScreen
 import com.kudo.android.ui.feed.FeedState
 import com.kudo.android.ui.theme.KudoTheme
 import com.kudo.android.ui.topic.TopicScreen
 import com.kudo.android.ui.topic.TopicState
+import com.kudo.android.ui.topic.UserSignature
 import okio.Buffer
 import org.junit.After
 import org.junit.Assert.*
@@ -218,6 +221,78 @@ class AvatarUiTest {
         list.performTouchInput { swipeDown(durationMillis = 800) }
         compose.onNodeWithContentDescription("当前用户的头像", useUnmergedTree = true).assertIsDisplayed()
         compose.waitUntil(5000) { running() }
+    }
+
+    @Test fun signaturesDefaultToHiddenAndAllThreeAnimationFormatsRenderFramesAndPause() {
+        var settings by mutableStateOf(DisplaySettings())
+        var signature by mutableStateOf("https://avatar.test/signature.gif")
+        val post = Post(50, 1, member, "正文", "", 0, false, null, null, false)
+        compose.setContent { Content(settings) { Column(Modifier.padding(24.dp)) {
+            Text("个性签名预览", style = MaterialTheme.typography.titleMedium)
+            UserSignature(post.copy(signature = signature), {})
+        } } }
+        compose.onNodeWithTag("user-signature-50").assertDoesNotExist()
+        assertFalse(requested.any { it.contains("signature") })
+        compose.runOnIdle { settings = settings.copy(showSignatures = true) }
+        for (file in listOf("signature.gif", "signature-animated.png", "signature.webp")) {
+            val url = "https://avatar.test/$file"
+            compose.runOnIdle { signature = url }
+            compose.waitUntil(5000) { rendered.any { it.first == url } }
+            val colors = mutableSetOf<Int>()
+            try { compose.waitUntil(5000) {
+                val pixels = compose.onNodeWithContentDescription("用户签名图片").captureToImage().toPixelMap()
+                val pixel = pixels[pixels.width / 2, pixels.height / 2]
+                colors += when {
+                    pixel.red > pixel.green + 0.15f && pixel.red > pixel.blue + 0.15f -> 1
+                    pixel.green > pixel.red + 0.15f && pixel.green > pixel.blue + 0.15f -> 2
+                    pixel.blue > pixel.red + 0.15f && pixel.blue > pixel.green + 0.15f -> 3
+                    else -> 0
+                }
+                colors.containsAll(listOf(1, 2, 3))
+            } } catch (e: Throwable) {
+                println("Signature frames: $file colors=$colors bounds=${compose.onNodeWithContentDescription("用户签名图片").fetchSemanticsNode().boundsInRoot} drawables=${rendered.filter { it.first == url }.map { it.second.javaClass.name to (it.second as? Animatable)?.isRunning }}")
+                capture("signature-frame-failure.png")
+                throw e
+            }
+        }
+        compose.runOnIdle { signature = "<p>欢迎来到我的主页</p><img src='https://avatar.test/signature.gif'>" }
+        compose.onNodeWithText("欢迎来到我的主页").assertIsDisplayed()
+        compose.onNodeWithContentDescription("用户签名图片").assertIsDisplayed()
+        val signaturePreview = compose.onRoot().captureToImage().asAndroidBitmap()
+        File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "user-signature-animated.png")
+            .outputStream().use { signaturePreview.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        fun running() = rendered.filter { it.first.contains("signature") }.mapNotNull { it.second as? Animatable }.any { it.isRunning }
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        for (attempt in 0 until 75) { if (!running()) break; Thread.sleep(20) }
+        assertFalse(running())
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.waitUntil(5000) { running() }
+        compose.runOnIdle { settings = settings.copy(showSignatures = false) }
+        compose.onNodeWithTag("user-signature-50").assertDoesNotExist()
+        compose.waitUntil(5000) { !running() }
+    }
+
+    @Test fun profileCardUsesItsOwnBackgroundAndBrokenBackgroundFallsBack() {
+        var current by mutableStateOf(member.copy(cardBackground = "https://avatar.test/card.png", profileBackground = "https://avatar.test/profile.png"))
+        var sample by mutableStateOf(false)
+        var background by mutableStateOf("https://avatar.test/broken.png")
+        var loaded = true
+        compose.setContent { Content {
+            if (!sample) ProfileScreen(current, {}, {}, {}, {})
+            else UserBackground(background, Color.Yellow, Modifier.size(240.dp).testTag("background-sample")) {
+                SideEffect { loaded = it }
+                Text(if (it) "图片背景" else "默认背景")
+            }
+        } }
+        compose.waitUntil(5000) { rendered.any { it.first.endsWith("card.png") } }
+        assertFalse(requested.any { it.endsWith("profile.png") })
+        capture("profile-card-background.png")
+        compose.runOnIdle { sample = true }
+        compose.waitUntil(5000) { requested.any { it.endsWith("broken.png") } }
+        compose.onNodeWithText("默认背景").assertIsDisplayed()
+        compose.runOnIdle { assertFalse(loaded); background = current.profileBackground }
+        compose.waitUntil(5000) { rendered.any { it.first.endsWith("profile.png") } }
+        compose.onNodeWithText("图片背景").assertIsDisplayed()
     }
 
     private fun capture(name: String) {
