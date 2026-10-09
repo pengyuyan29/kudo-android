@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.em
 import coil3.compose.AsyncImage
 import com.kudo.android.data.AvatarMetadataCache
 import com.kudo.android.ui.components.AvatarImage
+import com.kudo.android.ui.components.ImageAspectBadge
 import com.kudo.android.ui.components.LocalAvatarMetadata
 import com.kudo.android.ui.components.mediaUrl
 import org.jsoup.Jsoup
@@ -248,15 +249,18 @@ private fun ArticleImage(image: ArticleBlock.Image, anchor: GalleryThumbnailAnch
     val cornerRadius = with(LocalDensity.current) { 11.dp.toPx() }
     SideEffect { anchor.cornerRadius = cornerRadius }
     DisposableEffect(anchor) { onDispose { anchor.coordinates = null; anchor.painter = null } }
-    AsyncImage(image.url, image.alt.ifBlank { "帖子图片，点击放大" },
+    Box(
         Modifier.heightIn(max = 300.dp).aspectRatio(decodedRatio ?: image.ratio ?: 1.6f)
             .bringIntoViewRequester(anchor.requester).onGloballyPositioned { anchor.coordinates = it }.testTag(tag)
             .graphicsLayer { alpha = if (gallery?.hiddenAnchor === anchor) 0f else 1f }
-            .clip(RoundedCornerShape(11.dp)).clickable(onClick = open),
-        contentScale = ContentScale.Fit,
-        onSuccess = { state ->
-            val bitmap = state.result.image
-            if (bitmap.width > 0 && bitmap.height > 0) decodedRatio = bitmap.width.toFloat() / bitmap.height
-            anchor.painter = state.painter
-        })
+            .clip(RoundedCornerShape(11.dp)).clickable(onClick = open)) {
+        AsyncImage(image.url, image.alt.ifBlank { "帖子图片，点击放大" }, Modifier.fillMaxSize(),
+            contentScale = ContentScale.Fit,
+            onSuccess = { state ->
+                val bitmap = state.result.image
+                if (bitmap.width > 0 && bitmap.height > 0) decodedRatio = bitmap.width.toFloat() / bitmap.height
+                anchor.painter = state.painter
+            })
+        ImageAspectBadge(decodedRatio ?: image.ratio)
+    }
 }

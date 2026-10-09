@@ -75,7 +75,8 @@ class ImageGalleryUiTest {
         previousLoader = SingletonImageLoader.get(context)
         val bytes = (1..5).associate { "$it.png" to png(800, 600, palette[it - 1], it.toString()) } +
             mapOf("wide.png" to png(1688, 339, palette[0], "1688 x 339"),
-                "tall.png" to png(100, 500, palette[1], "长图"))
+                "tall.png" to png(100, 500, palette[1], "长图"),
+                "tall-sharp.png" to png(180, 1000, palette[1], "长图"))
         loader = ImageLoader.Builder(context).components {
             add(object : Fetcher.Factory<Uri> {
                 override fun create(data: Uri, options: Options, imageLoader: ImageLoader): Fetcher? {
@@ -139,6 +140,7 @@ class ImageGalleryUiTest {
         assertEquals(1688f / 339f, bounds.width / bounds.height, 0.03f)
         compose.onNodeWithText(wide.filename).assertDoesNotExist()
         compose.onNodeWithText("1688×339 22.8 KB").assertDoesNotExist()
+        compose.onNodeWithText("宽图", useUnmergedTree = true).assertIsDisplayed()
         capture("gallery-wide-inline.png")
     }
 
@@ -213,6 +215,60 @@ class ImageGalleryUiTest {
         listOf(null, Float.NaN, Float.POSITIVE_INFINITY, 0f, -1f, 1f, 2.999f, 0.334f).forEach {
             assertNull("不能给未知、非法或普通比例 $it 加标识", imageAspectLabel(it))
         }
+    }
+
+    @Test fun replyUsesTheSharpPreviewAndKeepsTheBadgeInsideInDarkLargeText() {
+        val cooked = """<a class="lightbox" href="https://gallery.test/tall.png"><img src="https://gallery.test/tall.png" width="90" height="500" srcset="https://gallery.test/tall.png, https://gallery.test/tall-sharp.png 2x"></a>"""
+        val reply = Post(14, 4, author, cooked, "2026-10-09T00:00:00Z", 0, false, null, null, true)
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f)) {
+            TopicScreen(TopicState(TopicDetail(5, "长图回复", 1, listOf(reply), listOf(14), false), false),
+                GlassMode.LIQUID, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        } }
+        compose.waitUntil(5_000) { loaded.contains("https://gallery.test/tall-sharp.png") }
+        val preview = compose.onNodeWithTag("article-image-post-14-0")
+        preview.assertHeightIsEqualTo(300.dp).assertWidthIsEqualTo(54.dp)
+        val imageBounds = preview.fetchSemanticsNode().boundsInRoot
+        val badge = compose.onNodeWithTag("image-aspect-badge", useUnmergedTree = true)
+        val badgeBounds = badge.assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val textBounds = compose.onNodeWithText("长图", useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("大字号角标不能超出图片", badgeBounds.left >= imageBounds.left && badgeBounds.bottom <= imageBounds.bottom)
+        assertTrue("角标文字必须完整显示", textBounds.left >= badgeBounds.left && textBounds.right <= badgeBounds.right && textBounds.top >= badgeBounds.top && textBounds.bottom <= badgeBounds.bottom)
+        val inset = with(compose.density) { 6.dp.toPx() }
+        assertEquals(imageBounds.right - inset, badgeBounds.right, 1f)
+        assertEquals(imageBounds.bottom - inset, badgeBounds.bottom, 1f)
+        capture("image-badge-reply-dark-large.png")
+    }
+
+    @Test fun tallImageAndItsBadgeZoomFromTheNarrowSourceAndReturnTogether() {
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+            ImageGalleryHost({ emptyList() }, {}) {
+                Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp).verticalScroll(rememberScrollState())) {
+                    RichContent("""<img src="https://gallery.test/tall.png" width="100" height="500">""", {}, {})
+                }
+            }
+        } }
+        compose.waitUntil(5_000) { loaded.contains("https://gallery.test/tall.png") }
+        compose.onNodeWithText("长图", useUnmergedTree = true).assertIsDisplayed()
+        val source = compose.onNodeWithTag("article-image-article-0").fetchSemanticsNode().boundsInRoot
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.onNodeWithTag("article-image-article-0").performClick()
+            awaitTransition()
+            assertNear(source, coloredBounds(palette[1]), 4f)
+            compose.mainClock.advanceTimeBy(100)
+            assertTrue("窄长图应从自己的矩形放大", coloredBounds(palette[1]).width > source.width)
+            compose.mainClock.advanceTimeBy(500)
+        } finally { compose.mainClock.autoAdvance = true }
+        // The covered source stays composed; only the merged accessibility tree is cleared.
+        compose.onNodeWithText("长图").assertDoesNotExist()
+        val fullscreen = compose.onRoot().captureToImage().toPixelMap()
+        val badgePixel = fullscreen[(source.right - 10).toInt(), (source.bottom - 10).toInt()]
+        assertTrue("全屏时来源角标不能透过黑色背景", badgePixel.red < 0.02f && badgePixel.green < 0.02f && badgePixel.blue < 0.02f)
+        compose.onNodeWithTag("gallery-page-0").performTouchInput { click() }
+        compose.onNodeWithText("长图", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("article-image-article-0").assertHeightIsEqualTo(300.dp).assertWidthIsEqualTo(60.dp)
+        assertNear(source, coloredBounds(palette[1]), 4f)
+        capture("image-badge-tall-return.png")
     }
 
     @Test fun postPagerClosesToThirdImageAboveTheBottomActions() {
