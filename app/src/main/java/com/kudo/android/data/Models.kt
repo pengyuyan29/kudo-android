@@ -51,7 +51,7 @@ data class Post(
     val reactionCount: Int = likes, val reactionsAvailable: Boolean = false, val canUndoLike: Boolean = true,
     val updatedAt: String = createdAt, val version: Int = 1,
     val canViewEditHistory: Boolean = false, val availableFlags: Set<Int> = emptySet(),
-    val signature: String = "",
+    val signature: String = "", val replyCount: Int = 0,
 ) {
     val activeReaction: String? get() = currentReaction?.id ?: "heart".takeIf { liked }
     val canReact: Boolean get() = if (activeReaction != null) currentReaction?.canUndo ?: canUndoLike else canLike
@@ -166,7 +166,7 @@ object DiscourseParser {
             updatedAt = json.stringField("updated_at").ifBlank { json.text("created_at") }, version = json.positiveInt("version") ?: 1,
             canViewEditHistory = json.optBoolean("can_view_edit_history"),
             availableFlags = json.optJSONArray("actions_summary").objects().filter { it.optBoolean("can_act") && it.optInt("id") != 2 }.mapNotNull { it.positiveInt("id") }.toSet(),
-            signature = json.stringField("user_signature"))
+            signature = json.stringField("user_signature"), replyCount = json.optInt("reply_count").coerceAtLeast(0))
     }
 
     fun detail(json: JSONObject): TopicDetail {

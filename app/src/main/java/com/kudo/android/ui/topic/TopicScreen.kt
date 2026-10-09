@@ -27,12 +27,18 @@ import com.kudo.android.ui.components.liquid.LiquidModal
 import com.kudo.android.ui.components.liquid.LiquidModalAction
 
 @Composable
-fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink) {
+fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}) {
     val backdrop = rememberLayerBackdrop()
     val modalBackdrop = rememberLayerBackdrop()
     val visibility = remember { MutableTransitionState(false) }
     var reactionPostId by remember { mutableStateOf<Int?>(null) }
-    val showing = visibility.currentState || visibility.targetState
+    val threadVisibility = remember { MutableTransitionState(false) }
+    var threadRootId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var threadTarget by rememberSaveable { mutableStateOf<Int?>(null) }
+    val reactionShowing = visibility.currentState || visibility.targetState
+    val showing = reactionShowing || threadVisibility.currentState || threadVisibility.targetState
+    fun openThread(root: Post, number: Int?) { threadRootId = root.id; threadTarget = number; threadVisibility.targetState = true }
+    val threads = state.threads
     fun dismiss() { visibility.targetState = false }
     fun choose(post: Post) { reactionPostId = post.id; visibility.targetState = true }
     val detail = state.detail
@@ -42,10 +48,15 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     val originalIgnored = detail?.author?.username?.lowercase(java.util.Locale.ROOT) in ignoredUsers
     val listState = rememberLazyListState()
     var located by rememberSaveable(detail?.id, state.targetNumber) { mutableStateOf(false) }
-    LaunchedEffect(detail?.posts, state.loading, state.targetNumber) {
-        if (!located && !state.loading && state.error == null && state.targetNumber != null) {
-            val index = detail?.posts?.indexOfFirst { it.number == state.targetNumber } ?: -1
-            if (index >= 0) { listState.scrollToItem(index + 1); located = true }
+    LaunchedEffect(threads, state.loading, state.contextLoading, state.targetNumber) {
+        if (!located && !state.loading && !state.contextLoading && state.error == null && state.targetNumber != null) {
+            val index = threads.indexOfFirst { it.root.number == state.targetNumber || it.replies.any { post -> post.number == state.targetNumber } }
+            if (index >= 0) {
+                listState.scrollToItem(index + if (!originalIgnored || revealOriginal) 1 else 0)
+                val thread = threads[index]
+                if (thread.root.number != state.targetNumber) openThread(thread.root, state.targetNumber)
+                located = true
+            }
         }
     }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -68,44 +79,23 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                                 }
                             }
                         }
-                        items(detail.posts, key = { it.id }) { post ->
-                            var revealed by remember(post.id, ignoredUsers) { mutableStateOf(false) }
-                            val ignored = post.author.username.lowercase(java.util.Locale.ROOT) in ignoredUsers
-                            if (ignored && !(if (post.number == 1) revealOriginal else revealed)) {
-                                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp)) {
-                                    Text("@${post.author.username} 的内容已忽略", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    TextButton(onClick = { if (post.number == 1) revealOriginal = true else revealed = true }) { Text("查看此楼层") }
-                                }
-                            } else {
-                            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                if (post.number != 1) Row(Modifier.heightIn(min = 48.dp).clickable(enabled = !showing) { user(post.author.username) }, verticalAlignment = Alignment.CenterVertically) {
-                                    Avatar(post.author, 32.dp)
-                                    Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                            Text(post.author.displayName, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                                            if (post.author.id == detail.author?.id) Text("楼主", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                                        }
-                                        TopicAuthorMetadata(post.updatedAt, LocalTopicPresentation.current.categories.firstOrNull { it.id == detail.categoryId }, post.edited)
-                                    }
-                                    Text("#${post.number}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                post.replyTo?.let { Text("回复 #$it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                                RichContent(post.cooked, image, openLink, galleryKey = "post-${post.id}", galleryBottomInset = 110.dp)
-                                UserSignature(post, openLink)
-                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(if (post.number == 1) "正文" else "回复", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                                    TopicReactionButton(post, !showing && !state.loading && post.id !in state.busy && (state.viewerId == null || post.canReact),
-                                        choose = if (post.reactionsAvailable && detail.validReactions.isNotEmpty()) ({ choose(post) }) else null,
-                                        click = { like(post) })
-                                    IconButton(onClick = { bookmark(post) }, enabled = !showing && post.id !in state.busy) { Icon(if (post.bookmarkId != null) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, "收藏此楼层", Modifier.size(20.dp)) }
-                                    TextButton(onClick = { reply(post) }, enabled = !showing && !detail.closed) { Text("回复") }
-                                }
+                        items(threads, key = { it.root.id }) { thread ->
+                            LaunchedEffect(thread.root.id, state.contextLoading) {
+                                if (!state.contextLoading && thread.root.number > 1) loadReplies(thread.root, true)
                             }
+                            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
+                                TopicPost(thread.root, detail, state, !showing, like, bookmark, reply, user, image, openLink, ::choose,
+                                    revealOriginal) { revealOriginal = true }
+                                if (thread.root.number > 1) ReplyPreview(thread, state.replyLoads[thread.root.id], state.hasMoreReplies(thread.root), !showing) {
+                                    openThread(thread.root, it)
+                                }
                             }
                         }
+                        if (state.contextLoading) item { Text("?????????", Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall) }
+                        if (state.contextError != null) item { TextButton(onClick = resolveContext) { Text("???????????????") } }
                         if (state.loadingMore) item { LoadingRow() }
                         else if (state.moreError != null) item { ErrorState(state.moreError, more, login) }
-                        else if (detail.stream.any { id -> detail.posts.none { it.id == id } }) item { TextButton(onClick = more, modifier = Modifier.fillMaxWidth()) { Text("加载更多楼层（已显示 ${detail.posts.size} / ${detail.stream.size}）") } }
+                        else if (detail.stream.any { id -> state.allPosts.none { it.id == id } }) item { TextButton(onClick = more, modifier = Modifier.fillMaxWidth()) { Text("加载更多楼层（已显示 ${state.allPosts.size.coerceAtMost(detail.stream.size)} / ${detail.stream.size}）") } }
                         else item { Text("已读完全部回复", Modifier.fillMaxWidth().padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
                     }
                 }
@@ -113,8 +103,39 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             TopicBottomBar(state, backdrop, glass, !showing, { reply(null) }, like, bookmark, share, ::choose,
                 Modifier.align(Alignment.BottomCenter))
         }
-        val selected = detail?.posts?.firstOrNull { it.id == reactionPostId }
-            ?: detail?.originalPost?.takeIf { it.id == reactionPostId }
+        val thread = threads.firstOrNull { it.root.id == threadRootId }
+        LaunchedEffect(threadVisibility.targetState, threadRootId) {
+            if (threadVisibility.targetState && thread != null) loadReplies(thread.root, false)
+        }
+        val threadList = rememberLazyListState()
+        var threadLocated by remember(threadRootId, threadTarget) { mutableStateOf(false) }
+        LaunchedEffect(thread, threadTarget, threadVisibility.targetState) {
+            if (!threadLocated && threadVisibility.targetState && threadTarget != null) {
+                val index = thread?.replies?.indexOfFirst { it.number == threadTarget } ?: -1
+                if (index >= 0) { threadList.scrollToItem(index + 1); threadLocated = true }
+            }
+        }
+        Box(Modifier.fillMaxSize().then(if (reactionShowing) Modifier.clearAndSetSemantics {} else Modifier)
+            .focusProperties { onEnter = { if (reactionShowing) cancelFocusChange() } }.focusGroup()) {
+            LiquidModal(threadVisibility, "????", true, modalBackdrop, glass, { threadVisibility.targetState = false },
+                actions = { LiquidModalAction("??", { threadVisibility.targetState = false }, Modifier.fillMaxWidth()) }) {
+                if (thread != null && detail != null) {
+                    LazyColumn(state = threadList, modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("thread-posts")) {
+                        item("root") { TopicPost(thread.root, detail, state, !reactionShowing, like, bookmark, reply, user, image, openLink, ::choose) }
+                        items(thread.replies, key = { it.id }) { post ->
+                            HorizontalDivider()
+                            TopicPost(post, detail, state, !reactionShowing, like, bookmark, reply, user, image, openLink, ::choose)
+                        }
+                        val load = state.replyLoads[thread.root.id]
+                        if (load?.loading == true) item { LoadingRow() }
+                        else if (load?.error != null) item { ErrorState(load.error, { loadReplies(thread.root, false) }, login) }
+                        else if (state.hasMoreReplies(thread.root)) item { TextButton({ loadReplies(thread.root, false) }, Modifier.fillMaxWidth()) { Text("??????") } }
+                        else item { Text("???????", Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
+                } else Text("???????????????")
+            }
+        }
+        val selected = state.allPosts.firstOrNull { it.id == reactionPostId }
         LiquidModal(visibility, "回应", true, modalBackdrop, glass, ::dismiss,
             actions = { LiquidModalAction("取消", ::dismiss, Modifier.fillMaxWidth()) }) {
             if (selected != null) {

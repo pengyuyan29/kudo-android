@@ -7,6 +7,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 
+data class ReplyCursor(val after: Int = 1, val complete: Boolean = false)
+data class ReplyLoad(val cursors: Map<Int, ReplyCursor> = emptyMap(), val loading: Boolean = false, val error: Throwable? = null)
+
 data class TopicState(
     val detail: TopicDetail? = null, val loading: Boolean = true, val loadingMore: Boolean = false,
     val error: Throwable? = null, val moreError: Throwable? = null, val busy: Set<Int> = emptySet(),
@@ -14,7 +17,17 @@ data class TopicState(
     val authorError: Throwable? = null, val followBusy: Boolean = false,
     val originalLoading: Boolean = false, val originalError: Throwable? = null,
     val targetNumber: Int? = null,
-)
+    val related: List<Post> = emptyList(), val contextLoading: Boolean = false, val contextError: Throwable? = null,
+    val replyLoads: Map<Int, ReplyLoad> = emptyMap(),
+) {
+    val allPosts get() = (detail?.posts.orEmpty() + related + listOfNotNull(detail?.originalPost)).distinctBy(Post::id)
+    val threads get() = postThreads(detail?.posts.orEmpty() + related)
+    fun hasMoreReplies(root: Post): Boolean {
+        val thread = threads.firstOrNull { it.root.id == root.id }
+        val cursors = replyLoads[root.id]?.cursors.orEmpty()
+        return (listOf(root) + thread?.replies.orEmpty()).any { it.replyCount > 0 && cursors[it.id]?.complete != true }
+    }
+}
 
 class TopicViewModel(
     private val repository: CommunityRepository, val topicId: Int, private val number: Int? = null,
@@ -26,6 +39,8 @@ class TopicViewModel(
     private var moreJob: Job? = null
     private var authorJob: Job? = null
     private var originalJob: Job? = null
+    private var contextJob: Job? = null
+    private val replyJobs = mutableMapOf<Int, Job>()
     private var generation = 0
     private val messages = Channel<String>(Channel.BUFFERED)
     val events = messages.receiveAsFlow()
@@ -37,15 +52,18 @@ class TopicViewModel(
         moreJob?.cancel()
         authorJob?.cancel()
         originalJob?.cancel()
+        contextJob?.cancel()
+        replyJobs.values.forEach { it.cancel() }; replyJobs.clear()
         generation++
         _state.update { it.copy(loading = true, loadingMore = false, error = null, moreError = null,
-            authorLoading = false, originalLoading = false) }
+            authorLoading = false, originalLoading = false, contextLoading = false, contextError = null, replyLoads = emptyMap()) }
         refreshJob = viewModelScope.launch {
             try {
                 val detail = withContext(Dispatchers.IO) { repository.detail(topicId, number) }
-                _state.update { it.copy(detail = detail, loading = false, authorProfile = null, authorError = null, originalError = null) }
+                _state.update { it.copy(detail = detail, related = emptyList(), loading = false, authorProfile = null, authorError = null, originalError = null) }
                 loadAuthor()
                 loadOriginal()
+                resolveContext()
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { _state.update { it.copy(error = e, loading = false) } }
         }
@@ -55,7 +73,7 @@ class TopicViewModel(
         val snapshot = _state.value
         val detail = snapshot.detail ?: return
         if (snapshot.loadingMore || snapshot.loading) return
-        val loaded = detail.posts.map { it.id }.toSet()
+        val loaded = (detail.posts + snapshot.related).map { it.id }.toSet()
         val ids = detail.stream.filterNot { it in loaded }.take(20)
         if (ids.isEmpty()) return
         val requestGeneration = generation
@@ -68,11 +86,83 @@ class TopicViewModel(
                     val latest = current.detail
                     if (requestGeneration != generation || latest == null) current else current.copy(
                         detail = latest.copy(posts = (latest.posts + posts.map { incoming ->
-                            latest.pinnedOriginal?.takeIf { it.id == incoming.id } ?: incoming
+                            latest.pinnedOriginal?.takeIf { it.id == incoming.id }
+                                ?: current.related.firstOrNull { it.id == incoming.id } ?: incoming
                         }).distinctBy(Post::id).sortedBy(Post::number),
                             stream = latest.stream.filter { id -> id !in ids || id in available }), loadingMore = false)
                 }
+                if (requestGeneration == generation) resolveContext()
             } catch (e: CancellationException) { throw e } catch (e: Exception) { _state.update { it.copy(loadingMore = false, moreError = e) } }
+        }
+    }
+
+    fun resolveContext() {
+        contextJob?.cancel()
+        val initial = _state.value.allPosts
+        if (initial.none { post -> post.replyTo?.let { it > 1 && it < post.number && initial.none { parent -> parent.number == it } } == true }) return
+        val token = generation
+        _state.update { it.copy(contextLoading = true, contextError = null) }
+        contextJob = viewModelScope.launch {
+            val found = mutableListOf<Post>()
+            var failure: Throwable? = null
+            try {
+                withContext(Dispatchers.IO) {
+                    val known = initial.associateBy(Post::number).toMutableMap()
+                    val failed = mutableSetOf<Int>()
+                    var requests = 0
+                    while (true) {
+                        val missing = known.values.mapNotNull { post -> post.replyTo?.takeIf { it > 1 && it < post.number && it !in known && it !in failed } }.firstOrNull() ?: break
+                        if (requests++ >= 64) { failure = ApiFailure(FailureKind.SERVER, "回复关系较深，请重试继续加载"); break }
+                        try { repository.postAt(topicId, missing).let { known[it.number] = it; found += it } }
+                        catch (e: CancellationException) { throw e }
+                        catch (e: Exception) { failed += missing; failure = e }
+                    }
+                }
+                _state.update { current -> if (token != generation) current else current.copy(
+                    related = (current.related + found).distinctBy(Post::id), contextLoading = false, contextError = failure) }
+            } catch (e: CancellationException) { throw e }
+        }
+    }
+
+    fun loadReplies(root: Post, preview: Boolean = false) {
+        val snapshot = _state.value
+        if (snapshot.loading || snapshot.contextLoading) return
+        val previous = snapshot.replyLoads[root.id] ?: ReplyLoad()
+        if (previous.loading || (preview && (previous.cursors.isNotEmpty() || previous.error != null))) return
+        if (!snapshot.hasMoreReplies(root)) return
+        val token = generation
+        _state.update { it.copy(replyLoads = it.replyLoads + (root.id to previous.copy(loading = true, error = null))) }
+        replyJobs[root.id] = viewModelScope.launch {
+            try {
+                // Empty quote-only pages can be skipped, but never walk an unbounded thread in one action.
+                repeat(if (preview) 1 else 8) {
+                    val current = _state.value
+                    val load = current.replyLoads[root.id] ?: return@launch
+                    val thread = current.threads.firstOrNull { it.root.id == root.id }
+                    val parent = (listOf(root) + thread?.replies.orEmpty()).firstOrNull { it.replyCount > 0 && load.cursors[it.id]?.complete != true } ?: return@repeat
+                    val after = load.cursors[parent.id]?.after ?: 1
+                    val page = withContext(Dispatchers.IO) { repository.replies(parent.id, after) }
+                    val cursor = page.maxOfOrNull(Post::number) ?: after
+                    val replies = page.filter { it.replyTo == parent.number && it.number > parent.number }
+                    if (token != generation) return@launch
+                    _state.update { latest ->
+                        val known = latest.allPosts.map(Post::id).toSet()
+                        val active = latest.replyLoads[root.id] ?: load
+                        latest.copy(related = latest.related + replies.filterNot { it.id in known }.distinctBy(Post::id),
+                            replyLoads = latest.replyLoads + (root.id to active.copy(cursors = active.cursors +
+                                (parent.id to ReplyCursor(cursor, page.size < 20 || cursor <= after)))))
+                    }
+                    if (replies.isNotEmpty()) return@launch
+                }
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { if (token == generation) _state.update { current ->
+                val load = current.replyLoads[root.id] ?: ReplyLoad()
+                current.copy(replyLoads = current.replyLoads + (root.id to load.copy(error = e)))
+            } }
+            finally { if (token == generation) _state.update { current ->
+                val load = current.replyLoads[root.id] ?: ReplyLoad()
+                current.copy(replyLoads = current.replyLoads + (root.id to load.copy(loading = false)))
+            } }
         }
     }
 
@@ -147,13 +237,12 @@ class TopicViewModel(
     private fun action(post: Post, block: suspend (Post) -> Post) {
         val snapshot = _state.value
         if (snapshot.loading || post.id in snapshot.busy) return
-        val latest = snapshot.detail?.posts?.firstOrNull { it.id == post.id }
-            ?: snapshot.detail?.originalPost?.takeIf { it.id == post.id } ?: return
+        val latest = snapshot.allPosts.firstOrNull { it.id == post.id } ?: return
         _state.update { it.copy(busy = it.busy + post.id) }
         viewModelScope.launch {
             try {
                 val updated = withContext(Dispatchers.IO) { block(latest) }
-                _state.update { current -> current.copy(detail = current.detail?.let { detail ->
+                _state.update { current -> current.copy(related = current.related.map { if (it.id == updated.id) updated else it }, detail = current.detail?.let { detail ->
                     detail.copy(posts = detail.posts.map { old -> if (old.id == updated.id) updated else old },
                         pinnedOriginal = if (detail.pinnedOriginal?.id == updated.id) updated else detail.pinnedOriginal)
                 }) }
