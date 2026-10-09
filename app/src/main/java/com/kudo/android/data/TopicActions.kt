@@ -10,7 +10,7 @@ data class FlagReason(val id: Int, val key: String, val name: String, val descri
     val contactAuthor get() = key == "notify_user"
     val illegal get() = key == "illegal"
 }
-data class FlagConfiguration(val reasons: List<FlagReason>, val minimum: Int, val maximum: Int = 1000) {
+data class FlagConfiguration(val reasons: List<FlagReason>, val minimum: Int, val maximum: Int = 500) {
     fun available(post: Post) = reasons.filter { it.id in post.availableFlags }
     fun valid(reason: FlagReason?, message: String, confirmed: Boolean): Boolean = reason != null && reason in reasons &&
         (!reason.requireMessage || (message.trim().length in minimum..maximum && (!reason.illegal || confirmed)))

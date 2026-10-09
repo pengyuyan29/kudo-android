@@ -12,6 +12,7 @@ data class Member(
     val animatedAvatar: String = "", val flair: AvatarFlair? = null, val status: UserStatus? = null,
     val avatarDetailsLoaded: Boolean = false,
     val canFollow: Boolean = false, val isFollowed: Boolean = false,
+    val canIgnoreUsers: Boolean = false, val ignoredUsers: Set<String> = emptySet(),
 ) {
     val displayName get() = name.ifBlank { username }
     val isSiteOwner get() = username.equals("neo", ignoreCase = true)
@@ -98,6 +99,7 @@ object DiscourseParser {
         userStatus(json.optJSONObject("status") ?: json.optJSONObject("user_status")),
         avatarDetailsLoaded || json.has("status") || json.has("user_status"),
         json.optBoolean("can_follow"), json.optBoolean("is_followed"),
+        json.optBoolean("can_ignore_users"), (json.optJSONArray("ignored_users") ?: json.optJSONArray("ignored_usernames")).strings().toSet(),
     )
 
     private fun userStatus(json: JSONObject?): UserStatus? {

@@ -37,6 +37,7 @@ class TopicActionsContractTest {
     @Test fun messagesRespectSiteMinimumMaximumAndIllegalConfirmation() {
         assertFalse(config.valid(other, " a ", false))
         assertTrue(config.valid(other, "说明文", false))
+        assertFalse("网站说明上限为500字", config.valid(other, "文".repeat(501), false))
         assertFalse(config.valid(other, "文".repeat(1001), false))
         assertFalse(config.valid(illegal, "说明文", false))
         assertTrue(config.valid(illegal, "说明文", true))

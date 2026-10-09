@@ -12,9 +12,9 @@ Status: implemented
 
 历史需要 version > 1 且 can_view_edit_history，读取 /posts/{id}/revisions/latest.json，翻页跟随 previous_revision / next_revision，不能假定版本连续。原生差异文本保留新增、删除标记及作者、时间、原因。
 
-举报读取 /site.json 中启用且适用于 Post 的 is_flag 原因，与主帖 actions_summary.can_act 求交集。说明下限读取 /latest 的 siteSettings.min_personal_message_post_length，上限遵循 Discourse MAX_MESSAGE_LENGTH=1000。支持 notify_user 私信和 illegal 确认；POST /post_actions 只提交 id、post_action_type_id、必要的 message，不发送工作人员强制处理字段。写请求不自动重试；结果未知时阻止再次提交。
+举报读取 /site.json 中启用且适用于 Post 的 is_flag 原因，与主帖 actions_summary.can_act 求交集。说明下限读取 /latest 的 siteSettings.min_personal_message_post_length，上限遵循 Discourse MAX_MESSAGE_LENGTH=500。支持 notify_user 私信和 illegal 确认；POST /post_actions 只提交 id、post_action_type_id、必要的 message，不发送工作人员强制处理字段。写请求不自动重试；结果未知时阻止再次提交。
 
-本机隐藏主题使用独立偏好集合，首页、分类和搜索统一过滤，SnackBar 可撤销，设置可恢复全部。不调用网站静音接口、不隐藏作者其他主题、不阻断显式深链。
+屏蔽最初考虑本机隐藏主题，尚未实现即被用户的网站截图纠正；由[网站忽略作者](2026-10-09-ignore-author.md)接管该项决定，其余操作契约保留。
 
 ## Related decisions
 
@@ -27,6 +27,8 @@ Status: implemented
 - 举报和历史打开网页可自动覆盖网站细节，但用户需要原生操作，因此按权限和配置实现原生界面。
 
 ## Testing
+
+500字上限复现测试先失败，再依据 Discourse PostActionType.MAX_MESSAGE_LENGTH 修正；集中回归记录随界面完成补齐。
 
 两种列表长按与更多打开同一菜单，置顶主题也有入口。详情复制主帖、收藏同步底栏，无屏蔽。未编辑或无权限的主帖没有历史按钮。举报过滤禁用和无权限原因，校验说明及非法确认，连点只有一次写入。真机检查明暗、大字、取消、背景隔离与顶部折叠。写入测试仅使用 MockWebServer。
 
