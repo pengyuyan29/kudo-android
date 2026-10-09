@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.webkit.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -15,6 +16,7 @@ import com.kudo.android.ui.theme.KudoTheme
 import com.kudo.android.ui.web.WebScreen
 import org.junit.*
 import org.junit.Assert.*
+import org.json.JSONArray
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -45,7 +47,13 @@ class WebScreenUiTest {
         assertTrue("JavaScript callback timed out", latch.await(5, TimeUnit.SECONDS))
         return result
     }
-    private fun click(id: String) { loadedTitle.set(""); javascript("document.getElementById('$id').click()") }
+    private fun click(id: String) {
+        val point = JSONArray(javascript("(()=>{const r=document.getElementById('$id').getBoundingClientRect();return [r.x+r.width/2,r.y+r.height/2,innerWidth]})()"))
+        val node = compose.onNodeWithTag("web-content")
+        val scale = node.fetchSemanticsNode().boundsInRoot.width / point.getDouble(2).toFloat()
+        loadedTitle.set("")
+        node.performTouchInput { click(Offset(point.getDouble(0).toFloat() * scale, point.getDouble(1).toFloat() * scale)) }
+    }
 
     @After fun removeFixtureCookies() {
         compose.runOnUiThread {
@@ -129,6 +137,7 @@ class WebScreenUiTest {
 
     private inner class FixtureWebView(context: Context) : WebView(context) {
         var released = false
+        private val pendingError = AtomicReference<Pair<WebResourceRequest, WebResourceResponse>?>(null)
         override fun destroy() { released = true; super.destroy() }
         override fun setWebViewClient(client: WebViewClient) {
             super.setWebViewClient(object : WebViewClient() {
@@ -156,13 +165,17 @@ class WebScreenUiTest {
                         <a id="other" href="https://other-fixture.test/page">外站</a>
                         ${if (value.contains("/redirect")) "<script>location.replace('https://linux.do/t/topic/3001000/10')</script>" else ""}
                         </body></html>"""
-                    return WebResourceResponse("text/html", "UTF-8", if (failFirst && attempt == 1) 500 else 200,
+                    val response = WebResourceResponse("text/html", "UTF-8", if (failFirst && attempt == 1) 500 else 200,
                         if (failFirst && attempt == 1) "Server Error" else "OK", emptyMap(), html.byteInputStream())
+                    // Intercepted responses skip the network stack's HTTP-error callback on this WebView.
+                    if (response.statusCode >= 400) pendingError.set(request to response)
+                    return response
                 }
                 override fun onPageStarted(view: WebView, url: String, icon: Bitmap?) = client.onPageStarted(view, url, icon)
                 override fun doUpdateVisitedHistory(view: WebView, url: String, reload: Boolean) = client.doUpdateVisitedHistory(view, url, reload)
                 override fun onPageFinished(view: WebView, url: String) {
                     client.onPageFinished(view, url)
+                    pendingError.getAndSet(null)?.let { (request, response) -> client.onReceivedHttpError(view, request, response) }
                     loadedTitle.set(view.title)
                 }
                 override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) = client.onReceivedError(view, request, error)

@@ -26,7 +26,7 @@ Status: implemented
 
 ## Verification
 
-分类链接先由 LinuxDoLinkTest 新用例复现错误回到 Home，日志 artifacts/category-link-repro.txt；修复后精确断言分类 ID，DeepLinkUiTest 同时更新为分类入栈及返回原话题。新增分类改动纳入应用内网页的集中真机回归。
+分类链接先由 LinuxDoLinkTest 新用例复现错误回到 Home，日志 artifacts/category-link-repro.txt；修复后精确断言分类 ID，DeepLinkUiTest 同时更新为分类入栈及返回原话题。新增分类改动随应用内网页20项集中真机回归全部通过，日志 artifacts/in-app-web-final-device.txt。
 
 LinuxDoLinkTest 的4项测试通过，覆盖 slug、楼层、用户子路径、无效 ID、查询参数及非本站来源。DeepLinkUiTest 的2项真机用例直接调用生产 IncomingLinuxDoLink 与导航 helper，验证初次消费、返回后同址再开、用户子路径及首页页签回退；它们不声称验证 Activity Intent 生命周期。第8楼滚动由 TopicPresentationUiTest 的实际详情列表验证，截图 presentation-floor-eight 已查看。
 

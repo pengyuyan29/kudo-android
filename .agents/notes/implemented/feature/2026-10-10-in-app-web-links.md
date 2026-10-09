@@ -27,7 +27,13 @@ WebView 使用 CookieManager 默认存储，与 LoginScreen 和 AndroidSessionCo
 
 分类链接先由失败单测复现错误回首页，日志 artifacts/category-link-repro.txt；修复后精确断言 ID。LinuxDoLinkTest 增加正文路由与网页地址校验，涵盖相对 URL、查询/片段、不支持协议、凭据地址及相似域名。131项 JVM 测试、Debug/测试 APK 构建通过，Lint 为0错误、30条现有警告和1条提示，日志 artifacts/in-app-web-build.txt。
 
-DeepLinkUiTest 覆盖共享生产导航 helper 的帖子、用户、分类和网页目标；RichContentLinkUiTest 覆盖 HTTPS 与 HTTP 正文链接回调。WebScreenUiTest 通过 WebView 网络拦截提供网页夹具，复用生产 WebViewClient 处理跳转、错误和历史；覆盖站内帖子/用户/分类、新窗口、重定向、Cookie 双向共享与跨域隔离、状态恢复、关闭释放、刷新重试和重组不重载。集中真机回归尚未完成，不声称这些新增用例已通过。
+DeepLinkUiTest 覆盖共享生产导航 helper 的帖子、用户、分类和网页目标；RichContentLinkUiTest 覆盖 HTTPS 与 HTTP 正文链接回调。WebScreenUiTest 通过 WebView 网络拦截提供网页夹具，复用生产 WebViewClient 处理跳转、错误和历史；覆盖站内帖子/用户/分类、新窗口、重定向、Cookie 双向共享与跨域隔离、状态恢复、关闭释放、刷新重试和重组不重载。
+
+首轮20项回归有2项夹具失败，日志 artifacts/in-app-web-first-device.txt：脚本模拟点击缺少用户手势，target=_blank 被网页引擎阻止；拦截的500响应未产生真实网络层 HTTP 错误回调。测试改为按 DOM 边界换算真实触摸位置，并在页面加载后向生产客户端传递对应 HTTP 错误回调，未为夹具增加产品延时或放开自动弹窗。聚焦4项中的前三项通过，重试用例另行通过，随后整批20项真机全部通过，日志 artifacts/in-app-web-final-device.txt（35.34秒）。Cookie 夹具只使用 reader-fixture.test 的两个独立名称，结束按名称删除，未读取或打印真实社区 Cookie。
+
+RMX2202 / Android 13 实页验收：设置的社区指南在应用内加载，点击网站标识进入网页首页、再点击话题均留在同一 WebView；原生正文点击 App Store onebox 在应用内打开 apps.apple.com，关闭恢复原生帖子与“写回复”操作栏。已查看 artifacts/web-reader-live-guidelines.png、artifacts/web-reader-live-web-home.png、artifacts/web-reader-live-web-topic.png、artifacts/web-reader-live-external.png。设备当前未登录，真实账号登录态未做端到端验收。
+
+最终 Lint 0错误、30条现有警告和1条提示，日志 artifacts/in-app-web-final-lint.txt；verify-notes 检查33篇通过。artifacts/kudo-in-app-web.apk 与已安装回读文件 SHA256 相同：0ca174cc6ff112f254478e71cdeb5daed8fefcafda6c974296d3e483158f8c52。沿用原有签名覆盖安装，保留设备数据与偏好。
 
 ## Consequences
 
