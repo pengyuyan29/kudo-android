@@ -48,10 +48,12 @@ data class Post(
     val reactions: List<PostReaction> = emptyList(), val currentReaction: UserReaction? = null,
     val reactionCount: Int = likes, val reactionsAvailable: Boolean = false, val canUndoLike: Boolean = true,
     val updatedAt: String = createdAt, val version: Int = 1,
+    val canViewEditHistory: Boolean = false, val availableFlags: Set<Int> = emptySet(),
 ) {
     val activeReaction: String? get() = currentReaction?.id ?: "heart".takeIf { liked }
     val canReact: Boolean get() = if (activeReaction != null) currentReaction?.canUndo ?: canUndoLike else canLike
     val edited: Boolean get() = version > 1
+    val hasEditHistory: Boolean get() = edited && canViewEditHistory
 }
 data class PostReaction(val id: String, val count: Int)
 data class UserReaction(val id: String, val canUndo: Boolean)
@@ -156,7 +158,9 @@ object DiscourseParser {
             reactions, current,
             json.optInt("reaction_users_count", if (json.has("reactions")) reactions.sumOf { it.count } else action?.optInt("count") ?: 0).coerceAtLeast(0),
             json.has("reactions") || json.has("current_user_reaction"), action?.optBoolean("can_undo") ?: false,
-            updatedAt = json.stringField("updated_at").ifBlank { json.text("created_at") }, version = json.positiveInt("version") ?: 1)
+            updatedAt = json.stringField("updated_at").ifBlank { json.text("created_at") }, version = json.positiveInt("version") ?: 1,
+            canViewEditHistory = json.optBoolean("can_view_edit_history"),
+            availableFlags = json.optJSONArray("actions_summary").objects().filter { it.optBoolean("can_act") && it.optInt("id") != 2 }.mapNotNull { it.positiveInt("id") }.toSet())
     }
 
     fun detail(json: JSONObject): TopicDetail {

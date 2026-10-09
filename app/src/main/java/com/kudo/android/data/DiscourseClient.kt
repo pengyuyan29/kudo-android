@@ -48,6 +48,7 @@ class DiscourseClient(
 
     suspend fun get(path: String, query: Map<String, String> = emptyMap()): JSONObject = request("GET", path, query)
     suspend fun getArray(path: String): JSONArray = request("GET", path, arrayResponse = true).getJSONArray("items")
+    internal suspend fun siteSettingsHtml(): String = request("GET", "/latest", htmlResponse = true).getString("html")
     internal suspend fun tagIcons(): Map<String, TagIconStyle> =
         parseTagIconSettings(request("GET", "/latest", htmlResponse = true).getString("html"))
     internal suspend fun sharedSessionKey(): String = Jsoup.parse(request("GET", "/latest", htmlResponse = true).getString("html"))
