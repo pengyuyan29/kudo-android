@@ -20,6 +20,7 @@ data class TopicActionState(
 sealed interface TopicActionEvent {
     data class Message(val text: String) : TopicActionEvent
     data class Ignored(val viewerId: Int, val username: String) : TopicActionEvent
+    data object Refresh : TopicActionEvent
 }
 
 class TopicActionsViewModel(private val repository: CommunityRepository, val viewer: Member?) : ViewModel() {
@@ -28,6 +29,7 @@ class TopicActionsViewModel(private val repository: CommunityRepository, val vie
     private val messages = Channel<TopicActionEvent>(Channel.BUFFERED)
     val events = messages.receiveAsFlow()
     private val uncertainReports = mutableSetOf<Pair<Int, Int>>()
+    private val successfulReports = mutableSetOf<Pair<Int, Int>>()
     private val uncertainIgnores = mutableSetOf<String>()
 
     fun open(id: Int, fromDetail: Boolean = false, initial: Post? = null) {
@@ -43,22 +45,24 @@ class TopicActionsViewModel(private val repository: CommunityRepository, val vie
     fun loadPost() {
         val id = state.topicId ?: return
         load {
-            val detail = repository.detail(id, 1)
-            val post = detail.originalPost ?: detail.stream.firstOrNull()?.let { repository.posts(id, listOf(it)).firstOrNull { post -> post.number == 1 } }
+            val post = withContext(Dispatchers.IO) {
+                val detail = repository.detail(id, 1)
+                detail.originalPost ?: detail.stream.firstOrNull()?.let { repository.posts(id, listOf(it)).firstOrNull { post -> post.number == 1 } }
+            }
             state = state.copy(post = post ?: error("暂时无法读取主帖"))
         }
     }
     fun history(number: Int? = null) {
         val post = state.post?.takeIf { it.hasEditHistory } ?: return
         state = state.copy(panel = TopicActionPanel.HISTORY)
-        load { state = state.copy(revision = repository.revision(post, number)) }
+        load { state = state.copy(revision = withContext(Dispatchers.IO) { repository.revision(post, number) }) }
     }
     fun report() {
         val post = state.post ?: return
         state = state.copy(panel = TopicActionPanel.REPORT)
         load {
-            val config = repository.flagConfiguration()
-            state = state.copy(flags = config.copy(reasons = config.available(post)))
+            val config = withContext(Dispatchers.IO) { repository.flagConfiguration() }
+            state = state.copy(flags = config.copy(reasons = config.available(post).filterNot { (post.id to it.id) in successfulReports }))
         }
     }
     fun chooseFlag(reason: FlagReason) {
@@ -80,7 +84,9 @@ class TopicActionsViewModel(private val repository: CommunityRepository, val vie
         val reason = snapshot.selectedFlag ?: return
         if (snapshot.busy || snapshot.writeLocked || !config.valid(reason, snapshot.message, snapshot.confirmed)) return
         write(onUncertain = { uncertainReports += post.id to reason.id }) {
-            repository.flag(post, config, reason, snapshot.message, snapshot.confirmed)
+            withContext(Dispatchers.IO) { repository.flag(post, config, reason, snapshot.message, snapshot.confirmed) }
+            successfulReports += post.id to reason.id
+            messages.send(TopicActionEvent.Refresh)
             messages.send(TopicActionEvent.Message(if (reason.contactAuthor) "消息已发送给作者" else "举报已提交，感谢维护社区"))
         }
     }
@@ -90,7 +96,7 @@ class TopicActionsViewModel(private val repository: CommunityRepository, val vie
         val duration = state.duration ?: return
         if (state.busy || state.writeLocked) return
         write(onUncertain = { uncertainIgnores += post.author.username }) {
-            repository.ignoreUser(user, post.author.username, duration.expiresAt())
+            withContext(Dispatchers.IO) { repository.ignoreUser(user, post.author.username, duration.expiresAt()) }
             messages.send(TopicActionEvent.Ignored(user.id, post.author.username))
             messages.send(TopicActionEvent.Message("已忽略 @${post.author.username}，可在设置恢复"))
         }
@@ -99,7 +105,8 @@ class TopicActionsViewModel(private val repository: CommunityRepository, val vie
         val post = state.post ?: return
         if (state.busy || state.writeLocked) return
         write {
-            repository.bookmark(post)
+            withContext(Dispatchers.IO) { repository.bookmark(post) }
+            messages.send(TopicActionEvent.Refresh)
             messages.send(TopicActionEvent.Message(if (post.bookmarkId == null) "已收藏主帖" else "已取消收藏"))
         }
     }

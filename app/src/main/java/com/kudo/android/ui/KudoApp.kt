@@ -112,7 +112,10 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
             }, openLink = ::openLink, accountKey = account.user?.id) {
             TopicActionsHost(app.repository, account.user, display.glass, ::login,
                 ignored = { id, username -> account.recordIgnore(id, username, true); refreshEpoch++ },
-                message = { snackbar.showSnackbar(it) }) {
+                message = { snackbar.showSnackbar(it) }, changed = {
+                    refreshEpoch++
+                    nav.currentBackStackEntry?.savedStateHandle?.set("refresh", System.nanoTime())
+                }) {
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.TopCenter) {
                 NavHost(nav, "root", Modifier.widthIn(max = 840.dp).fillMaxSize(),
                     enterTransition = { fadeIn(tween(280)) }, exitTransition = { fadeOut(tween(180)) },

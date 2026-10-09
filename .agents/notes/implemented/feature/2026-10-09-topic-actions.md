@@ -12,7 +12,7 @@ Status: implemented
 
 历史需要 version > 1 且 can_view_edit_history，读取 /posts/{id}/revisions/latest.json，翻页跟随 previous_revision / next_revision，不能假定版本连续。原生差异文本保留新增、删除标记及作者、时间、原因；标签数组、作者对象与回复楼层对象按网站实际形态解析。
 
-举报读取 /site.json 中启用且适用于 Post 的 is_flag 原因，与主帖 actions_summary.can_act 求交集。说明下限读取 /latest 的 siteSettings.min_personal_message_post_length，上限遵循 Discourse MAX_MESSAGE_LENGTH=500。支持 notify_user 私信和 illegal 确认；POST /post_actions 只提交 id、post_action_type_id、必要的 message，不发送工作人员强制处理字段。写请求不自动重试；结果未知时阻止再次提交。
+举报读取 /site.json 中启用且适用于 Post 的 is_flag 原因，与主帖 actions_summary.can_act 求交集。说明下限读取 /latest 的 siteSettings.min_personal_message_post_length，上限遵循 Discourse MAX_MESSAGE_LENGTH=500。支持 notify_user 私信和 illegal 确认；POST /post_actions 只提交 id、post_action_type_id、必要的 message，不发送工作人员强制处理字段。写请求不自动重试；结果未知时阻止再次提交，成功提交的原因在当前会话中从可选项移除，避免详情旧数据再次启用。收藏和举报成功刷新相关列表/详情；消息提示不阻塞账号忽略集合的更新。
 
 屏蔽最初考虑本机隐藏主题，尚未实现即被用户的网站截图纠正；由[网站忽略作者](2026-10-09-ignore-author.md)接管该项决定，其余操作契约保留。
 
@@ -27,6 +27,8 @@ Status: implemented
 - 举报和历史打开网页可自动覆盖网站细节，但用户需要原生操作，因此按权限和配置实现原生界面。
 
 ## Testing
+
+TopicActionsViewModelTest 先复现旧详情重新举报可提交，再修复；覆盖连点单次写入、失败保留草稿、未确认结果跨弹窗阻断、成功原因去重、取消读取不覆盖新目标、忽略期限校验。网络与HTML/差异解析在IO调度器执行，测试先等待取消任务收束再卸载Main调度器。
 
 标签数组和回复对象复现先失败，修复解析后与全部123项JVM回归通过；历史翻页保留网站非连续版本指针。
 

@@ -33,6 +33,7 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
 import com.kudo.android.ui.components.liquid.*
+import kotlinx.coroutines.launch
 
 class TopicActionsController(val openList: (Int) -> Unit, val openDetail: (Int, Post?, (Post) -> Unit) -> Unit)
 val LocalTopicActions = staticCompositionLocalOf { TopicActionsController({}, { _, _, _ -> }) }
@@ -40,7 +41,7 @@ val LocalIgnoredUsers = staticCompositionLocalOf<Set<String>> { emptySet() }
 
 @Composable
 fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: GlassMode, login: () -> Unit,
-    ignored: (Int, String) -> Unit, message: suspend (String) -> Unit, content: @Composable () -> Unit) {
+    ignored: (Int, String) -> Unit, message: suspend (String) -> Unit, changed: () -> Unit = {}, content: @Composable () -> Unit) {
     val vm: TopicActionsViewModel = viewModel(key = "topic-actions-${viewer?.id}", factory = viewModelFactory { initializer { TopicActionsViewModel(repository, viewer) } })
     val state = vm.state
     val context = LocalContext.current
@@ -49,8 +50,9 @@ fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: Gl
     var detailBookmark by remember(vm) { mutableStateOf<((Post) -> Unit)?>(null) }
     LaunchedEffect(state.topicId) { visibility.targetState = state.topicId != null }
     LaunchedEffect(vm) { vm.events.collect { event -> when (event) {
-        is TopicActionEvent.Message -> message(event.text)
+        is TopicActionEvent.Message -> launch { message(event.text) }
         is TopicActionEvent.Ignored -> ignored(event.viewerId, event.username)
+        TopicActionEvent.Refresh -> changed()
     } } }
     val controller = remember(vm) { TopicActionsController({ detailBookmark = null; vm.open(it) }, { id, post, bookmark ->
         detailBookmark = bookmark; vm.open(id, true, post)
