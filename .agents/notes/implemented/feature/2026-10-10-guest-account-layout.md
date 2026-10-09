@@ -8,7 +8,7 @@ Status: implemented
 
 ## Decision
 
-ProfileScreen 在访客分支使用独立布局，登录后的卡片、资料补齐和背景图保持现有实现。访客页采用背景色工具栏、右侧设置和白色小圆角登录区，黄色只强调居中登录按钮。下方按用户修订保留“界面与显示”“关于酷DO”两条横向菜单行，保留说明文字并收紧字号、行高和间距；移除访客收藏入口，不增加夜间模式或图标网格。登录区说明和入口文字允许随字号、宽度换行，内容可滚动并预留底栏空间。
+ProfileScreen 在访客分支使用独立布局，登录后的卡片、资料补齐和背景图保持现有实现。访客页从状态栏安全区下方开始，不显示顶部工具栏和重复设置按钮；白色小圆角登录区使用黄色居中登录按钮。下方按用户修订保留“界面与显示”“关于酷DO”两条横向菜单行，保留说明文字并收紧字号、行高和间距；关于行箭头前显示 BuildConfig.VERSION_NAME，菜单下方保留“真诚 · 友善 · 团结 · 专业”。移除访客收藏入口，不增加夜间模式或图标网格。登录区说明和入口文字允许随字号、宽度换行，内容可滚动并预留底栏空间。
 
 关于入口进入独立简洁页面，复用设置页同一段应用说明并显示真实构建版本。登录和设置保留原路由，不修改显示偏好。
 
@@ -29,6 +29,8 @@ GuestProfileUiTest 四项覆盖登录、设置和关于各自回调、无收藏�
 首轮测试以 TextLayoutResult.hasVisualOverflow 判定宽度失败，但截图中文字完整，诊断结果是语义接口保留720px段落可用宽、实际文字布局290px；改为检查每行实际 getLineRight、是否省略和高度。测试外层 Surface 的最小约束也让初版280dp窗口铺满屏幕，增加松约束外层 Box 后截图确认为840×1260px，并重新通过全部回归；这两项是夹具修正，不以放宽字号或扩大产品窗口绕过问题。首轮和诊断记录为 artifacts/guest-profile-device.txt、artifacts/guest-profile-overflow-device.txt。
 
 135项 JVM 测试通过，Debug 与测试 APK 构建成功，Lint 0错误、30条原有警告与1条提示；见 artifacts/guest-profile-final-build.txt、artifacts/guest-profile-final-lint.txt。已查看浅色、深色窄屏130%截图，以及真实应用 artifacts/guest-profile-live.png 和 guest-profile-live-about.png。真机关于入口进入独立页面，返回恢复未登录“我的”；未修改用户显示偏好，未使用真实账号声称登录后的数据验收。测试截图中按压涟漪是瞬间状态，静态外观以真实应用截图为准。
+
+移除右上设置、恢复 slogan 并增加关于行版本号后，GuestProfileUiTest 四项再次通过（6.101秒），额外检查唯一的界面设置入口、版本号完整布局及窄屏 slogan 可滚动到达。135项 JVM 测试和 Lint 再次通过；记录为 artifacts/guest-profile-polish-device.txt、artifacts/guest-profile-polish-build.txt。已查看浅色静态真机截图 guest-profile-polish-live.png 以及深色130%窄屏截图 guest-profile-polish-dark-narrow-large.png，版本号和箭头相邻、长说明可换行。
 
 ## Consequences
 

@@ -113,15 +113,8 @@ fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookma
 
 @Composable
 private fun GuestProfileScreen(login: () -> Unit, settings: () -> Unit, about: () -> Unit) {
-    Column(Modifier.fillMaxSize().semantics { paneTitle = "我的" }.testTag("guest-profile")) {
-        Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 8.dp).heightIn(min = 48.dp),
-            horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(48.dp).clip(RoundedCornerShape(50))
-                .clickable(role = Role.Button, onClick = settings), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Settings, "设置", Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp),
+    Column(Modifier.fillMaxSize().statusBarsPadding().semantics { paneTitle = "我的" }.testTag("guest-profile")) {
+        LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 16.dp, bottom = 112.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
@@ -140,15 +133,20 @@ private fun GuestProfileScreen(login: () -> Unit, settings: () -> Unit, about: (
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)) {
                     GuestMenuRow(Icons.Rounded.Palette, "界面与显示", "主题、字号与液态玻璃", settings)
                     HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    GuestMenuRow(Icons.Rounded.Info, "关于酷DO", "一个用心的 Linux.do 原生客户端", about)
+                    GuestMenuRow(Icons.Rounded.Info, "关于酷DO", "一个用心的 Linux.do 原生客户端", about, value = BuildConfig.VERSION_NAME)
                 }
+            }
+            item {
+                Text("真诚 · 友善 · 团结 · 专业", Modifier.fillMaxWidth().padding(18.dp),
+                    style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-private fun GuestMenuRow(icon: ImageVector, title: String, subtitle: String, click: () -> Unit) {
+private fun GuestMenuRow(icon: ImageVector, title: String, subtitle: String, click: () -> Unit, value: String? = null) {
     Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = click)
         .heightIn(min = 72.dp).padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -157,7 +155,10 @@ private fun GuestMenuRow(icon: ImageVector, title: String, subtitle: String, cli
             Text(title, fontSize = 15.sp, lineHeight = 22.sp, color = MaterialTheme.colorScheme.onSurface)
             Text(subtitle, fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (value != null) Text(value, fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Rounded.ChevronRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.outline)
+        }
     }
 }
 
