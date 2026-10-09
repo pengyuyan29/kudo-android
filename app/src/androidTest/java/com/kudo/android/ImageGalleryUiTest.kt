@@ -38,6 +38,7 @@ import coil3.request.Options
 import coil3.request.SuccessResult
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.TopicCard
+import com.kudo.android.ui.components.imageAspectLabel
 import com.kudo.android.ui.theme.KudoTheme
 import com.kudo.android.ui.topic.*
 import okio.Buffer
@@ -169,6 +170,49 @@ class ImageGalleryUiTest {
         compose.waitUntil(5_000) { loaded.contains("https://gallery.test/tall.png") }
         compose.onNodeWithTag("article-image-article-0").assertHeightIsEqualTo(300.dp).assertWidthIsEqualTo(60.dp)
         compose.onNodeWithText("下一条内容").assertIsDisplayed()
+    }
+
+    @Test fun listBadgeFollowsTheActualCurrentPictureAndOpensItsAlbum() {
+        val wide = ArticleBlock.Image("https://gallery.test/wide.png", "宽图示例", 1688f / 339f)
+        val tall = ArticleBlock.Image("https://gallery.test/tall.png", "长图示例", 0.2f)
+        val album = listOf(wide, tall, pictures.first())
+        val topic = Topic(9, "形状角标测试", "", author, 1, emptyList(), 0, 0, 0, wide.url, "2026-10-09T00:00:00Z")
+        var topicOpens = 0
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+            ImageGalleryHost({ album }, {}) {
+                Column(Modifier.fillMaxSize().statusBarsPadding().padding(8.dp)) {
+                    TopicCard(topic, null, { topicOpens++ }, {})
+                }
+            }
+        } }
+        compose.waitUntil(5_000) { loaded.contains(wide.url) }
+        val badge = compose.onNodeWithText("宽图", useUnmergedTree = true).assertIsDisplayed()
+        val previewBounds = compose.onNodeWithTag("topic-image-9").fetchSemanticsNode().boundsInRoot
+        val badgeBounds = compose.onNodeWithTag("image-aspect-badge", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val inset = with(compose.density) { 6.dp.toPx() }
+        assertEquals(previewBounds.right - inset, badgeBounds.right, 1f)
+        assertEquals(previewBounds.bottom - inset, badgeBounds.bottom, 1f)
+        badge.performTouchInput { click() }
+        compose.onNodeWithText("1 / 3").assertIsDisplayed()
+        compose.onNodeWithTag("image-pager").performTouchInput { swipeLeft(durationMillis = 500) }
+        compose.onNodeWithTag("gallery-page-1").performTouchInput { click() }
+        compose.onNodeWithText("长图", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("宽图", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("长图", useUnmergedTree = true).performTouchInput { click() }
+        compose.onNodeWithText("2 / 3").assertIsDisplayed()
+        compose.onNodeWithTag("image-pager").performTouchInput { swipeLeft(durationMillis = 500) }
+        compose.onNodeWithTag("gallery-page-2").performTouchInput { click() }
+        compose.onNodeWithText("长图", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("宽图", useUnmergedTree = true).assertDoesNotExist()
+        compose.runOnIdle { assertEquals(0, topicOpens) }
+    }
+
+    @Test fun aspectBadgesRecognizeThresholdsWithoutLabelingInvalidOrOrdinaryImages() {
+        assertEquals("宽图", imageAspectLabel(3f))
+        assertEquals("长图", imageAspectLabel(1f / 3f))
+        listOf(null, Float.NaN, Float.POSITIVE_INFINITY, 0f, -1f, 1f, 2.999f, 0.334f).forEach {
+            assertNull("不能给未知、非法或普通比例 $it 加标识", imageAspectLabel(it))
+        }
     }
 
     @Test fun postPagerClosesToThirdImageAboveTheBottomActions() {

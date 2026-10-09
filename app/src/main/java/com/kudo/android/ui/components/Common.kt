@@ -110,6 +110,7 @@ private fun TopicPreviewImage(topicId: Int, url: String, openTopic: () -> Unit) 
     val gallery = LocalImageGallery.current
     val origin = rememberSaveable { UUID.randomUUID().toString() }
     var preview by rememberSaveable(topicId, url, stateSaver = GalleryImageSaver) { mutableStateOf(ArticleBlock.Image(url, "话题图片")) }
+    var decodedRatio by remember(preview.url) { mutableStateOf<Float?>(null) }
     val anchor = remember { GalleryThumbnailAnchor().apply { contentScale = ContentScale.Crop } }
     val radius = with(LocalDensity.current) { 10.dp.toPx() }
     SideEffect { anchor.cornerRadius = radius }
@@ -121,12 +122,39 @@ private fun TopicPreviewImage(topicId: Int, url: String, openTopic: () -> Unit) 
         withFrameNanos { }
         anchor
     }
-    AsyncImage(preview.url, "话题图片，点击放大", Modifier.fillMaxWidth().heightIn(max = 190.dp).aspectRatio(1.9f)
+    Box(Modifier.fillMaxWidth().heightIn(max = 190.dp).aspectRatio(1.9f)
         .bringIntoViewRequester(anchor.requester).onGloballyPositioned { anchor.coordinates = it }
         .graphicsLayer { alpha = if (gallery?.hiddenAnchor === anchor) 0f else 1f }
         .testTag("topic-image-$topicId").clip(RoundedCornerShape(10.dp)).clickable {
             if (gallery == null) openTopic() else gallery.open(listOf(preview), 0, origin, anchor, topicId)
-        }, contentScale = ContentScale.Crop, onSuccess = { anchor.painter = it.painter })
+        }) {
+        AsyncImage(preview.url, "话题图片，点击放大", Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
+            onSuccess = {
+                val decoded = it.result.image
+                if (decoded.width > 0 && decoded.height > 0) decodedRatio = decoded.width.toFloat() / decoded.height
+                anchor.painter = it.painter
+            })
+        ImageAspectBadge(decodedRatio ?: preview.ratio)
+    }
+}
+
+internal fun imageAspectLabel(ratio: Float?): String? = when {
+    ratio == null || !ratio.isFinite() || ratio <= 0f -> null
+    ratio >= 3f -> "宽图"
+    ratio <= 1f / 3f -> "长图"
+    else -> null
+}
+
+@Composable
+internal fun BoxScope.ImageAspectBadge(ratio: Float?) {
+    val label = imageAspectLabel(ratio) ?: return
+    Box(Modifier.matchParentSize().padding(6.dp)) {
+        Text(label, Modifier.align(Alignment.BottomEnd).testTag("image-aspect-badge")
+            .background(Color(0xFF008F72).copy(alpha = 0.78f), RoundedCornerShape(2.dp))
+            .padding(horizontal = 4.dp, vertical = 1.dp),
+            color = Color.White, fontSize = 12.sp, lineHeight = 16.sp,
+            style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
+    }
 }
 
 @Composable
