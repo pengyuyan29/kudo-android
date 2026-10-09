@@ -16,6 +16,8 @@ AccountViewModel 通过 /session/current.json 确认用户，LoginScreen 提供 
 
 设置页持久化主题、材质和字号，并解释兼容材质。个人主页显示实际账号资料。
 
+已登录个人中心的“我的话题”使用 /topics/created-by/{username}.json，仅列出自己创建的话题，不混用 /posted 的参与记录；浏览历史使用 /read.json。私信独立提供收件箱、已发送、归档，分别使用 private-messages、private-messages-sent、private-messages-archive。原生列表遵循服务端 more_topics_url，复用用户选择的信息流或标题样式；账号参与 ViewModel 身份，切换信箱取消旧请求并核验请求代次。界面继续按[个人中心功能](../../proposed/feature/2026-10-10-member-account-dashboard.md)补齐。
+
 未登录“我的”的页面层级由[酷安式未登录个人中心](2026-10-10-guest-account-layout.md)接管：白色登录区和两条菜单行，关于入口使用独立页面；登录后的资料和会话契约继续成立。
 
 EditorViewModel 按用户 id、话题和回复楼层隔离持久草稿。上传限制 10 MB 和明确图片 MIME 类型，成功后插入 Markdown。发送期间禁止再次发送；未知网络结果不重试，草稿保留，返回待审核则明确提示。只有服务端确认接收才删除草稿。

@@ -152,15 +152,12 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                             when (destination) {
                                                 AccountDestination.BOOKMARKS -> nav.navigate("bookmarks")
                                                 AccountDestination.TRUST -> openWebPage("https://connect.linux.do/")
-                                                AccountDestination.TOPICS -> openWebPage("https://linux.do/u/$username/activity/topics")
+                                                AccountDestination.TOPICS, AccountDestination.HISTORY, AccountDestination.MESSAGES -> nav.navigate("personal/${destination.name}")
                                                 AccountDestination.DRAFTS -> openWebPage("https://linux.do/u/$username/activity/drafts")
-                                                AccountDestination.HISTORY -> openWebPage("https://linux.do/u/$username/activity/read")
-                                                AccountDestination.MESSAGES -> openWebPage("https://linux.do/u/$username/messages")
                                                 AccountDestination.CHAT -> openWebPage("https://linux.do/chat")
                                                 AccountDestination.PENDING -> openWebPage("https://linux.do/u/$username/activity/pending")
                                                 AccountDestination.BADGES -> openWebPage("https://linux.do/u/$username/badges")
                                                 AccountDestination.INVITES -> openWebPage("https://linux.do/u/$username/invited/pending")
-                                                AccountDestination.SITES -> openWebPage("https://linux.do/links")
                                             }
                                         }, statusBarStyle = { darkStatusIcons = it })
                                 }
@@ -182,6 +179,15 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val vm = model("search") { SearchViewModel(app.repository) }
                         val state by vm.state.collectAsStateWithLifecycle()
                         SearchScreen(state, vm::search, { nav.popBackStack() }, { topic(it) }, ::user, ::login, listStyle = display.topicListStyle)
+                    }
+                    composable("personal/{destination}") { entry ->
+                        val member = account.user
+                        val destination = AccountDestination.entries.firstOrNull { it.name == entry.arguments?.getString("destination") }
+                        if (member != null && destination != null) {
+                            val vm = model("personal-${member.id}-$destination") { PersonalTopicsViewModel(app.repository, member.username, destination) }
+                            PersonalTopicsScreen(vm, account.categories, display.topicListStyle, { nav.popBackStack() }, ::login, ::topic, ::user,
+                                { openWebPage("https://linux.do/new-message") })
+                        } else Column { AccountPageTopBar("个人内容", { nav.popBackStack() }); EmptyState("登录后查看", "登录后查看自己的社区内容。", actionLabel = "登录", action = ::login) }
                     }
                     composable("web?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry ->
                         WebScreen(entry.arguments!!.getString("url")!!, { nav.popBackStack() }, ::openBrowser)

@@ -18,5 +18,20 @@ suspend fun CommunityRepository.userSummary(username: String): UserSummary {
 enum class AccountDestination(val title: String) {
     TOPICS("我的话题"), BOOKMARKS("我的收藏"), DRAFTS("我的草稿"), HISTORY("浏览历史"),
     MESSAGES("私信"), CHAT("聊天"), PENDING("我的待审核"), BADGES("我的徽章"),
-    TRUST("等级要求"), INVITES("邀请链接"), SITES("社区导航")
+    TRUST("等级要求"), INVITES("邀请链接")
+}
+
+suspend fun CommunityRepository.personalTopics(username: String, destination: AccountDestination,
+    next: String? = null, mailbox: String = "inbox"): TopicPage {
+    require(destination in setOf(AccountDestination.TOPICS, AccountDestination.HISTORY, AccountDestination.MESSAGES))
+    require(mailbox in setOf("inbox", "sent", "archive"))
+    val path = when (destination) {
+        AccountDestination.TOPICS -> client.baseUrl.newBuilder().addPathSegment("topics")
+            .addPathSegment("created-by").addPathSegment("$username.json").build().toString()
+        AccountDestination.HISTORY -> "/read.json"
+        else -> client.baseUrl.newBuilder().addPathSegment("topics")
+            .addPathSegment(when (mailbox) { "sent" -> "private-messages-sent"; "archive" -> "private-messages-archive"; else -> "private-messages" })
+            .addPathSegment("$username.json").build().toString()
+    }
+    return DiscourseParser.topicPage(client.get(next ?: path))
 }

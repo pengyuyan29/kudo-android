@@ -132,7 +132,7 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
             Column(Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface)) {
                 val entries = listOf(AccountDestination.MESSAGES, AccountDestination.CHAT, AccountDestination.PENDING,
                     AccountDestination.BADGES, AccountDestination.TRUST) +
-                    (if (member.trustLevel >= 3) listOf(AccountDestination.INVITES) else emptyList()) + AccountDestination.SITES
+                    (if (member.trustLevel >= 3) listOf(AccountDestination.INVITES) else emptyList())
                 entries.forEach { entry ->
                     val (icon, color) = destinationIcon(entry)
                     CompactAccountRow(icon, color, entry.title, { destination(entry) })
@@ -173,5 +173,4 @@ private fun destinationIcon(entry: AccountDestination): Pair<ImageVector, Color>
     AccountDestination.BADGES -> Icons.Rounded.WorkspacePremium to Color(0xFFDC9C32)
     AccountDestination.TRUST -> Icons.Rounded.VerifiedUser to Color(0xFF57A16D)
     AccountDestination.INVITES -> Icons.Rounded.Link to Color(0xFF419FB8)
-    AccountDestination.SITES -> Icons.Rounded.Explore to Color(0xFFE08854)
 }
