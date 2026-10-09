@@ -120,14 +120,15 @@ internal fun TopicBottomBar(
             surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
             contentColor = MaterialTheme.colorScheme.onSurface, contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start),
-            modifier = Modifier.weight(1f).testTag("topic-reply")) {
+            modifier = Modifier.testTag("topic-reply")) {
             Icon(Icons.Outlined.DriveFileRenameOutline, null, Modifier.size(20.dp))
             Text("写回复", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Normal, maxLines = 1)
         }
+        Spacer(Modifier.weight(1f))
         LiquidButton(onClick = null, backdrop = backdrop, mode = glass,
             surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
             contentPadding = PaddingValues(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier.weight(1.32f).testTag("topic-actions")) {
+            modifier = Modifier.testTag("topic-actions")) {
             TopicReactionButton(first, available && (state.viewerId == null || first?.canReact == true),
                 choose = if (first?.reactionsAvailable == true && detail.validReactions.isNotEmpty()) ({ choose(first) }) else null,
                 click = { first?.let(like) }, bottom = true)
