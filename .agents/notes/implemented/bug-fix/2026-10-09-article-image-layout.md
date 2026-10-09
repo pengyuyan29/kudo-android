@@ -10,6 +10,8 @@ Status: implemented
 
 图片块分别保留缩略图、原图、有效比例及 lightbox 附件信息。正文与回复用真实比例布局，预览高度最多 300dp；宽度取内容可用宽度与 `300dp × 图片比例` 的较小值，图片靠左，超高时宽高一起缩小。尺寸缺失时由解码结果补齐；不设图片最小高度，不通过 Crop 隐藏留白。相册来源记录缩小后的真实图片矩形，点击仍打开完整原图。只剔除 lightbox 的自动元信息，保留用户图注、正文和行内表情。
 
+图片预览优先选用站点 `srcset` 中最高有效密度的 HTTPS 候选，没有合法候选时使用 `src`。支持 Discourse 的 `x` 描述符与有有效 HTML 宽度时的 `w` 描述符；无描述符按 1x 处理，无效、非正数和不安全地址忽略。原图仍来自 lightbox href，缺失时保留原 src；不会把更清晰的缩略图误作完整附件。Coil 按最终布局尺寸采样，不为正文直接下载超大原图。
+
 ## Existing note audit
 
 - [行内表情](../../implemented/bug-fix/2026-10-09-inline-emoji-images.md)：部分重叠，继续将 emoji 与普通图片分开，不修改表情排版。
@@ -22,12 +24,15 @@ Status: implemented
 
 - 保持比例限制并改用 Crop：布局高度稳定，容易移除灰边；会裁掉用户截图，正文按真实比例展示。
 - 只限高并保留满宽 Fit 容器：改动少，能压住楼层高度；两侧空白会让图片来源矩形和后续角标偏离真正的图片，采用宽高同步缩小的容器。
+- 所有预览直接加载原图：清晰度最高且取源简单；4 楼原图为 1600×8828、1.13MB，而 180×1000 的站点预览足够覆盖真机 300dp 高的显示区域，使用站点预览节省下载和解码成本。
 - 删除所有名为 meta 的节点：过滤简单；会误删普通正文中同名结构，只识别 lightbox 自动信息。
 - 正文继续显示附件信息：无需新增查看入口；用户明确要求精简阅读区，信息迁到大图菜单。
 
 ## Verification
 
-限高复现的两项真机测试先失败：有尺寸和无尺寸的长图分别被撑高到 1640dp、1800dp，日志 artifacts/image-preview-height-repro.txt。修复后 ImageGalleryUiTest 的 16 项全部通过（31.303 秒），长图变为 60×300dp、靠左、下方内容可见，点击仍交付原图；图片翻页、缩放、返回目标及动画像素回归通过，日志 image-preview-height-fixed.txt。93 项 JVM 测试通过，日志 image-preview-height-build.txt。只读核查确认话题 847468 的第 4 楼原图为 1600×8828、src 为 90×500，证据保存在 image-preview-source.json；这次限高先修复过度放大，预览分辨率随后独立处理。
+限高复现的两项真机测试先失败：有尺寸和无尺寸的长图分别被撑高到 1640dp、1800dp，日志 artifacts/image-preview-height-repro.txt。修复后 ImageGalleryUiTest 的 16 项全部通过（31.303 秒），长图变为 60×300dp、靠左、下方内容可见，点击仍交付原图；图片翻页、缩放、返回目标及动画像素回归通过，日志 image-preview-height-fixed.txt。93 项 JVM 测试通过，日志 image-preview-height-build.txt。只读核查确认话题 847468 的第 4 楼原图为 1600×8828、src 为 90×500，证据保存在 image-preview-source.json。
+
+预览分辨率的三项复现先失败，日志 image-preview-resolution-repro.txt；接入 srcset 后，17 项解析、6 项相册状态、3 项来源几何测试通过，日志 image-preview-resolution-fixed.txt。覆盖 90×500 到 180×1000 的实际站点结构、HTTPS 筛选、非法描述符、w 候选与低密度不降级。实际 CDN 两张缩略图均成功读取，分别为 20536 / 70243 字节；原图地址保持独立。
 
 1688×339比例及lightbox信息泄露两项先失败，日志 artifacts/image-layout-repro.txt；修复后ContentParserTest的14项通过，日志 image-layout-fixed.txt。覆盖横图、长图、缺失/非法尺寸、原图HTTPS边界、嵌套附件信息与图注/emoji混排。
 
@@ -35,4 +40,4 @@ Status: implemented
 
 ## Consequences
 
-正文完整呈现横图与长图，附件信息不再占用阅读空间。预览高度不超过 300dp，超长图片会变窄，细节阅读依赖点击原图放大。尺寸缺失时首次解码可能触发布局调整。图片初次读取仍受网络与站点权限影响。
+正文完整呈现横图与长图，附件信息不再占用阅读空间。预览高度不超过 300dp，超长图片会变窄，细节阅读依赖点击原图放大。更清晰的站点预览会增加下载字节数；最高密度仍受站点提供的资源约束，Coil 不会凭空恢复原始像素。尺寸缺失时首次解码可能触发布局调整。图片初次读取仍受网络与站点权限影响。

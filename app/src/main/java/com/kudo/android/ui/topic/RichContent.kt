@@ -56,6 +56,29 @@ sealed interface ArticleBlock {
     data object Rule : ArticleBlock
 }
 
+private fun previewSource(element: Element, fallback: String): String {
+    val width = element.attr("width").toFloatOrNull()?.takeIf { it.isFinite() && it > 0 }
+    var bestUrl = fallback
+    var bestDensity = 1f
+    element.attr("srcset").split(',').forEach { candidate ->
+        val parts = candidate.trim().split(Regex("\\s+"))
+        if (parts.size !in 1..2) return@forEach
+        val url = mediaUrl(parts[0]) ?: return@forEach
+        val descriptor = parts.getOrNull(1)
+        val density = when {
+            descriptor == null -> 1f
+            descriptor.endsWith('x') -> descriptor.dropLast(1).toFloatOrNull()
+            descriptor.endsWith('w') && width != null -> descriptor.dropLast(1).toIntOrNull()?.div(width)
+            else -> null
+        } ?: return@forEach
+        if (density.isFinite() && density > bestDensity) {
+            bestUrl = url
+            bestDensity = density
+        }
+    }
+    return bestUrl
+}
+
 fun parseArticle(html: String): List<ArticleBlock> {
     val result = mutableListOf<ArticleBlock>()
     fun walk(element: Element, quote: Boolean = false) {
@@ -78,7 +101,7 @@ fun parseArticle(html: String): List<ArticleBlock> {
                     val ratio = if (width != null && height != null && width > 0 && height > 0) {
                         (width / height).takeIf { it.isFinite() && it > 0 }
                     } else null
-                    result.add(ArticleBlock.Image(url, element.attr("alt"), ratio,
+                    result.add(ArticleBlock.Image(previewSource(element, url), element.attr("alt"), ratio,
                         originalUrl = lightbox?.attr("href")?.let(::mediaUrl) ?: url,
                         filename = metadata?.selectFirst(".filename")?.text().orEmpty(),
                         dimensions = dimensions, sizeLabel = information.removePrefix(dimensions).trim()))

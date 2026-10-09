@@ -110,4 +110,26 @@ println(x)</code></pre><p><img src="/uploads/image.png" width="800" height="600"
         assertTrue(text.contains("class=\"emoji\""))
         assertEquals("https://linux.do/safe.png", blocks.filterIsInstance<ArticleBlock.Image>().single().originalUrl)
     }
+
+    @Test fun longReplyUsesTheSharpestSitePreviewAndRetainsTheFullAttachment() {
+        val image = parseArticle("""<a class="lightbox" href="https://cdn.test/original.jpeg"><img src="https://cdn.test/90x500.jpeg" width="90" height="500" srcset="https://cdn.test/90x500.jpeg, https://cdn.test/135x750.jpeg 1.5x, https://cdn.test/180x1000.jpeg 2x"></a>""").single() as ArticleBlock.Image
+        assertEquals("不能继续拉伸最低清晰度的90×500缩略图", "https://cdn.test/180x1000.jpeg", image.url)
+        assertEquals("https://cdn.test/original.jpeg", image.originalUrl)
+        assertEquals(90f / 500f, requireNotNull(image.ratio), 0.0001f)
+    }
+
+    @Test fun previewCandidatesIgnoreInsecureAndInvalidDescriptorsAndKeepFallbackOriginal() {
+        val image = parseArticle("""<img src="/base.png" width="100" height="500" srcset="http://insecure.test/4.png 4x, javascript:alert(1) 9x, /zero.png 0x, /invalid.png NaNx, /negative.png -1x, /sharp.png 2x, /infinite.png Infinityx, /malformed.png 3x extra">""").single() as ArticleBlock.Image
+        assertEquals("https://linux.do/sharp.png", image.url)
+        assertEquals("https://linux.do/base.png", image.originalUrl)
+        val fallback = parseArticle("""<img src="/base.png" srcset="http://insecure.test/a.png 2x, /bad.png zero">""").single() as ArticleBlock.Image
+        assertEquals("https://linux.do/base.png", fallback.url)
+    }
+
+    @Test fun widthDescriptorsUseTheDeclaredWidthAndLowDensityCannotDowngradeTheSource() {
+        val sharp = parseArticle("""<img src="/base.png" width="200" height="1000" srcset="/large.png 400w, /medium.png 300w">""").single() as ArticleBlock.Image
+        assertEquals("https://linux.do/large.png", sharp.url)
+        val small = parseArticle("""<img src="/base.png" width="200" height="1000" srcset="/small.png 100w, /low.png 0.5x">""").single() as ArticleBlock.Image
+        assertEquals("https://linux.do/base.png", small.url)
+    }
 }
