@@ -28,6 +28,9 @@ class DeepLinkUiTest {
             NavHost(nav, "root") {
                 composable("root") { Text("首页") }
                 composable("user/{username}") { Text("用户：${it.arguments!!.getString("username")}") }
+                composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) {
+                    Text("分类：${it.arguments!!.getInt("id")}")
+                }
                 composable("topic/{id}?post={post}", arguments = listOf(navArgument("id") { type = NavType.IntType },
                     navArgument("post") { type = NavType.IntType; defaultValue = 0 })) {
                     Text("帖子：${it.arguments!!.getInt("id")} 楼层：${it.arguments!!.getInt("post")}")
@@ -61,6 +64,8 @@ class DeepLinkUiTest {
         open("https://linux.do/t/topic/3001000")
         compose.onNodeWithText("帖子：3001000 楼层：0").assertIsDisplayed()
         open("https://linux.do/c/4")
-        compose.onNodeWithText("首页").assertIsDisplayed()
+        compose.onNodeWithText("分类：4").assertIsDisplayed()
+        compose.runOnIdle { nav.popBackStack() }
+        compose.onNodeWithText("帖子：3001000 楼层：0").assertIsDisplayed()
     }
 }

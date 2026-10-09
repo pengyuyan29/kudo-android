@@ -5,6 +5,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 sealed interface LinuxDoDestination {
     data class Topic(val id: Int, val number: Int? = null) : LinuxDoDestination
     data class User(val username: String) : LinuxDoDestination
+    data class Category(val id: Int) : LinuxDoDestination
     data object Home : LinuxDoDestination
 }
 
@@ -26,6 +27,9 @@ object LinuxDoLink {
             "u" -> path.getOrNull(1)?.takeIf {
                 it.matches(Regex("[\\p{L}\\p{N}_-][\\p{L}\\p{N}_.-]*"))
             }?.let(LinuxDoDestination::User) ?: LinuxDoDestination.Home
+            "c" -> path.lastOrNull()?.toIntOrNull()?.takeIf { id ->
+                id > 0 && path.size >= 2 && path.drop(1).dropLast(1).all { it.isNotBlank() }
+            }?.let(LinuxDoDestination::Category) ?: LinuxDoDestination.Home
             else -> LinuxDoDestination.Home
         }
     }

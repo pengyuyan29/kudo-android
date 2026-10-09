@@ -8,7 +8,7 @@ Status: implemented
 
 ## Decision
 
-同源 HTTP(S) 链接解析为帖子、用户、首页三种目标；解析与 Android 导航分离。帖子保留 /t/id 兼容，并支持 /t/slug/id/number；用户路径忽略用户名后的子路径。每次新 Intent 作为独立事件消费，重建后不重放已消费地址。其他站内地址清回首页并选中首页页签，非站内地址不参与路由。显式浏览器动作使用浏览器包名避免自身回环。
+同源 HTTP(S) 链接解析为帖子、用户、分类、首页四种目标；解析与 Android 导航分离。帖子保留 /t/id 兼容，并支持 /t/slug/id/number；用户路径忽略用户名后的子路径；分类支持 /c/id、/c/slug/id 和嵌套 slug 后的有效 ID。每次新 Intent 作为独立事件消费，重建后不重放已消费地址。其他系统传入的站内地址清回首页并选中首页页签，非站内地址不参与路由。显式浏览器动作使用浏览器包名避免自身回环。
 
 正文普通文字链接与 onebox 共用传入的 onLink 回调。Compose 的 LinkAnnotation.Url 默认使用 LocalUriHandler，RichContent 在正文范围提供自己的 UriHandler，避免文字链接绕过应用路由；回调重组时随之更新。文本仍保留选择、链接语义和样式，显式“浏览器打开”继续使用独立浏览器动作。
 
@@ -23,6 +23,8 @@ Status: implemented
 - 继续让文字链接使用系统 UriHandler：无需自定义处理，但未关联域名时打开浏览器，且与 onebox 行为不一致。正文范围提供 UriHandler，复用现有链接分流并保留 Compose 链接交互。
 
 ## Verification
+
+分类链接先由 LinuxDoLinkTest 新用例复现错误回到 Home，日志 artifacts/category-link-repro.txt；修复后精确断言分类 ID，DeepLinkUiTest 同时更新为分类入栈及返回原话题。新增分类改动纳入应用内网页的集中真机回归。
 
 LinuxDoLinkTest 的4项测试通过，覆盖 slug、楼层、用户子路径、无效 ID、查询参数及非本站来源。DeepLinkUiTest 的2项真机用例直接调用生产 IncomingLinuxDoLink 与导航 helper，验证初次消费、返回后同址再开、用户子路径及首页页签回退；它们不声称验证 Activity Intent 生命周期。第8楼滚动由 TopicPresentationUiTest 的实际详情列表验证，截图 presentation-floor-eight 已查看。
 

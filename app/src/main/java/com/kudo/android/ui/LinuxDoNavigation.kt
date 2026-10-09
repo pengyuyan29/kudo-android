@@ -9,6 +9,7 @@ internal fun NavHostController.openLinuxDoDestination(target: LinuxDoDestination
     when (target) {
         is LinuxDoDestination.Topic -> navigate("topic/${target.id}?post=${target.number ?: 0}") { launchSingleTop = true }
         is LinuxDoDestination.User -> navigate("user/${Uri.encode(target.username)}") { launchSingleTop = true }
+        is LinuxDoDestination.Category -> navigate("category/${target.id}") { launchSingleTop = true }
         LinuxDoDestination.Home -> { home(); popBackStack("root", false) }
     }
 }

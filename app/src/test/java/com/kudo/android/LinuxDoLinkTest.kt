@@ -21,11 +21,20 @@ class LinuxDoLinkTest {
     }
 
     @Test fun otherSitePathsAndMalformedTargetsGoHome() {
-        listOf("/", "/latest", "/c/4", "/u/", "/t/topic/0", "/t/topic/999999999999",
+        listOf("/", "/latest", "/u/", "/t/topic/0", "/t/topic/999999999999",
             "/t/topic/12/0", "/t/topic/12/nope", "/t/topic/12/8/extra").forEach {
             assertEquals(it, Home, LinuxDoLink.parse("https://linux.do$it"))
         }
         assertEquals(Home, LinuxDoLink.parse("http://linux.do/latest"))
+    }
+
+    @Test fun categoriesAcceptNumericSlugAndNestedPaths() {
+        listOf("/c/4", "/c/develop/4/", "/c/parent/develop/4?order=latest").forEach {
+            assertEquals(it, Category(4), LinuxDoLink.parse("https://linux.do$it"))
+        }
+        listOf("/c/0", "/c/develop/999999999999", "/c/develop/4/l/latest").forEach {
+            assertEquals(it, Home, LinuxDoLink.parse("https://linux.do$it"))
+        }
     }
 
     @Test fun unrelatedOriginsAndEncodedSlashesAreNotRoutedAsProfiles() {
