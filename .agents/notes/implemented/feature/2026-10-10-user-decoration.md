@@ -30,6 +30,10 @@ Post 读取 user_signature（图片 URL 或 cooked HTML），Member 读取 profi
 
 首轮动画断言将绿色 #43a047 的亮度阈值误设为0.7，修正为颜色主通道差值后通过，未更改产品解码器。新增签名 HTML 截图放在暂停前，使用 Compose 内容截图避开 Android CLI 持有 UiAutomationService 的冲突；调整后独立重跑通过，日志 artifacts/signature-compose-capture-device.txt。已查看 user-signature-animated.png 和 profile-card-background.png。账号响应隔离由按账号重建的取消作用域与响应身份校验守住，未使用真实账号切换声称网络端验收。
 
+个人中心收尾回归通过151项JVM测试和21项真机用例（artifacts/member-account-final-checks.txt、artifacts/member-account-final-device.txt），其中 AvatarUiTest 验证标题图加载后切换白色图标，MemberHeaderStatusUiTest 验证标题底部离开状态栏时恢复主题。真实账号截图 artifacts/member-account-live-profile.png 确认资料标题图延伸至状态栏且图标清晰。
+
 ## Consequences
+
+沉浸式标题滚动时，以标题底部是否覆盖状态栏高度决定图标前景，不能只检查第一个可见列表项。组合阶段读取派生的覆盖状态和图片载入状态，随后由 SideEffect 写出，避免只在副作用读取状态导致滚动不触发重组。真机用例先复现标题剩余半个状态栏高度仍保留覆盖颜色（artifacts/member-statusbar-repro.txt），随后使用实际标题偏移、尺寸与状态栏 inset 修复。
 
 原生签名支持内容子集，不复刻网页主题 CSS。远程图片失败时回退；资料补齐失败不能影响登录和现有个人信息。

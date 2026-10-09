@@ -273,18 +273,20 @@ class AvatarUiTest {
     }
 
     @Test fun memberHeaderUsesProfileTitleAndBrokenBackgroundFallsBack() {
+        var headerStyle: Boolean? = null
         var current by mutableStateOf(member.copy(cardBackground = "https://avatar.test/card.png", profileBackground = "https://avatar.test/profile.png"))
         var sample by mutableStateOf(false)
         var background by mutableStateOf("https://avatar.test/broken.png")
         var loaded = true
         compose.setContent { Content {
-            if (!sample) ProfileScreen(current, {}, {}, {}, {})
+            if (!sample) ProfileScreen(current, {}, {}, {}, {}, statusBarStyle = { headerStyle = it })
             else UserBackground(background, Color.Yellow, Modifier.size(240.dp).testTag("background-sample")) {
                 SideEffect { loaded = it }
                 Text(if (it) "图片背景" else "默认背景")
             }
         } }
         compose.waitUntil(5000) { rendered.any { it.first.endsWith("profile.png") } }
+        compose.runOnIdle { assertEquals(false, headerStyle) }
         assertFalse(requested.any { it.endsWith("card.png") })
         capture("profile-card-background.png")
         compose.runOnIdle { sample = true }

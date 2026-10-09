@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -61,8 +62,13 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
             }
         }
     }
-    val headerVisible by remember { derivedStateOf { scroll.firstVisibleItemIndex == 0 } }
-    SideEffect { statusBarStyle(if (headerVisible) !backgroundLoaded else null) }
+    val statusInset = WindowInsets.statusBars.getTop(LocalDensity.current)
+    val headerVisible by remember(scroll, statusInset) { derivedStateOf {
+        val header = scroll.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "header" }
+        if (scroll.layoutInfo.visibleItemsInfo.isEmpty()) true else header != null && header.offset + header.size > statusInset
+    } }
+    val requestedStatusStyle = if (headerVisible) !backgroundLoaded else null
+    SideEffect { statusBarStyle(requestedStatusStyle) }
     DisposableEffect(Unit) { onDispose { statusBarStyle(null) } }
     LazyColumn(Modifier.fillMaxSize().testTag("member-profile"), state = scroll,
         contentPadding = PaddingValues(bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
