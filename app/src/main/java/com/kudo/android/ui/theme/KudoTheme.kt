@@ -50,12 +50,12 @@ private val KudoTypography = Typography(
 )
 
 @Composable
-fun KudoTheme(settings: DisplaySettings, content: @Composable () -> Unit) {
+fun KudoTheme(settings: DisplaySettings, darkStatusIcons: Boolean? = null, content: @Composable () -> Unit) {
     val dark = when (settings.theme) { ThemeMode.SYSTEM -> isSystemInDarkTheme(); ThemeMode.LIGHT -> false; ThemeMode.DARK -> true }
     val view = LocalView.current
     SideEffect {
         (view.context as? Activity)?.window?.let {
-            WindowCompat.getInsetsController(it, view).apply { isAppearanceLightStatusBars = !dark; isAppearanceLightNavigationBars = !dark }
+            WindowCompat.getInsetsController(it, view).apply { isAppearanceLightStatusBars = darkStatusIcons ?: !dark; isAppearanceLightNavigationBars = !dark }
         }
     }
     val density = LocalDensity.current

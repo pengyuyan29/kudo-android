@@ -74,7 +74,8 @@ private fun ObserveHomeUpdates(feed: FeedViewModel, user: Member?) {
 @Composable
 fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long = 0L, consumeLink: () -> Unit = {}) {
     val display by app.settings.display.collectAsStateWithLifecycle()
-    KudoTheme(display) {
+    var darkStatusIcons by remember { mutableStateOf<Boolean?>(null) }
+    KudoTheme(display, darkStatusIcons) {
         val account = model("account") { AccountViewModel(app) }
         val nav = rememberNavController()
         val snackbar = remember { SnackbarHostState() }
@@ -145,7 +146,23 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                         categoryContent = { CategoriesScreen(account.categories, account.categoriesLoading, account.categoryError, account::loadCategories, ::login, inHome = true) { nav.navigate("category/${it.id}") } })
                                     1 -> CategoriesScreen(account.categories, account.categoriesLoading, account.categoryError, account::loadCategories, ::login) { nav.navigate("category/${it.id}") }
                                     3 -> NotificationsScreen(account, ::login, ::topic)
-                                    4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) }, repository = app.repository, about = { nav.navigate("about") })
+                                    4 -> ProfileScreen(account.user, ::login, { nav.navigate("settings") }, { nav.navigate("bookmarks") }, { account.user?.username?.let(::user) }, repository = app.repository, about = { nav.navigate("about") },
+                                        destination = { destination ->
+                                            val username = Uri.encode(account.user?.username.orEmpty())
+                                            when (destination) {
+                                                AccountDestination.BOOKMARKS -> nav.navigate("bookmarks")
+                                                AccountDestination.TRUST -> openWebPage("https://connect.linux.do/")
+                                                AccountDestination.TOPICS -> openWebPage("https://linux.do/u/$username/activity/topics")
+                                                AccountDestination.DRAFTS -> openWebPage("https://linux.do/u/$username/activity/drafts")
+                                                AccountDestination.HISTORY -> openWebPage("https://linux.do/u/$username/activity/read")
+                                                AccountDestination.MESSAGES -> openWebPage("https://linux.do/u/$username/messages")
+                                                AccountDestination.CHAT -> openWebPage("https://linux.do/chat")
+                                                AccountDestination.PENDING -> openWebPage("https://linux.do/u/$username/activity/pending")
+                                                AccountDestination.BADGES -> openWebPage("https://linux.do/u/$username/badges")
+                                                AccountDestination.INVITES -> openWebPage("https://linux.do/u/$username/invited/pending")
+                                                AccountDestination.SITES -> openWebPage("https://linux.do/links")
+                                            }
+                                        }, statusBarStyle = { darkStatusIcons = it })
                                 }
                             }
                             GlassNavigation(selected, {

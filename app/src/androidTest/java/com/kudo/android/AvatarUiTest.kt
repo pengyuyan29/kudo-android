@@ -272,7 +272,7 @@ class AvatarUiTest {
         compose.waitUntil(5000) { !running() }
     }
 
-    @Test fun profileCardUsesItsOwnBackgroundAndBrokenBackgroundFallsBack() {
+    @Test fun memberHeaderUsesProfileTitleAndBrokenBackgroundFallsBack() {
         var current by mutableStateOf(member.copy(cardBackground = "https://avatar.test/card.png", profileBackground = "https://avatar.test/profile.png"))
         var sample by mutableStateOf(false)
         var background by mutableStateOf("https://avatar.test/broken.png")
@@ -284,8 +284,8 @@ class AvatarUiTest {
                 Text(if (it) "图片背景" else "默认背景")
             }
         } }
-        compose.waitUntil(5000) { rendered.any { it.first.endsWith("card.png") } }
-        assertFalse(requested.any { it.endsWith("profile.png") })
+        compose.waitUntil(5000) { rendered.any { it.first.endsWith("profile.png") } }
+        assertFalse(requested.any { it.endsWith("card.png") })
         capture("profile-card-background.png")
         compose.runOnIdle { sample = true }
         compose.waitUntil(5000) { requested.any { it.endsWith("broken.png") } }

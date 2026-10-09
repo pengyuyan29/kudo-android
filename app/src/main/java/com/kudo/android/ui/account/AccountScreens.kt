@@ -65,50 +65,15 @@ fun CategoriesScreen(categories: List<Category>, loading: Boolean, error: Throwa
 }
 
 @Composable
-fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookmarks: () -> Unit, profile: () -> Unit, repository: CommunityRepository? = null, about: () -> Unit = settings) {
+fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookmarks: () -> Unit, profile: () -> Unit,
+    repository: CommunityRepository? = null, about: () -> Unit = settings,
+    destination: (AccountDestination) -> Unit = { if (it == AccountDestination.BOOKMARKS) bookmarks() },
+    statusBarStyle: (Boolean?) -> Unit = {}) {
     if (user == null) {
         GuestProfileScreen(login, settings, about)
         return
     }
-    var decoration by remember(user.id, user.username) { mutableStateOf<Member?>(null) }
-    LaunchedEffect(user.id, user.username, repository) {
-        if (repository != null) try {
-            decoration = withContext(Dispatchers.IO) { repository.user(user.username) }
-                .takeIf { it.id == user.id && it.username.equals(user.username, ignoreCase = true) }
-        } catch (e: CancellationException) { throw e } catch (_: Exception) { }
-    }
-    Column {
-        RootHeading("我的") { IconButton(onClick = settings) { Icon(Icons.Rounded.Settings, "设置") } }
-        LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 16.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            item {
-                UserBackground((decoration ?: user).cardBackground, LogoYellow,
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).clickable(onClick = profile)) { hasBackground ->
-                val foreground = if (hasBackground) Color.White else Ink
-                Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Avatar(user, 60.dp, presentation = AvatarPresentation.ACCOUNT)
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(user.displayName, style = MaterialTheme.typography.headlineSmall, color = foreground)
-                            Text("@${user.username}  ·  Lv.${user.trustLevel}", style = MaterialTheme.typography.bodyMedium, color = foreground.copy(alpha = 0.8f))
-                        }
-                        Icon(Icons.Rounded.ChevronRight, null, tint = foreground)
-                    }
-                    Text("查看个人主页  →", style = MaterialTheme.typography.labelLarge, color = foreground)
-                }
-                }
-            }
-            item {
-                Column(Modifier.clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)) {
-                    MenuRow(Icons.Rounded.BookmarkBorder, "我的收藏", "留住值得再次阅读的内容", bookmarks)
-                    HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    MenuRow(Icons.Rounded.Palette, "界面与显示", "主题、字号与液态玻璃", settings)
-                    HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    MenuRow(Icons.Rounded.Info, "关于酷DO", "一个用心的 Linux.do 原生客户端", settings)
-                }
-            }
-            item { Text("真诚 · 友善 · 团结 · 专业", Modifier.fillMaxWidth().padding(18.dp), style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        }
-    }
+    key(user.id, user.username) { MemberProfileScreen(user, repository, settings, about, profile, destination, statusBarStyle) }
 }
 
 @Composable

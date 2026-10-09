@@ -63,7 +63,8 @@ class GuestProfileUiTest {
         compose.onNodeWithTag("guest-profile").assertDoesNotExist()
         compose.onNodeWithText("账号分支测试").assertIsDisplayed()
         compose.onNodeWithText("我的收藏").assertIsDisplayed()
-        compose.onNodeWithText("查看个人主页  →").performClick()
+        compose.onNodeWithText("查看个人主页  →").assertDoesNotExist()
+        compose.onNodeWithTag("member-avatar").performClick()
         compose.runOnIdle { assertEquals(1, profiles); member = null }
         compose.onNodeWithTag("guest-profile").assertIsDisplayed()
         compose.onNodeWithText("我的收藏").assertDoesNotExist()
