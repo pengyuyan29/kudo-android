@@ -45,7 +45,7 @@ internal fun AccountRecordsScreen(destination: AccountDestination, user: Member,
         Column {
             AccountPageTopBar(destination.title, { if (!busy) back() }) {
                 if (destination == AccountDestination.INVITES) CommunityIconButton(Icons.Rounded.Add, "创建邀请链接", { selected = null; sheet.targetState = true })
-                if (destination == AccountDestination.CHAT) CommunityIconButton(Icons.Rounded.AddComment, "发起聊天", { website("https://linux.do/chat/new-message") })
+                if (destination == AccountDestination.CHAT) CommunityIconButton(Icons.Rounded.AddComment, "发起聊天", { selected = null; sheet.targetState = true })
                 CommunityIconButton(Icons.Rounded.Refresh, "刷新", { refresh++ }, enabled = !busy && !loading)
             }
             LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -77,7 +77,7 @@ internal fun AccountRecordsScreen(destination: AccountDestination, user: Member,
                 }
             }
         }
-        CommunitySheet(sheet, if (destination == AccountDestination.INVITES) "创建邀请链接" else "待审核内容",
+        CommunitySheet(sheet, when (destination) { AccountDestination.INVITES -> "创建邀请链接"; AccountDestination.CHAT -> "发起聊天"; else -> "待审核内容" },
             { if (!busy) sheet.targetState = false }, dismissEnabled = !busy, showActions = false) {
             if (destination == AccountDestination.INVITES) {
                 CommunityTextField(description, { description = it }, placeholder = "备注（选填）", enabled = !busy)
@@ -96,6 +96,21 @@ internal fun AccountRecordsScreen(destination: AccountDestination, user: Member,
                         finally { busy = false }
                     }
                 }, enabled = !busy)
+            } else if (destination == AccountDestination.CHAT) {
+                CommunityTextField(email, { email = it }, placeholder = "聊天对象用户名，多个用逗号分隔", enabled = !busy)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                CommunityTextField(description, { description = it }, placeholder = "群聊名称（选填）", enabled = !busy)
+                error?.let { Text(it.message.orEmpty(), fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
+                CommunityButton(if (busy) "正在创建…" else "开始聊天", {
+                    scope.launch {
+                        busy = true; error = null
+                        try {
+                            val id = withContext(Dispatchers.IO) { repository.createChat(email, description) }
+                            sheet.targetState = false; refresh++; channel(id)
+                        } catch (e: CancellationException) { throw e } catch (e: Exception) { error = e }
+                        finally { busy = false }
+                    }
+                }, enabled = !busy && messageRecipients(email).isNotEmpty())
             } else selected?.let { record ->
                 Text(record.title, fontSize = 16.sp)
                 Text(record.body, fontSize = 14.sp)

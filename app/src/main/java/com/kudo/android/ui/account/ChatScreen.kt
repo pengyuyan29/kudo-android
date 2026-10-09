@@ -1,0 +1,121 @@
+package com.kudo.android.ui.account
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import com.kudo.android.data.*
+import com.kudo.android.ui.components.*
+import com.kudo.android.ui.topic.RichContent
+import kotlinx.coroutines.*
+import org.jsoup.nodes.Entities
+
+internal class ChatViewModel(private val repository: CommunityRepository, val channelId: Int) : ViewModel() {
+    var title by mutableStateOf("聊天"); private set
+    var messages by mutableStateOf<List<ChatEntry>>(emptyList()); private set
+    var loading by mutableStateOf(false); private set
+    var morePast by mutableStateOf(false); private set
+    var error by mutableStateOf<Throwable?>(null); private set
+    var sending by mutableStateOf(false); private set
+    private var refreshJob: Job? = null
+    private var loadJob: Job? = null
+    private var generation = 0
+    init {
+        viewModelScope.launch {
+            try { title = withContext(Dispatchers.IO) {
+                val json = repository.client.get("/chat/api/channels/$channelId")
+                (json.optJSONObject("channel") ?: json).text("title").ifBlank { "聊天" }
+            } } catch (e: CancellationException) { throw e } catch (_: Exception) { }
+        }
+    }
+    fun active(value: Boolean) {
+        refreshJob?.cancel(); refreshJob = null
+        if (value) refreshJob = viewModelScope.launch {
+            while (isActive) { if (!loading && !sending) load(); delay(20_000) }
+        }
+    }
+    fun load(past: Boolean = false) {
+        if (loading) return
+        val before = if (past) messages.minOfOrNull { it.id } else null
+        if (past && (before == null || !morePast)) return
+        loading = true; error = null
+        val epoch = ++generation
+        loadJob = viewModelScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) { repository.chatMessages(channelId, before) }
+                if (epoch == generation) {
+                    val updates = result.messages.associateBy { it.id }
+                    messages = (messages.filterNot { it.id in updates } + result.messages).filterNot { it.deleted }.sortedBy { it.id }
+                    if (past || before == null && messages.size <= result.messages.size) morePast = result.morePast
+                }
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { if (epoch == generation) error = e }
+            finally { if (epoch == generation) loading = false }
+        }
+    }
+    fun send(raw: String, accepted: () -> Unit) {
+        if (sending || raw.isBlank()) return
+        sending = true; error = null
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) { repository.sendChat(channelId, raw) }
+                accepted()
+                loadJob?.cancel(); generation++; loading = false; load()
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { error = e }
+            finally { sending = false }
+        }
+    }
+}
+
+@Composable
+internal fun ChatScreen(vm: ChatViewModel, member: Member, settings: AppSettings, back: () -> Unit,
+    login: () -> Unit, website: () -> Unit, link: (String) -> Unit, user: (String) -> Unit) {
+    val draftKey = "${member.id}_chat_${vm.channelId}"
+    var raw by remember(member.id, vm.channelId) { mutableStateOf(settings.draft(draftKey).raw) }
+    val scroll = rememberLazyListState()
+    LifecycleResumeEffect(vm) { vm.active(true); onPauseOrDispose { vm.active(false) } }
+    BackHandler(vm.sending) { }
+    Column(Modifier.fillMaxSize().imePadding()) {
+        AccountPageTopBar(vm.title, { if (!vm.sending) back() }) {
+            CommunityIconButton(Icons.Rounded.Refresh, "刷新聊天", { vm.load() }, enabled = !vm.loading)
+            CommunityIconButton(Icons.Rounded.Language, "在应用内网页查看聊天", website)
+        }
+        LazyColumn(Modifier.weight(1f), state = scroll, reverseLayout = true,
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            items(vm.messages.asReversed(), key = { it.id }) { message ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Avatar(message.author, 32.dp, onClick = { user(message.author.username) })
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Row {
+                            Text(message.author.displayName, Modifier.weight(1f), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(relativeTime(message.time), fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        RichContent(message.cooked.ifBlank { Entities.escape(message.raw).replace("\n", "<br>") }, {}, link, galleryKey = "chat-${vm.channelId}-${message.id}")
+                    }
+                }
+            }
+            vm.error?.let { item { ErrorState(it, { vm.load() }, login) } }
+            if (vm.loading) item { LoadingRow() }
+            if (vm.morePast && !vm.loading) item { TextButton({ vm.load(true) }, Modifier.fillMaxWidth()) { Text("加载更早的消息") } }
+            if (!vm.loading && vm.messages.isEmpty() && vm.error == null) item { EmptyState("还没有消息", "写下第一条消息。", Icons.Rounded.Forum) }
+        }
+        Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).navigationBarsPadding().padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            CommunityTextField(raw, { raw = it; settings.saveDraft(draftKey, Draft(raw = it)) }, Modifier.weight(1f).heightIn(min = 40.dp, max = 140.dp),
+                placeholder = "发送消息…", enabled = !vm.sending, maxLines = 5)
+            CommunityButton(if (vm.sending) "发送中" else "发送", { vm.send(raw) { raw = ""; settings.clearDraft(draftKey) } },
+                enabled = !vm.sending && raw.isNotBlank(), compact = true)
+        }
+    }
+}

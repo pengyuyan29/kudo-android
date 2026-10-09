@@ -182,7 +182,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         if (member != null && destination != null) {
                             val vm = model("personal-${member.id}-$destination") { PersonalTopicsViewModel(app.repository, member.username, destination) }
                             PersonalTopicsScreen(vm, account.categories, display.topicListStyle, { nav.popBackStack() }, ::login, ::topic, ::user,
-                                { openWebPage("https://linux.do/new-message") })
+                                { nav.navigate("new-message") })
                         } else Column { AccountPageTopBar("个人内容", { nav.popBackStack() }); EmptyState("登录后查看", "登录后查看自己的社区内容。", actionLabel = "登录", action = ::login) }
                     }
                     composable("trust") {
@@ -195,7 +195,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val destination = AccountDestination.entries.firstOrNull { it.name == entry.arguments?.getString("destination") }
                         if (member != null && destination != null) key(member.id, destination) {
                             AccountRecordsScreen(destination, member, app.repository, app.settings, { nav.popBackStack() }, ::login,
-                                ::openWebPage, ::topic, { id -> openWebPage("https://linux.do/chat/c/-/$id") }, ::editor) { text ->
+                                ::openWebPage, ::topic, { id -> nav.navigate("chat/$id") }, ::editor) { text ->
                                 (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
                                     .setPrimaryClip(android.content.ClipData.newPlainText("邀请链接", text))
                                 scope.launch { snackbar.showSnackbar("已复制邀请链接") }
@@ -206,6 +206,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val member = account.user
                         if (member != null) DraftsScreen(member, app.repository, app.settings, { nav.popBackStack() }, ::login) { draft ->
                             if (draft.remote) nav.navigate("cloud-draft/${Uri.encode(draft.key)}")
+                            else if (draft.privateMessage) nav.navigate("new-message")
                             else editor(draft.topicId, draft.replyTo)
                         } else Column { AccountPageTopBar("我的草稿", { nav.popBackStack() }); EmptyState("登录后查看草稿", "草稿按账号分别保存。", actionLabel = "登录", action = ::login) }
                     }
@@ -219,6 +220,23 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                 scope.launch { snackbar.showSnackbar(if (result.queued) "已提交审核" else "发布成功") }
                             }
                         } ?: Column { AccountPageTopBar("云端草稿", { nav.popBackStack() }); EmptyState("请先登录", "登录后继续编辑。", actionLabel = "登录", action = ::login) }
+                    }
+                    composable("new-message") {
+                        account.user?.let { member -> key(member.id) {
+                            PrivateMessageScreen(member, app.repository, app.settings, { nav.popBackStack() }) { result ->
+                                nav.popBackStack()
+                                if (!result.queued) result.topicId?.let { topic(it) }
+                                scope.launch { snackbar.showSnackbar(if (result.queued) "私信已提交审核" else "私信已发送") }
+                            }
+                        } } ?: Column { AccountPageTopBar("写私信", { nav.popBackStack() }); EmptyState("请先登录", "登录后发送私信。", actionLabel = "登录", action = ::login) }
+                    }
+                    composable("chat/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
+                        account.user?.let { member ->
+                            val id = entry.arguments!!.getInt("id")
+                            val vm = model("chat-${member.id}-$id") { ChatViewModel(app.repository, id) }
+                            ChatScreen(vm, member, app.settings, { nav.popBackStack() }, ::login,
+                                { openWebPage("https://linux.do/chat/c/-/$id") }, ::openLink, ::user)
+                        } ?: Column { AccountPageTopBar("聊天", { nav.popBackStack() }); EmptyState("请先登录", "登录后查看聊天。", actionLabel = "登录", action = ::login) }
                     }
                     composable("web?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry ->
                         WebScreen(entry.arguments!!.getString("url")!!, { nav.popBackStack() }, ::openBrowser)

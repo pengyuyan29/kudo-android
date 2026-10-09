@@ -28,6 +28,8 @@ EditorViewModel 按用户 id、话题和回复楼层隔离持久草稿。上传�
 
 徽章列表按 user_badges 的 badge_id 关联已获得徽章，不把徽章目录误当作本人徽章。待审核内容只读取 /posts/{username}/pending.json；撤回使用 DELETE /review/{id}，重新编辑前保留本机副本且检查现有草稿冲突。服务器不返回原回复目标时明确提示直接回复话题。邀请列表兼容顶层数组与对象包装，点击仅复制，不访问或消耗邀请；创建固定一次使用，由用户选择有效期和邮箱限制，成功以返回链接为准。聊天频道独立读取 /chat/api/me/channels，不能与论坛私信混用。
 
+原生私信编辑器使用带 recipients 的账号草稿，发送 /posts.json 的 private_message 原型，收件人与正文只在明确发送时提交。聊天使用独立 /chat/{id} 发送，确认 message_id 后清除本机输入；原生频道支持创建单聊/群聊、正文、图片、历史分页，前台每20秒刷新，离开或后台停止。线程、附件管理等完整网站功能保留应用内聊天网页入口；不把轮询声称为 MessageBus 实时推送。
+
 ## Alternatives considered
 
 - 在原生表单收集密码：交互可以统一，但需要自行处理 MFA、OAuth 和站点验证变化；采用官网流程。

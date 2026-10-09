@@ -8,7 +8,7 @@ enum class ThemeMode(val label: String) { SYSTEM("跟随系统"), LIGHT("浅色"
 enum class GlassMode(val label: String) { LIQUID("液态玻璃"), BLUR("背景模糊"), TRANSLUCENT("半透明") }
 enum class TopicListStyle(val label: String) { FEED("信息流"), TITLE("传统标题") }
 data class DisplaySettings(val theme: ThemeMode = ThemeMode.SYSTEM, val glass: GlassMode = GlassMode.LIQUID, val fontScale: Float = 1f, val topicListStyle: TopicListStyle = TopicListStyle.FEED, val showSignatures: Boolean = false)
-data class Draft(val title: String = "", val raw: String = "", val categoryId: Int = 0)
+data class Draft(val title: String = "", val raw: String = "", val categoryId: Int = 0, val recipients: String = "")
 
 class AppSettings(context: Context) {
     private val prefs = context.getSharedPreferences("kudo_preferences", Context.MODE_PRIVATE)
@@ -24,9 +24,9 @@ class AppSettings(context: Context) {
         _display.value = value
         prefs.edit().putString("theme", value.theme.name).putString("glass", value.glass.name).putFloat("font_scale", value.fontScale).putString("topic_list_style", value.topicListStyle.name).putBoolean("show_signatures", value.showSignatures).apply()
     }
-    fun draft(key: String): Draft = Draft(prefs.getString("draft_${key}_title", "").orEmpty(), prefs.getString("draft_${key}_raw", "").orEmpty(), prefs.getInt("draft_${key}_category", 0))
-    fun saveDraft(key: String, draft: Draft) { prefs.edit().putString("draft_${key}_title", draft.title).putString("draft_${key}_raw", draft.raw).putInt("draft_${key}_category", draft.categoryId).apply() }
-    fun clearDraft(key: String) { prefs.edit().remove("draft_${key}_title").remove("draft_${key}_raw").remove("draft_${key}_category").apply() }
+    fun draft(key: String): Draft = Draft(prefs.getString("draft_${key}_title", "").orEmpty(), prefs.getString("draft_${key}_raw", "").orEmpty(), prefs.getInt("draft_${key}_category", 0), prefs.getString("draft_${key}_recipients", "").orEmpty())
+    fun saveDraft(key: String, draft: Draft) { prefs.edit().putString("draft_${key}_title", draft.title).putString("draft_${key}_raw", draft.raw).putInt("draft_${key}_category", draft.categoryId).putString("draft_${key}_recipients", draft.recipients).apply() }
+    fun clearDraft(key: String) { prefs.edit().remove("draft_${key}_title").remove("draft_${key}_raw").remove("draft_${key}_category").remove("draft_${key}_recipients").apply() }
     fun drafts(userId: Int): List<SavedDraft> = localAccountDrafts(prefs.all, userId)
     fun clearAccountData() {
         prefs.edit().apply { prefs.all.keys.filter { it.startsWith("draft_") }.forEach(::remove) }.apply()

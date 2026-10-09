@@ -11,13 +11,13 @@ data class SavedDraft(val key: String, val draft: Draft, val topicId: Int?, val 
 }
 
 internal fun localAccountDrafts(values: Map<String, *>, userId: Int): List<SavedDraft> {
-    val pattern = Regex("^draft_${userId}_(new|[0-9]+)_([0-9]+)_(?:raw|title)$")
+    val pattern = Regex("^draft_${userId}_(new|message|[0-9]+)_([0-9]+)_(?:raw|title)$")
     val drafts = values.keys.mapNotNull { pattern.matchEntire(it) }.map { it.groupValues[1] to it.groupValues[2] }.distinct()
         .mapNotNull { (topic, reply) ->
             val key = "${userId}_${topic}_$reply"
             val draft = Draft(values["draft_${key}_title"] as? String ?: "", values["draft_${key}_raw"] as? String ?: "",
-                values["draft_${key}_category"] as? Int ?: 0)
-            if (draft.raw.isBlank() && draft.title.isBlank()) null else SavedDraft(key, draft, topic.toIntOrNull(), reply.toIntOrNull()?.takeIf { it > 0 }, false)
+                values["draft_${key}_category"] as? Int ?: 0, values["draft_${key}_recipients"] as? String ?: "")
+            if (draft.raw.isBlank() && draft.title.isBlank()) null else SavedDraft(key, draft, topic.toIntOrNull(), reply.toIntOrNull()?.takeIf { it > 0 }, false, privateMessage = topic == "message")
         }
     val backupPrefix = "draft_${userId}_cloud_"
     val backups = values.keys.filter { it.startsWith(backupPrefix) && it.endsWith("_raw") }.mapNotNull { rawKey ->
