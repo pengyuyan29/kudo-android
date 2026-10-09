@@ -2,7 +2,6 @@ package com.kudo.android.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -80,10 +79,9 @@ fun SectionLabel(text: String, trailing: String? = null) {
 
 @Composable
 fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (String) -> Unit) {
-    val actions = com.kudo.android.ui.topic.LocalTopicActions.current
     val resolvedCategory = category ?: LocalTopicPresentation.current.categories.firstOrNull { it.id == topic.categoryId }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)
-        .combinedClickable(onClick = onClick, onLongClickLabel = "主题操作", onLongClick = { actions.openList(topic.id) })
+        .clickable(onClick = onClick)
         .testTag("topic-card-${topic.id}").padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Avatar(topic.author, 35.dp) { topic.author?.username?.let(onUser) }
@@ -92,9 +90,6 @@ fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (S
                 TopicAuthorMetadata(topic.bumpedAt, resolvedCategory)
             }
             if (topic.pinned) Icon(Icons.Rounded.PushPin, "置顶", Modifier.size(17.dp), MaterialTheme.colorScheme.primary)
-            IconButton(onClick = { actions.openList(topic.id) }, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Rounded.MoreHoriz, "主题操作", Modifier.size(20.dp), MaterialTheme.colorScheme.outline)
-            }
         }
         Text(topic.title, style = MaterialTheme.typography.titleMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
         if (topic.excerpt.isNotBlank()) Text(topic.excerpt, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)

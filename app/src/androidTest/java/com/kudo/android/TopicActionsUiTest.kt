@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
@@ -34,21 +35,41 @@ class TopicActionsUiTest {
     private val topic = Topic(5, "置顶测试话题", "摘要内容", author, 1, emptyList(), 8, 10, 1, "", "", pinned = true)
     private val repository = CommunityRepository(DiscourseClient(object : SessionCookies { override fun get(url: String) = ""; override fun set(url: String, cookie: String) {} }))
 
-    @Test fun pinnedFeedAndTitleRowsOpenActionsFromLongPressAndEllipsis() {
-        var count = 0
-        var opened = 0
+    @Test fun feedAndTitleRowsHaveNoMenuAndKeepTopicAndAuthorActions() {
+        var current by mutableStateOf(topic)
+        var settings by mutableStateOf(DisplaySettings(theme = ThemeMode.LIGHT))
+        var menuOpens = 0
+        var topicOpens = 0
+        var authorOpens = 0
         compose.setContent {
-            KudoTheme(DisplaySettings()) {
-                CompositionLocalProvider(LocalTopicActions provides TopicActionsController({ count++; opened = it }, { _, _, _ -> })) {
-                    Column { TopicCard(topic, null, {}, {}); TopicTitleRow(topic, null, {}, {}) }
+            KudoTheme(settings) {
+                CompositionLocalProvider(LocalTopicActions provides TopicActionsController({ menuOpens++ }, { _, _, _ -> })) {
+                    Column {
+                        TopicCard(current, null, { topicOpens++ }, { assertEquals(author.username, it); authorOpens++ })
+                        TopicTitleRow(current, null, { topicOpens++ }, { assertEquals(author.username, it); authorOpens++ })
+                    }
                 }
             }
         }
-        compose.onNodeWithTag("topic-card-5").performTouchInput { longClick() }
-        compose.onNodeWithTag("topic-title-5").performTouchInput { longClick() }
-        compose.onAllNodesWithContentDescription("主题操作")[0].performClick()
-        compose.onAllNodesWithContentDescription("主题操作")[1].performClick()
-        compose.runOnIdle { assertEquals(4, count); assertEquals(5, opened) }
+        for (pinned in listOf(true, false)) {
+            compose.runOnIdle { current = topic.copy(pinned = pinned) }
+            compose.onAllNodesWithContentDescription("主题操作").assertCountEquals(0)
+            compose.onAllNodesWithContentDescription("置顶").assertCountEquals(if (pinned) 2 else 0)
+            for (tag in listOf("topic-card-5", "topic-title-5")) {
+                compose.onNodeWithTag(tag).assert(SemanticsMatcher.keyNotDefined(SemanticsActions.OnLongClick))
+                    .performTouchInput { longClick() }
+            }
+            compose.runOnIdle { assertEquals(0, menuOpens); topicOpens = 0; authorOpens = 0 }
+            compose.onNodeWithTag("topic-card-5").performClick()
+            compose.onNodeWithTag("topic-title-5").performClick()
+            compose.onAllNodesWithContentDescription("测试作者的头像")[0].performClick()
+            compose.onAllNodesWithContentDescription("测试作者的头像")[1].performClick()
+            compose.runOnIdle { assertEquals(2, topicOpens); assertEquals(2, authorOpens) }
+            if (pinned) capture("topic-list-no-actions-light.png")
+        }
+        compose.runOnIdle { settings = DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f) }
+        compose.onAllNodesWithContentDescription("主题操作").assertCountEquals(0)
+        capture("topic-list-no-actions-dark-large.png")
     }
 
     @Test fun detailMenuCopiesMainPostAndCancelAndBackRestoreBackground() {
@@ -98,22 +119,22 @@ class TopicActionsUiTest {
         compose.onNodeWithText("取消收藏").assertIsDisplayed()
     }
 
-    @Test fun listMenuHasHideWithoutCopyAndNoHistoryWithoutBothPermissionAndVersion() {
+    @Test fun detailMenuKeepsHistoryPermissionChecksAtLargeTextSize() {
         var current by mutableStateOf(post.copy(version = 1))
         compose.setContent {
             KudoTheme(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f)) {
-                Box(Modifier.width(280.dp)) { TopicActionMenu(current, false, true, {}, {}, {}, {}, {}) }
+                Box(Modifier.width(280.dp)) { TopicActionMenu(current, true, true, {}, {}, {}, {}, {}) }
             }
         }
-        compose.onNodeWithText("屏蔽").assertIsDisplayed()
-        compose.onNodeWithText("复制").assertDoesNotExist()
+        compose.onNodeWithText("屏蔽").assertDoesNotExist()
+        compose.onNodeWithText("复制").assertIsDisplayed()
         compose.onNodeWithText("编辑历史").assertDoesNotExist()
         compose.runOnIdle { current = post.copy(canViewEditHistory = false) }
         compose.onNodeWithText("编辑历史").assertDoesNotExist()
         compose.runOnIdle { current = post }
         compose.onNodeWithText("编辑历史").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("举报").performScrollTo().assertIsDisplayed()
-        capture("topic-actions-list-dark-large.png")
+        capture("topic-actions-detail-dark-large.png")
     }
 
     @Test fun reportingRequiresSiteMinimumAndIllegalConfirmationAndShowsCustomReasons() {

@@ -2,12 +2,10 @@ package com.kudo.android.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.PushPin
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,10 +18,9 @@ import com.kudo.android.data.*
 
 @Composable
 fun TopicTitleRow(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (String) -> Unit) {
-    val actions = com.kudo.android.ui.topic.LocalTopicActions.current
     val resolvedCategory = category ?: LocalTopicPresentation.current.categories.firstOrNull { it.id == topic.categoryId }
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
-        .combinedClickable(onClick = onClick, onLongClickLabel = "主题操作", onLongClick = { actions.openList(topic.id) })
+        .clickable(onClick = onClick)
         .testTag("topic-title-${topic.id}")) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 13.dp), verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -47,9 +44,6 @@ fun TopicTitleRow(topic: Topic, category: Category?, onClick: () -> Unit, onUser
                     modifier = Modifier.testTag("topic-count-${topic.id}"))
                 Text(relativeTime(topic.bumpedAt), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                IconButton(onClick = { actions.openList(topic.id) }, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Rounded.MoreHoriz, "主题操作", Modifier.size(20.dp), MaterialTheme.colorScheme.outline)
-                }
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
