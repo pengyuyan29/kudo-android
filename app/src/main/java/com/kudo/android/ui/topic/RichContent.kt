@@ -22,6 +22,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -197,6 +199,9 @@ internal fun SiteEmoji(name: String, modifier: Modifier = Modifier, source: Stri
 fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Unit,
                 galleryKey: String = "article", galleryBottomInset: Dp = 0.dp) {
     val blocks = remember(html) { parseArticle(html) }
+    val linkHandler = remember(onLink) { object : UriHandler {
+        override fun openUri(uri: String) = onLink(uri)
+    } }
     val images = remember(blocks) { blocks.filterIsInstance<ArticleBlock.Image>() }
     val anchors = remember(blocks) { List(images.size) { GalleryThumbnailAnchor() } }
     val gallery = LocalImageGallery.current
@@ -222,8 +227,10 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
                         }
                     }
                 }
-                SelectionContainer {
-                    Text(article.text, Modifier.fillMaxWidth().then(if (block.quote) Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(9.dp)).padding(12.dp) else Modifier), inlineContent = inline, style = if (block.heading) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge, color = if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                CompositionLocalProvider(LocalUriHandler provides linkHandler) {
+                    SelectionContainer {
+                        Text(article.text, Modifier.fillMaxWidth().then(if (block.quote) Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(9.dp)).padding(12.dp) else Modifier), inlineContent = inline, style = if (block.heading) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge, color = if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                    }
                 }
             }
             is ArticleBlock.Code -> SelectionContainer {
