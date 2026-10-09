@@ -116,19 +116,7 @@ private fun GuestProfileScreen(login: () -> Unit, settings: () -> Unit, about: (
     Column(Modifier.fillMaxSize().statusBarsPadding().semantics { paneTitle = "我的" }.testTag("guest-profile")) {
         LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 16.dp, bottom = 112.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            item {
-                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.surface).padding(horizontal = 24.dp, vertical = 28.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
-                    Box(Modifier.widthIn(max = 208.dp).fillMaxWidth().clip(RoundedCornerShape(50))
-                        .background(LogoYellow).clickable(role = Role.Button, onClick = login)
-                        .heightIn(min = 48.dp).padding(horizontal = 24.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
-                        Text("点击登录", color = Ink, fontSize = 16.sp, lineHeight = 24.sp, textAlign = TextAlign.Center)
-                    }
-                    Text("登录后参与社区讨论", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 13.sp, lineHeight = 20.sp, textAlign = TextAlign.Center)
-                }
-            }
+            item { GuestLoginPanel("登录后参与社区讨论", login) }
             item {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)) {
                     GuestMenuRow(Icons.Rounded.Palette, "界面与显示", "主题、字号与液态玻璃", settings)
@@ -142,6 +130,21 @@ private fun GuestProfileScreen(login: () -> Unit, settings: () -> Unit, about: (
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+@Composable
+private fun GuestLoginPanel(explanation: String, login: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+        .background(MaterialTheme.colorScheme.surface).padding(horizontal = 24.dp, vertical = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        Box(Modifier.widthIn(max = 208.dp).fillMaxWidth().clip(RoundedCornerShape(50))
+            .background(LogoYellow).clickable(role = Role.Button, onClick = login)
+            .heightIn(min = 48.dp).padding(horizontal = 24.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+            Text("点击登录", color = Ink, fontSize = 16.sp, lineHeight = 24.sp, textAlign = TextAlign.Center)
+        }
+        Text(explanation, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp, lineHeight = 20.sp, textAlign = TextAlign.Center)
     }
 }
 
@@ -201,10 +204,13 @@ fun MenuRow(icon: ImageVector, title: String, subtitle: String, click: () -> Uni
 
 @Composable
 fun NotificationsScreen(vm: AccountViewModel, login: () -> Unit, open: (Int, Int?) -> Unit) {
+    if (vm.user == null) {
+        GuestNotificationsScreen(login)
+        return
+    }
     Column {
         RootHeading("消息") { IconButton(onClick = { vm.loadNotices() }) { Icon(Icons.Rounded.Refresh, "刷新通知") }; TextButton(onClick = { vm.markRead() }, enabled = vm.user != null) { Text("全部已读") } }
         LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            if (vm.user == null) item { EmptyState("不错过每一份回应", "登录后查看回复、提及和点赞通知。", Icons.Rounded.NotificationsNone, "登录 Linux.do", login) }
             if (vm.noticesLoading && vm.notices.isEmpty()) item { LoadingRow() }
             items(vm.notices, key = { it.id }) { notice ->
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).clickable { vm.markRead(notice.id); notice.topicId?.let { open(it, notice.postNumber) } }.padding(17.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -215,6 +221,17 @@ fun NotificationsScreen(vm: AccountViewModel, login: () -> Unit, open: (Int, Int
             vm.noticesError?.let { item { ErrorState(it, { vm.loadNotices() }, login) } }
             if (vm.user != null && !vm.noticesLoading && vm.notices.isEmpty() && vm.noticesError == null) item { EmptyState("暂时没有新消息", "有人回应你时，会出现在这里。", Icons.Rounded.NotificationsNone) }
             if (vm.notices.isNotEmpty() && vm.hasMoreNotices) item { TextButton(onClick = { vm.loadNotices(true) }, enabled = !vm.noticesLoading, modifier = Modifier.fillMaxWidth()) { Text(if (vm.noticesLoading) "加载中…" else "加载更多") } }
+        }
+    }
+}
+
+@Composable
+private fun GuestNotificationsScreen(login: () -> Unit) {
+    Column(Modifier.fillMaxSize().statusBarsPadding().semantics { paneTitle = "消息" }.testTag("guest-notifications")) {
+        Text("消息", Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+            fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onBackground)
+        LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp)) {
+            item { GuestLoginPanel("登录后查看回复、提及和点赞通知", login) }
         }
     }
 }
