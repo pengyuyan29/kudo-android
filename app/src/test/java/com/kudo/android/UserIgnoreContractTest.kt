@@ -46,4 +46,13 @@ class UserIgnoreContractTest {
     @Test fun foreverMatchesWebsiteThousandYearShortcut() {
         assertEquals(Instant.parse("3026-10-09T00:00:00Z"), IgnoreDuration.FOREVER.expiresAt(Instant.parse("2026-10-09T00:00:00Z")))
     }
+    @Test fun restoreRemainsAvailableWhenIgnorePermissionWasLost() = runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            server.enqueue(MockResponse().setBody("""{"csrf":"token"}"""))
+            server.enqueue(MockResponse().setBody("""{"success":"OK"}"""))
+            CommunityRepository(DiscourseClient(cookies, server.url("/"))).ignoreUser(viewer.copy(canIgnoreUsers = false), "author", null)
+            assertEquals(2, server.requestCount)
+        }
+    }
 }

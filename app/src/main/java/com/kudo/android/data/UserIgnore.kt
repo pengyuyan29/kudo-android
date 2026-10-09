@@ -10,7 +10,7 @@ enum class IgnoreDuration(val label: String, private val months: Long = 0, priva
 }
 
 suspend fun CommunityRepository.ignoreUser(viewer: Member, username: String, until: Instant?) {
-    require(viewer.canIgnoreUsers) { "当前账号不能忽略用户" }
+    require(until == null || viewer.canIgnoreUsers) { "当前账号不能忽略用户" }
     require(username.isNotBlank() && !username.equals(viewer.username, ignoreCase = true)) { "不能忽略自己" }
     require(until == null || until.isAfter(Instant.now())) { "请选择未来的忽略期限" }
     val url = client.baseUrl.newBuilder().addPathSegment("u").addPathSegment(username).addPathSegment("notification_level.json").build()
