@@ -18,6 +18,22 @@ class AccountDataTest {
         val missing = parseUserSummary(JSONObject("""{"user_summary":{"days_visited":null,"posts_read_count":"unknown","likes_received":-1}}"""))
         assertNull(missing.daysVisited); assertNull(missing.postsRead); assertNull(missing.likesReceived); assertNull(missing.posts)
     }
+    @Test fun draftsStayAccountScopedAndKeepReplyTargetsAndCloudBackups() {
+        val drafts = localAccountDrafts(mapOf("draft_7_300_8_raw" to "回复草稿", "draft_8_new_0_raw" to "其他账号",
+            "draft_7_cloud_new_private_message_raw" to "私信副本", "draft_7_cloud_new_private_message_title" to "私信标题"), 7)
+        assertEquals(2, drafts.size)
+        assertEquals(300, drafts[0].topicId); assertEquals(8, drafts[0].replyTo)
+        assertTrue(drafts[1].remote); assertTrue(drafts[1].privateMessage)
+    }
+    @Test fun cloudDraftEditingPreservesTagsRecipientsAndUnknownComposerFields() {
+        val cloud = parseCloudDraft(JSONObject("""{"draft_key":"new_private_message","draft_sequence":9,"data":{"reply":"原文","title":"标题","recipients":["recipient"],"tags":["tag"],"unknown_plugin":{"value":1}}}"""))
+        val updated = updatedCloudData(cloud, cloud.draft.copy(raw = "新正文"))
+        assertEquals("recipient", updated.getJSONArray("recipients").getString(0))
+        assertEquals("tag", updated.getJSONArray("tags").getString(0))
+        assertEquals(1, updated.getJSONObject("unknown_plugin").getInt("value"))
+        assertEquals(9, cloud.sequence)
+        assertEquals("新正文", updated.getString("reply"))
+    }
     @Test(expected = ApiFailure::class) fun invalidSummaryIsAnErrorInsteadOfFakeEmptyStatistics() {
         parseUserSummary(JSONObject("""{"error":"unavailable"}"""))
     }

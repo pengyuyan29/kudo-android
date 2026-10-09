@@ -27,6 +27,7 @@ class AppSettings(context: Context) {
     fun draft(key: String): Draft = Draft(prefs.getString("draft_${key}_title", "").orEmpty(), prefs.getString("draft_${key}_raw", "").orEmpty(), prefs.getInt("draft_${key}_category", 0))
     fun saveDraft(key: String, draft: Draft) { prefs.edit().putString("draft_${key}_title", draft.title).putString("draft_${key}_raw", draft.raw).putInt("draft_${key}_category", draft.categoryId).apply() }
     fun clearDraft(key: String) { prefs.edit().remove("draft_${key}_title").remove("draft_${key}_raw").remove("draft_${key}_category").apply() }
+    fun drafts(userId: Int): List<SavedDraft> = localAccountDrafts(prefs.all, userId)
     fun clearAccountData() {
         prefs.edit().apply { prefs.all.keys.filter { it.startsWith("draft_") }.forEach(::remove) }.apply()
     }

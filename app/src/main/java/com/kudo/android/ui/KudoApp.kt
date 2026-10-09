@@ -153,7 +153,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                                 AccountDestination.BOOKMARKS -> nav.navigate("bookmarks")
                                                 AccountDestination.TRUST -> nav.navigate("trust")
                                                 AccountDestination.TOPICS, AccountDestination.HISTORY, AccountDestination.MESSAGES -> nav.navigate("personal/${destination.name}")
-                                                AccountDestination.DRAFTS -> openWebPage("https://linux.do/u/$username/activity/drafts")
+                                                AccountDestination.DRAFTS -> nav.navigate("drafts")
                                                 AccountDestination.CHAT -> openWebPage("https://linux.do/chat")
                                                 AccountDestination.PENDING -> openWebPage("https://linux.do/u/$username/activity/pending")
                                                 AccountDestination.BADGES -> openWebPage("https://linux.do/u/$username/badges")
@@ -193,6 +193,24 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         account.user?.let { member ->
                             TrustScreen(member, app.connect, { nav.popBackStack() }, { openWebPage("https://connect.linux.do/") })
                         } ?: Column { AccountPageTopBar("等级要求", { nav.popBackStack() }); EmptyState("登录后查看等级", "查看当前账号的等级条件与进度。", actionLabel = "登录", action = ::login) }
+                    }
+                    composable("drafts") {
+                        val member = account.user
+                        if (member != null) DraftsScreen(member, app.repository, app.settings, { nav.popBackStack() }, ::login) { draft ->
+                            if (draft.remote) nav.navigate("cloud-draft/${Uri.encode(draft.key)}")
+                            else editor(draft.topicId, draft.replyTo)
+                        } else Column { AccountPageTopBar("我的草稿", { nav.popBackStack() }); EmptyState("登录后查看草稿", "草稿按账号分别保存。", actionLabel = "登录", action = ::login) }
+                    }
+                    composable("cloud-draft/{key}") { entry ->
+                        account.user?.let { member ->
+                            LaunchedEffect(member.id) { if (account.categories.isEmpty()) account.loadCategories() }
+                            CloudDraftScreen(entry.arguments!!.getString("key")!!, member, app.repository, app.settings, account.categories,
+                                { nav.popBackStack() }, ::login) { result ->
+                                nav.popBackStack(); refreshEpoch++
+                                if (!result.queued) result.topicId?.let { topic(it) }
+                                scope.launch { snackbar.showSnackbar(if (result.queued) "已提交审核" else "发布成功") }
+                            }
+                        } ?: Column { AccountPageTopBar("云端草稿", { nav.popBackStack() }); EmptyState("请先登录", "登录后继续编辑。", actionLabel = "登录", action = ::login) }
                     }
                     composable("web?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry ->
                         WebScreen(entry.arguments!!.getString("url")!!, { nav.popBackStack() }, ::openBrowser)
