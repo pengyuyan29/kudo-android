@@ -14,6 +14,8 @@ Status: implemented
 
 数据单元提供主帖权限、举报配置与写入、编辑历史与差异文本契约。TopicActionsHost 已统一两种列表长按、更多图标与详情更多入口；原生历史和举报表单消费同一状态。跨页面菜单由同一 Host 管理，列表按需请求主帖，详情收藏交给既有 TopicViewModel，避免和底部操作状态分叉。列表支持收藏、按需历史、屏蔽、举报；详情用复制替代屏蔽。第一排使用横向圆形图标按钮和底部取消，窄屏允许横向滚动。
 
+主列表及楼中楼的回复行通过 openReply 传入实际 Post，与主题顶部 openDetail 明确区分目标。回复直接复用已加载字段，不退回读取主帖；收藏回调仍交给详情 ViewModel，历史和举报沿用该 Post 的 ID 与权限。主题“复制链接”使用 /t/topic/{topicId}，回复使用 /t/topic/{topicId}/{post.number}；复制正文统一去除 HTML。复制链接不要求登录。
+
 历史需要 version > 1 且 can_view_edit_history，读取 /posts/{id}/revisions/latest.json，翻页跟随 previous_revision / next_revision，不能假定版本连续。原生差异文本保留新增、删除标记及作者、时间、原因；标签数组、作者对象与回复楼层对象按网站实际形态解析。
 
 举报读取 /site.json 中启用且适用于 Post 的 is_flag 原因，与主帖 actions_summary.can_act 求交集。说明下限读取 /latest 的 siteSettings.min_personal_message_post_length，上限遵循 Discourse MAX_MESSAGE_LENGTH=500。支持 notify_user 私信和 illegal 确认；POST /post_actions 只提交 id、post_action_type_id、必要的 message，不发送工作人员强制处理字段。写请求不自动重试；结果未知时阻止再次提交，成功提交的原因在当前会话中从可选项移除，避免详情旧数据再次启用。收藏和举报成功刷新相关列表/详情；消息提示不阻塞账号忽略集合的更新。

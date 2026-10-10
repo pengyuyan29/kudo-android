@@ -43,7 +43,8 @@ import com.kudo.android.ui.components.*
 import com.kudo.android.ui.components.liquid.*
 import kotlinx.coroutines.launch
 
-class TopicActionsController(val openList: (Int) -> Unit, val openDetail: (Int, Post?, (Post) -> Unit) -> Unit)
+class TopicActionsController(val openList: (Int) -> Unit, val openDetail: (Int, Post?, (Post) -> Unit) -> Unit,
+    val openReply: (Int, Post, (Post) -> Unit) -> Unit = { id, post, bookmark -> openDetail(id, post, bookmark) })
 val LocalTopicActions = staticCompositionLocalOf { TopicActionsController({}, { _, _, _ -> }) }
 val LocalIgnoredUsers = staticCompositionLocalOf<Set<String>> { emptySet() }
 
@@ -67,6 +68,8 @@ fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: Gl
     } } }
     val controller = remember(vm) { TopicActionsController({ detailBookmark = null; vm.open(it) }, { id, post, bookmark ->
         detailBookmark = bookmark; vm.open(id, true, post)
+    }, { id, post, bookmark ->
+        detailBookmark = bookmark; vm.open(id, true, post, isReply = true)
     }) }
     fun authenticate(action: () -> Unit) { if (viewer == null) { vm.dismiss(); login() } else action() }
     val showing = current.topicId != null || visibility.currentState || visibility.targetState
@@ -79,7 +82,7 @@ fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: Gl
                 LocalIgnoredUsers provides viewer?.ignoredUsers.orEmpty().map { it.lowercase(java.util.Locale.ROOT) }.toSet(), content = content)
         }
         val title = when (state.panel) {
-            TopicActionPanel.MENU -> "主题操作"; TopicActionPanel.HISTORY -> "编辑历史"
+            TopicActionPanel.MENU -> if (state.isReply) "回复操作" else "主题操作"; TopicActionPanel.HISTORY -> "编辑历史"
             TopicActionPanel.REPORT -> "举报"; TopicActionPanel.IGNORE -> "忽略用户"
         }
         if (state.panel == TopicActionPanel.REPORT) {
@@ -105,12 +108,16 @@ fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: Gl
                 TopicActionPanel.MENU -> {
                     TopicActionMenu(state.post, state.fromDetail, visibility.targetState && !state.busy && !state.writeLocked,
                         copy = { state.post?.let { post ->
-                            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("主帖", plainText(post.cooked)))
+                            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("正文", plainText(post.cooked)))
                             vm.dismiss()
                         } }, bookmark = { authenticate {
                             val post = state.post
                             if (post != null && state.fromDetail && detailBookmark != null) { vm.dismiss(); detailBookmark?.invoke(post) } else vm.bookmark()
-                        } }, history = { vm.history() }, ignore = { authenticate { vm.ignore() } }, report = { authenticate { vm.report() } })
+                        } }, history = { vm.history() }, ignore = { authenticate { vm.ignore() } }, report = { authenticate { vm.report() } },
+                        copyLink = { state.link?.let { link ->
+                            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("链接", link))
+                            vm.dismiss()
+                        } })
                     if (state.loading) LoadingRow()
                 }
                 TopicActionPanel.HISTORY -> TopicHistoryContent(state, vm::history)
@@ -130,9 +137,10 @@ fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: Gl
 
 @Composable
 fun TopicActionMenu(post: Post?, fromDetail: Boolean, enabled: Boolean, copy: () -> Unit, bookmark: () -> Unit,
-    history: () -> Unit, ignore: () -> Unit, report: () -> Unit) {
+    history: () -> Unit, ignore: () -> Unit, report: () -> Unit, copyLink: () -> Unit = {}) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 10.dp).testTag("topic-action-row"), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         if (fromDetail) TopicCircleAction("复制", Icons.Rounded.ContentCopy, enabled && post != null, copy)
+        if (fromDetail) TopicCircleAction("复制链接", Icons.Rounded.Link, enabled && post != null, copyLink)
         TopicCircleAction(if (post?.bookmarkId != null) "取消收藏" else "收藏", if (post?.bookmarkId != null) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, enabled && post != null, bookmark)
         if (post?.hasEditHistory == true) TopicCircleAction("编辑历史", Icons.Rounded.History, enabled, history)
         if (!fromDetail) TopicCircleAction("屏蔽", Icons.Rounded.VisibilityOff, enabled && post != null, ignore)

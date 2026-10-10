@@ -35,6 +35,58 @@ class TopicActionsUiTest {
     private val topic = Topic(5, "置顶测试话题", "摘要内容", author, 1, emptyList(), 8, 10, 1, "", "", pinned = true)
     private val repository = CommunityRepository(DiscourseClient(object : SessionCookies { override fun get(url: String) = ""; override fun set(url: String, cookie: String) {} }))
 
+    @Test fun topicAndReplyLinksUseTheCorrectScopeAndReplyBookmarkUpdatesItsFloor() {
+        var current by mutableStateOf(post.copy(id = 81, number = 8, version = 1))
+        var saved = 0
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicActionsHost(repository, viewer, GlassMode.TRANSLUCENT, {}, { _, _ -> }, {}) {
+                val actions = LocalTopicActions.current
+                Column {
+                    Button({ actions.openDetail(5, post, {}) }) { Text("主题菜单") }
+                    Button({ actions.openReply(5, current) { saved = it.number; current = it.copy(bookmarkId = 99) } }) { Text("回复菜单") }
+                }
+            }
+        } }
+        fun assertClipboard(expected: String) = compose.runOnIdle {
+            val context = InstrumentationRegistry.getInstrumentation().targetContext
+            assertEquals(expected, (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).primaryClip!!.getItemAt(0).text.toString())
+        }
+        compose.onNodeWithText("主题菜单").performClick()
+        compose.onNodeWithText("复制链接").performClick()
+        assertClipboard("https://linux.do/t/topic/5")
+        compose.onNodeWithText("回复菜单").performClick()
+        compose.onNodeWithText("编辑历史").assertDoesNotExist()
+        compose.onNodeWithText("屏蔽").assertDoesNotExist()
+        capture("reply-actions-light.png")
+        compose.onNodeWithText("复制链接").performClick()
+        assertClipboard("https://linux.do/t/topic/5/8")
+        compose.onNodeWithText("回复菜单").performClick()
+        compose.onNodeWithText("复制").performClick()
+        assertClipboard("复制的主帖 纯文本")
+        compose.onNodeWithText("回复菜单").performClick()
+        compose.onNodeWithText("收藏").performClick()
+        compose.runOnIdle { assertEquals(8, saved) }
+        compose.onNodeWithText("回复菜单").performClick()
+        compose.onNodeWithText("取消收藏").assertIsDisplayed()
+    }
+
+    @Test fun replyMoreButtonDoesNotOpenTheAuthorAndWorksInsideThreads() {
+        var target = 0; var authorOpens = 0
+        val root = post.copy(id = 82, number = 2)
+        val child = post.copy(id = 83, number = 3, replyTo = 2)
+        val detail = TopicDetail(5, "回复菜单入口", 1, listOf(post, root, child), listOf(10, 82, 83), false)
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            CompositionLocalProvider(LocalTopicActions provides TopicActionsController({}, { _, _, _ -> }, { _, p, _ -> target = p.number })) {
+                TopicScreen(TopicState(detail, false), GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, { authorOpens++ }, {}, {}, {})
+            }
+        } }
+        compose.onNode(hasContentDescription("更多操作") and hasAnyAncestor(hasTestTag("post-2"))).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(2, target); assertEquals(0, authorOpens) }
+        compose.onNodeWithText("查看 1 条回复").performScrollTo().performClick()
+        compose.onNode(hasContentDescription("更多操作") and hasAnyAncestor(hasTestTag("post-3"))).performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(3, target); assertEquals(0, authorOpens) }
+    }
+
     @Test fun feedAndTitleRowsHaveNoMenuAndKeepTopicAndAuthorActions() {
         var current by mutableStateOf(topic)
         var settings by mutableStateOf(DisplaySettings(theme = ThemeMode.LIGHT))

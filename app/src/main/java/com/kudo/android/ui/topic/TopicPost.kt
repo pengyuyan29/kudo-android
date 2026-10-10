@@ -33,7 +33,8 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
             Text("@${post.author.username} 的内容已忽略", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { if (post.number == 1) revealOriginal() else revealed = true }) { Text("查看此楼层") }
         } else {
-            if (post.number != 1) Row(Modifier.heightIn(min = 48.dp).clickable(enabled = enabled) { user(post.author.username) }, verticalAlignment = Alignment.CenterVertically) {
+            if (post.number != 1) Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.weight(1f).clickable(enabled = enabled) { user(post.author.username) }, verticalAlignment = Alignment.CenterVertically) {
                 Avatar(post.author, 32.dp)
                 Column(Modifier.weight(1f).padding(start = 10.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -42,7 +43,12 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
                     }
                     TopicAuthorMetadata(post.updatedAt, LocalTopicPresentation.current.categories.firstOrNull { it.id == detail.categoryId }, post.edited)
                 }
+                }
                 Text("#${post.number}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val actions = LocalTopicActions.current
+                IconButton(onClick = { actions.openReply(detail.id, post, bookmark) }, enabled = enabled && !state.loading && post.id !in state.busy) {
+                    Icon(Icons.Rounded.MoreHoriz, "更多操作", Modifier.size(20.dp))
+                }
             }
             PostReadingContent(post.number, enabled && !state.loading) {
                 RichContent(post.cooked, image, openLink, galleryKey = "post-${post.id}", galleryBottomInset = 110.dp)

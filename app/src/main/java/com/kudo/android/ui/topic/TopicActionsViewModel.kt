@@ -16,7 +16,13 @@ data class TopicActionState(
     val flags: FlagConfiguration? = null, val selectedFlag: FlagReason? = null,
     val message: String = "", val confirmed: Boolean = false, val duration: IgnoreDuration? = null,
     val writeLocked: Boolean = false,
-)
+    val isReply: Boolean = false,
+) {
+    val link: String? get() = topicId?.let { id ->
+        if (isReply) post?.let { "https://linux.do/t/topic/$id/${it.number}" }
+        else "https://linux.do/t/topic/$id"
+    }
+}
 sealed interface TopicActionEvent {
     data class Message(val text: String) : TopicActionEvent
     data class Ignored(val viewerId: Int, val username: String) : TopicActionEvent
@@ -32,10 +38,11 @@ class TopicActionsViewModel(private val repository: CommunityRepository, val vie
     private val successfulReports = mutableSetOf<Pair<Int, Int>>()
     private val uncertainIgnores = mutableSetOf<String>()
 
-    fun open(id: Int, fromDetail: Boolean = false, initial: Post? = null) {
+    fun open(id: Int, fromDetail: Boolean = false, initial: Post? = null, isReply: Boolean = false) {
         if (state.busy) return
+        if (isReply && initial == null) return
         read?.cancel()
-        state = TopicActionState(topicId = id, fromDetail = fromDetail, post = initial?.takeIf { it.number == 1 })
+        state = TopicActionState(topicId = id, fromDetail = fromDetail, post = initial?.takeIf { isReply || it.number == 1 }, isReply = isReply)
         if (state.post == null) loadPost()
     }
     fun dismiss() {
@@ -43,6 +50,7 @@ class TopicActionsViewModel(private val repository: CommunityRepository, val vie
         read?.cancel(); state = TopicActionState()
     }
     fun loadPost() {
+        if (state.isReply) return
         val id = state.topicId ?: return
         load {
             val post = withContext(Dispatchers.IO) {
@@ -107,7 +115,7 @@ class TopicActionsViewModel(private val repository: CommunityRepository, val vie
         write {
             withContext(Dispatchers.IO) { repository.bookmark(post) }
             messages.send(TopicActionEvent.Refresh)
-            messages.send(TopicActionEvent.Message(if (post.bookmarkId == null) "已收藏主帖" else "已取消收藏"))
+            messages.send(TopicActionEvent.Message(if (post.bookmarkId == null) "已收藏" else "已取消收藏"))
         }
     }
     private fun load(block: suspend () -> Unit) {
