@@ -89,16 +89,16 @@ Windows 可将密钥库 Base64 直接复制到剪贴板，再粘贴到对应 Sec
 将包含工作流的代码推送到仓库、配置好 Secrets 后，推送新版本 Tag：
 
 ```powershell
-git tag -a v0.1.0 -m '发布 0.1.0'
-git push origin v0.1.0
+git tag -a v0.1.6 -m '发布 0.1.6'
+git push origin v0.1.6
 ```
 
-示例产物为 `Kudo-0.1.0-release.apk` 和 `Kudo-0.1.0-release.apk.sha256`。发布说明从上一个祖先正式版本到当前 Tag 的 commit 中筛选 App 运行时变化，整理为“新增、修复、调整”，去除文档、测试、工具链、CI、合并提交与重复标题；首次版本包含完整历史。新提交请使用 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:`、`chore:` 等前缀，冒号后写中文说明；只有 `feat:`、`fix:`、`perf:` 且实际修改 `app/src/main/` 的提交会进入更新日志。发布前请查看生成的日志。工作流把同一份 `release-notes.md` 写入 GitHub Release，App 的“关于酷DO → 检查更新”显示该正文。工作流先准备草稿、上传完整产物后再公开；上传失败留下的草稿可以重跑恢复，已经公开的同名 Release 不会被覆盖，应使用新版本 Tag。
+示例产物为 `kodo_0.1.6_release_arm64-v8a.apk` 和 `kodo_0.1.6_release_arm64-v8a.apk.sha256`，正式 Release 只包含 `arm64-v8a`。发布说明从上一个祖先正式版本到当前 Tag 的 commit 中筛选 App 运行时变化，整理为“新增、修复、调整”，去除文档、测试、工具链、CI、合并提交与重复标题；首次版本包含完整历史。新提交请使用 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:`、`chore:` 等前缀，冒号后写中文说明；只有 `feat:`、`fix:`、`perf:` 且实际修改 `app/src/main/` 的提交会进入更新日志。发布前请查看生成的日志。工作流把同一份 `release-notes.md` 写入 GitHub Release，App 的“关于酷DO → 检查更新”显示该正文。工作流先准备草稿、上传完整产物后再公开；上传失败留下的草稿可以重跑恢复，已经公开的同名 Release 不会被覆盖，应使用新版本 Tag。
 
 已创建本地版本 Tag 后，可预览和人工整理日志：
 
 ```powershell
-python scripts/release_notes.py --tag v0.1.0 --output artifacts/release-notes.md
+python scripts/release_notes.py --tag v0.1.6 --output artifacts/release-notes.md
 ```
 
 手动发布时用 `gh release create <Tag> --notes-file artifacts/release-notes.md` 写入整理后的文件；自动 Tag 流程使用脚本生成的内容。检查更新只读取公开正式 Release，不使用私有仓库凭据；仓库私有或未发布时显示暂无公开版本。下载和查看源码使用外部浏览器。
@@ -113,13 +113,13 @@ git config core.hooksPath .githooks
 
 钩子会拒绝没有受支持前缀的提交；`scripts/check_commit_history.py` 还会在 CI 中检查本次推送或 Pull Request 的提交范围。历史提交不会被自动改写，发布日志仍只提取实际修改 `app/src/main/` 的 `feat:`、`fix:` 和 `perf:` 提交。
 
-版本名为 Tag 去掉 `v`；`versionCode = major × 1000000 + minor × 1000 + patch + 1`。例如 `v1.2.3` 对应 `1.2.3` / `1002004`，`v0.1.0` 对应 `0.1.0` / `1001`。minor、patch 限制为 0–999，总值不超过 2100000000；前导零、`-rc`、`-beta` 等格式会失败。每次升级请使用更大的版本号。
+版本名为 Tag 去掉 `v`；`versionCode = major × 1000000 + minor × 1000 + patch + 1`。例如 `v1.2.3` 对应 `1.2.3` / `1002004`，`v0.1.6` 对应 `0.1.6` / `1007`。minor、patch 限制为 0–999，总值不超过 2100000000；前导零、`-rc`、`-beta` 等格式会失败。每次升级请使用更大的版本号。
 
 普通本地构建保留 `0.1.0` / `1` 默认值，也可按 Tag 值构建相同版本：
 
 ```powershell
-python scripts/release_version.py v0.1.0
-.\gradlew.bat :app:assembleRelease "-PversionName=0.1.0" "-PversionCode=1001"
+python scripts/release_version.py v0.1.6
+.\gradlew.bat :app:assembleRelease "-PversionName=0.1.6" "-PversionCode=1007"
 ```
 
 发布验收用例：有效 Tag 应产生版本和签名一致的 APK；非法 Tag、缺失 Secret、签名错误、APK 被修改或版本不符均应停止发布。仓库尚未连接时，可运行下方脚本测试，并在本地执行签名构建；线上 Tag 触发和 Release 上传需在仓库建立后验证。
