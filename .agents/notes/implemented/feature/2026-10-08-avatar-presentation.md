@@ -20,6 +20,8 @@ Avatar 的展示场景显式区分账户入口和公开内容，不能用“是�
 
 AVIFDecoder 固定 getSampleSize=1，却继承会缩小像素缓冲的 setDesiredSize；在64px样本按32px显示时产生 Buffer not large enough for pixels 并输出透明帧。适配层覆写 setDesiredSize 固定1，保证帧缓冲与实际解码尺寸一致，不修改共享 APNG/WebP 实现。
 
+AVIF 模块保持 APNG4Android 3.0.5，直接使用的 native 元数据 API 固定为该模块运行时依赖的 org.aomedia.avif.android:avif:1.1.1.14d8e3c4，避免声明与实际加载版本不一致。libavif 官方 v1.1.1 许可随包保存在 assets/licenses/libavif.txt，关于页展示 BSD 2-Clause 署名与官方许可链接。
+
 动画暂停直接绑定 LifecycleResumeEffect 的 onPauseOrDispose。仅收集生命周期状态后等 Compose 重组不能保证后台停止，因为宿主暂停时重组器本身也会暂停；图片在后台完成加载时还必须立即停止 Drawable。可见性控制保留，用于首页折叠后仍在组合中的头像。全局加载器由 Application 提供，初始化与受限网络配置见[原生架构](../architecture/2026-10-07-native-community-client.md)。
 
 ## Evidence and related notes
@@ -41,6 +43,8 @@ AVIFDecoder 固定 getSampleSize=1，却继承会缩小像素缓冲的 setDesire
 ## Verification
 
 AVIF 先由确定性三帧真机测试复现只返回静态封面（artifacts/article-repro-device.txt）。接入后同一测试发现上游采样缓冲缺陷（avif-device.txt），修复后5项解码测试及1项正文小图测试通过（avif-fixed-device.txt）；首轮21项相册与代码复制同样通过。动画结论来自红绿蓝真实像素，不只是 Animatable 类型。容器识别、畸形头部、不消耗输入和旧相册恢复的相关 JVM 通过（avif-build.txt）。API26/27及非 arm64 设备仍需后续兼容验证。
+
+最终 ArticleImageSizingUiTest 在真实 RichContent 中采样到 AVIF 红绿蓝三种帧色，并验证 Activity 后台停止、前台恢复和组件移除停止；与小附件尺寸及3项投票用例共5项真机测试通过，日志 artifacts/render-final-device.txt。article-avif-inline.png 已人工检查153dp小图布局，截图仅作为尺寸证据。Debug、测试APK及Lint通过（render-final-build.txt），Lint为0 errors / 30既有warnings / 1 hint。检查打包依赖的 arm64-v8a 与 x86_64 native ELF，加载段对齐均为16384字节；这项静态检查不替代其他系统和架构的真机兼容验证。
 
 新增20项JVM测试覆盖帖子用户 ID、两种状态字段、空值与错误类型、资质、独立动图地址、头部检测和角标策略；批量补齐覆盖合并、缓存上限与过期、失败退避、账号销毁和取消。当前全部57项JVM通过。
 

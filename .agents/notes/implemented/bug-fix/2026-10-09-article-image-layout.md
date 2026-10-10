@@ -34,6 +34,8 @@ Status: implemented
 
 153×153 小附件在真机先复现被拉到300dp（artifacts/article-repro-device.txt），修复后 ArticleImageSizingUiTest 验证153dp宽高与点击原图地址，日志 avif-fixed-device.txt。ContentParserTest 覆盖动画源优先、HTML宽度、lightbox缩略图宽度不误限。21项相册回归通过（avif-device.txt），原有长图、缩放、翻页与来源矩形机制保持。
 
+最终两项 ArticleImageSizingUiTest 通过（artifacts/render-final-device.txt），包括实际正文AVIF逐帧播放和生命周期。article-avif-inline.png 已人工检查小图保持153dp方形且靠左；静态截图不作为动画播放证据。
+
 限高复现的两项真机测试先失败：有尺寸和无尺寸的长图分别被撑高到 1640dp、1800dp，日志 artifacts/image-preview-height-repro.txt。修复后 ImageGalleryUiTest 的 16 项全部通过（31.303 秒），长图变为 60×300dp、靠左、下方内容可见，点击仍交付原图；图片翻页、缩放、返回目标及动画像素回归通过，日志 image-preview-height-fixed.txt。93 项 JVM 测试通过，日志 image-preview-height-build.txt。只读核查确认话题 847468 的第 4 楼原图为 1600×8828、src 为 90×500，证据保存在 image-preview-source.json。
 
 预览分辨率的三项复现先失败，日志 image-preview-resolution-repro.txt；接入 srcset 后，17 项解析、6 项相册状态、3 项来源几何测试通过，日志 image-preview-resolution-fixed.txt。覆盖 90×500 到 180×1000 的实际站点结构、HTTPS 筛选、非法描述符、w 候选与低密度不降级。实际 CDN 两张缩略图均成功读取，分别为 20536 / 70243 字节；原图地址保持独立。

@@ -25,7 +25,7 @@ import kotlin.math.roundToInt
 @Composable
 internal fun PostPollView(poll: PostPoll, saved: List<String>, owner: Boolean, locked: Boolean, busy: Boolean,
     loggedIn: Boolean, vote: (List<String>) -> Unit, login: () -> Unit, web: () -> Unit) {
-    var selected by rememberSaveable(poll.name, saved) { mutableStateOf(ArrayList(saved)) }
+    var selected by rememberSaveable(poll.name, saved) { mutableStateOf<List<String>>(saved.toList()) }
     val closed = poll.closed() || locked
     val resultsAllowed = poll.resultsVisible(saved.isNotEmpty(), owner)
     var results by rememberSaveable(poll.name, saved) { mutableStateOf(saved.isNotEmpty() || closed) }
@@ -40,7 +40,7 @@ internal fun PostPollView(poll: PostPoll, saved: List<String>, owner: Boolean, l
                 .background(MaterialTheme.colorScheme.surface)
                 .clickable(enabled = !closed && !busy && !showResults && poll.supported, role = Role.Button) {
                     if (!loggedIn) login()
-                    else if (poll.type == "multiple") selected = ArrayList(if (chosen) selected - option.id else selected + option.id)
+                    else if (poll.type == "multiple") selected = if (chosen) selected - option.id else selected + option.id
                     else vote(listOf(option.id))
                 }.semantics { this.selected = chosen }.testTag("poll-option-${option.id}")) {
                 val fraction = if (poll.voters > 0) ((option.votes ?: 0).toFloat() / poll.voters).coerceIn(0f, 1f) else 0f
