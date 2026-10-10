@@ -130,34 +130,6 @@ private fun GuestMenuRow(icon: ImageVector, title: String, subtitle: String, cli
     }
 }
 
-internal const val KudoAboutText = "用原生体验，连接值得交流的人与内容。\n\n酷DO 是独立的 Linux.do 第三方客户端。"
-
-@Composable
-fun AboutScreen(back: () -> Unit) {
-    Column(Modifier.fillMaxSize()) {
-        PageTopBar("关于酷DO", back)
-        LazyColumn(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            item {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(painterResource(R.drawable.ic_kudo), null, Modifier.size(64.dp), tint = Color.Unspecified)
-                    Text("酷DO", style = MaterialTheme.typography.titleLarge)
-                    Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            item {
-                Text(KudoAboutText, Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surface).padding(20.dp),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-            }
-            item {
-                Text("真诚 · 友善 · 团结 · 专业", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-            }
-        }
-    }
-}
-
 @Composable
 fun MenuRow(icon: ImageVector, title: String, subtitle: String, click: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = click).padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {

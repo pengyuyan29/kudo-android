@@ -19,6 +19,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kudo.android.data.*
 import com.kudo.android.ui.account.SettingsScreen
+import com.kudo.android.ui.account.AboutScreen
 import com.kudo.android.ui.theme.KudoTheme
 import org.junit.Assert.*
 import org.junit.Rule
@@ -72,7 +73,7 @@ class SettingsModalUiTest {
 
     @Test fun dialogBlankAreaDoesNotDismissAndBackgroundCannotOpenLinks() {
         var links = 0
-        show({ DisplaySettings(theme = ThemeMode.LIGHT) }, {}, openLink = { links++ })
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) { AboutScreen(openLink = { links++ }) {} } }
         openSetting("隐私说明")
         compose.onNodeWithTag("liquid-dialog").assertIsDisplayed()
         compose.onAllNodesWithText("社区指南").assertCountEquals(0)
@@ -125,15 +126,6 @@ class SettingsModalUiTest {
             compose.onNodeWithText("取消").assertIsDisplayed()
             capture("settings-sheet-${mode.name.lowercase()}-dark-large.png")
             compose.onNodeWithText("取消").performClick()
-            openSetting("隐私说明")
-            val layouts = mutableListOf<TextLayoutResult>()
-            compose.onNodeWithText("酷DO 直接连接 Linux.do。", substring = true)
-                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-            assertFalse("说明不能省略", layouts.single().isLineEllipsized(layouts.single().lineCount - 1))
-            assertTrue("深色前景不能继承黑色", layouts.single().layoutInput.style.color.red > 0.5f)
-            compose.onNodeWithText("知道了").assertIsDisplayed()
-            capture("settings-dialog-${mode.name.lowercase()}-dark-large.png")
-            compose.onNodeWithText("知道了").performClick()
             compose.onNode(hasScrollAction()).performScrollToNode(hasText("字体大小"))
         }
     }
@@ -144,7 +136,7 @@ class SettingsModalUiTest {
             val settings = DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f)
             KudoTheme(settings) {
                 Box(Modifier.fillMaxWidth().height(360.dp)) {
-                    SettingsScreen(settings, {}, null, {}, {}, { links++ })
+                    AboutScreen(openLink = { links++ }) {}
                 }
             }
         }

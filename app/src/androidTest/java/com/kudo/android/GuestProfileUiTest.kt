@@ -111,7 +111,7 @@ class GuestProfileUiTest {
             }
         }
         compose.onNodeWithText(BuildConfig.VERSION_NAME).assertIsDisplayed()
-        compose.onNodeWithText("酷DO 是独立的 Linux.do 第三方客户端。", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("酷DO是独立 LINUX DO 第三方安卓原生客户端").assertIsDisplayed()
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithText("点击登录").assertIsDisplayed()
     }

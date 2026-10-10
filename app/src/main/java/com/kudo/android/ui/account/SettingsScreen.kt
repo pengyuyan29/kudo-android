@@ -76,19 +76,10 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                 item { SectionLabel("链接打开") }
                 item {
                     Column(Modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface)) {
-                        SettingRow("Linux.do 站内链接", "在系统中允许酷DO打开支持的链接", !showing) {
+                        SettingRow("站内链接", "在系统中允许酷DO打开支持的链接", !showing) {
                             val action = if (Build.VERSION.SDK_INT >= 31) Settings.ACTION_APP_OPEN_BY_DEFAULT_SETTINGS else Settings.ACTION_APPLICATION_DETAILS_SETTINGS
                             context.startActivity(Intent(action, Uri.parse("package:${context.packageName}")))
                         }
-                    }
-                }
-                item { SectionLabel("关于酷DO") }
-                item {
-                    Column(Modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface)) {
-                        SettingRow("酷DO", "${BuildConfig.VERSION_NAME} · Linux.do 第三方客户端", !showing) { show("about") }
-                        SettingRow("开源致谢", "技术与设计参考", !showing) { show("licenses") }
-                        SettingRow("社区指南", "真诚 · 友善 · 团结 · 专业", !showing) { openLink("https://linux.do/guidelines") }
-                        SettingRow("隐私说明", "账号与草稿仅保存在本机", !showing) { show("privacy") }
                     }
                 }
                 if (user != null) item {
@@ -101,7 +92,7 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
         val title = when (dialog) {
             "theme" -> "主题风格"; "glass" -> "界面材质效果"; "font" -> "字体大小"
             "list" -> "主题列表样式"
-            "privacy" -> "隐私说明"; "licenses" -> "开源致谢"; "logout" -> "退出登录？"; else -> "酷DO"
+            "logout" -> "退出登录？"; else -> "酷DO"
         }
         LiquidModal(visibility, title, actionSheet, backdrop, settings.glass, ::dismiss,
             sheetBackground = MaterialTheme.colorScheme.background,
@@ -145,24 +136,16 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                 }
             } else {
                 Text(when (dialog) {
-                    "privacy" -> "酷DO 直接连接 Linux.do。登录在官网页面完成；应用不收集密码，不接入统计或广告服务。Cookie 与草稿保存在应用私有目录，禁用系统备份，退出登录后清除。帖子中的外部图片会向其来源站点发起请求。"
-                    "licenses" -> "Jetpack Compose、Backdrop（含官方玻璃示例）、Shapes、OkHttp、Coil、APNG4Android：Apache License 2.0。Jsoup：MIT。分类、标签与资质图标采用 Font Awesome Free 6.7.2，© 2024 Fonticons, Inc.，CC BY 4.0；原始矢量路径不变，适配原生尺寸与颜色。底部导航与详情操作栏改编自 Backdrop catalog 的 LiquidBottomTabs / Surface Liquid Button，弹窗材质改编自官方 Dialog；接口行为参考 FluxDO，页面布局参考酷安。"
                     "logout" -> "本机登录状态和编辑草稿将被清除，社区内容与收藏不会删除。"
                     else -> KudoAboutText
                 }, style = MaterialTheme.typography.bodyMedium, color = LocalContentColor.current.copy(alpha = 0.8f))
-                if (dialog == "licenses") {
-                    ModalLink("Backdrop 项目与许可") { openLink("https://github.com/Kyant0/AndroidLiquidGlass") }
-                    ModalLink("Font Awesome 图标与许可") { openLink("https://fontawesome.com/license/free") }
-                    ModalLink("APNG4Android 动图支持与许可") { openLink("https://github.com/penfeizhou/APNG4Android") }
-                    ModalLink("FluxDO 接口参考") { openLink("https://github.com/Lingyan000/fluxdo") }
-                }
             }
         }
     }
 }
 
 @Composable
-private fun SettingRow(title: String, value: String, enabled: Boolean, action: () -> Unit) {
+internal fun SettingRow(title: String, value: String, enabled: Boolean, action: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = action).heightIn(min = 68.dp).padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
         Text(value, Modifier.widthIn(max = 190.dp).padding(start = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -171,7 +154,7 @@ private fun SettingRow(title: String, value: String, enabled: Boolean, action: (
 }
 
 @Composable
-private fun ModalLink(label: String, open: () -> Unit) {
+internal fun ModalLink(label: String, open: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClick = open)
         .heightIn(min = 48.dp).padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
