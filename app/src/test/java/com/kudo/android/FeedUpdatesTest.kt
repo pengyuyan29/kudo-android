@@ -32,6 +32,7 @@ class FeedUpdatesTest {
             assertEquals(FailureKind.VERIFICATION, (vm.state.value.error as ApiFailure).kind)
         } finally {
             vm.viewModelScope.cancel()
+            vm.viewModelScope.coroutineContext.job.join()
             server.shutdown()
             Dispatchers.resetMain()
         }
