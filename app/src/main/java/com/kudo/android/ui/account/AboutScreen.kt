@@ -33,7 +33,7 @@ import com.kudo.android.ui.theme.LocalDisplaySettings
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
-internal const val KudoAboutText = "酷DO是独立 LINUX DO 第三方安卓原生客户端"
+internal const val KudoAboutText = "酷DO是 LINUX DO 的第三方安卓原生客户端"
 
 @Composable
 fun AboutScreen(openLink: (String) -> Unit = {}, openExternal: (String) -> Unit = {},
@@ -70,7 +70,7 @@ fun AboutScreen(openLink: (String) -> Unit = {}, openExternal: (String) -> Unit 
                         SettingRow("检查更新", BuildConfig.VERSION_NAME, !showing) { show("update") }
                         SettingRow("查看源码", "GitHub", !showing) { openExternal(KudoSourceUrl) }
                         SettingRow("开源致谢", "", !showing) { show("licenses") }
-                        SettingRow("社区指南", "真诚 · 友善 · 团结 · 专业", !showing) { openLink("https://linux.do/guidelines") }
+                        SettingRow("社区指南", "", !showing) { openLink("https://linux.do/guidelines") }
                         SettingRow("隐私说明", "", !showing) { show("privacy") }
                     }
                 }

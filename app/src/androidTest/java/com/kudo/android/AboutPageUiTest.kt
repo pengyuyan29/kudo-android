@@ -41,13 +41,15 @@ class AboutPageUiTest {
         val right = compose.onNodeWithContentDescription("LINUX DO Logo").fetchSemanticsNode().boundsInRoot
         assertTrue(left.right < heart.left && heart.right < right.left)
         assertEquals(left.center.y, right.center.y, 1f)
-        compose.onNodeWithText("酷DO是独立 LINUX DO 第三方安卓原生客户端").assertIsDisplayed()
+        compose.onNodeWithText("酷DO是 LINUX DO 的第三方安卓原生客户端").assertIsDisplayed()
         compose.onNodeWithText(BuildConfig.VERSION_NAME, useUnmergedTree = true).assertIsDisplayed()
         compose.onNode(hasText("酷DO") and hasClickAction()).assertDoesNotExist()
         compose.onNodeWithText("${BuildConfig.VERSION_NAME} · LINUX DO 第三方客户端").assertDoesNotExist()
         compose.onNodeWithText("技术与设计参考").assertDoesNotExist()
         compose.onNodeWithText("账号与草稿仅保存在本机").assertDoesNotExist()
         capture("about-two-brands.png")
+        compose.onNodeWithTag("about-content").performScrollToNode(hasTestTag("about-slogan"))
+        compose.onAllNodesWithText("真诚 · 友善 · 团结 · 专业", useUnmergedTree = true).assertCountEquals(1)
         compose.onNodeWithText("社区指南").performScrollTo().performClick()
         compose.runOnIdle { assertEquals("https://linux.do/guidelines", link) }
         compose.onNodeWithText("开源致谢").performScrollTo().performClick()
@@ -72,8 +74,8 @@ class AboutPageUiTest {
             compose.runOnIdle { settings = settings.copy(glass = mode) }
             compose.onNodeWithTag("about-content").performScrollToNode(hasContentDescription("LINUX DO Logo"))
             compose.onNodeWithContentDescription("LINUX DO Logo").assertIsDisplayed()
-            compose.onNodeWithTag("about-content").performScrollToNode(hasText("酷DO是独立 LINUX DO 第三方安卓原生客户端"))
-            compose.onNodeWithText("酷DO是独立 LINUX DO 第三方安卓原生客户端").assertIsDisplayed()
+            compose.onNodeWithTag("about-content").performScrollToNode(hasText(KudoAboutText))
+            compose.onNodeWithText(KudoAboutText).assertIsDisplayed()
             capture("about-dark-narrow-${mode.name.lowercase()}.png", "about-narrow")
             compose.onNodeWithTag("about-content").performScrollToNode(hasText("隐私说明"))
             compose.onNodeWithText("隐私说明").performClick()

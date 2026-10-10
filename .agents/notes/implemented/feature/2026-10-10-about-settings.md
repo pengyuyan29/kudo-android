@@ -8,7 +8,7 @@ Status: implemented
 
 ## Decision
 
-设置保留显示偏好、内容偏好、链接和退出登录，链接行简化为“站内链接”。关于页正文下方保留开源致谢、社区指南与隐私说明入口，并由[GitHub更新](2026-10-11-github-updates.md)增加检查更新和外部源码入口，许可与隐私沿用现有模态，指南沿用网页回调。开源致谢与隐私说明不显示副标题。顶部两个现有品牌矢量图标与各自名称并排，中间红心；页头版本号与重复的“酷DO”版本行按用户要求移除，真实版本仍在“我的”页关于入口右侧显示。正文合并为“酷DO是独立 LINUX DO 第三方安卓原生客户端”。保留底部社区 slogan。
+设置保留显示偏好、内容偏好、链接和退出登录，链接行简化为“站内链接”。关于页正文下方保留开源致谢、社区指南与隐私说明入口，并由[GitHub更新](2026-10-11-github-updates.md)增加检查更新和外部源码入口，许可与隐私沿用现有模态，指南沿用网页回调。开源致谢、社区指南与隐私说明不显示副标题。顶部两个现有品牌矢量图标与各自名称并排，中间红心；页头版本号与重复的“酷DO”版本行按用户要求移除，真实版本仍在“我的”页关于入口右侧显示。正文合并为“酷DO是 LINUX DO 的第三方安卓原生客户端”。保留底部社区 slogan。
 
 双Logo按顶部对齐，不让中英文名称的行高影响图标位置。菜单标题与右值按可用宽度分配空间，窄屏允许说明换行，避免右侧固定最大宽度把短标题挤成逐字换行。
 
@@ -22,6 +22,8 @@ Status: implemented
 - 将说明都铺在关于页最直接，但长许可和隐私会淹没品牌及简介，使用扁平入口与已有模态。
 
 ## Testing
+
+2026-10-11：简介更新为“酷DO是 LINUX DO 的第三方安卓原生客户端”，社区指南移除行内副标题，底部slogan保留且只有一处。AboutPageUiTest四项真机通过，覆盖新文案、指南跳转、底部标语、各材质和窄屏130%文字；日志artifacts/about-copy-device.txt。GuestProfileUiTest原“关于页无版本号”断言与已有检查更新行冲突，同批修正为仅在检查更新行显示一次版本号，返回访客页后仍显示版本；单项重跑通过，日志artifacts/about-copy-guest-fixed-device.txt。
 
 RMX2202 / Android13 的 AboutPageUiTest 共4项全部通过（artifacts/about-layout-validation-device.txt），覆盖设置移除整组、短链接标题、双品牌与红心位置、四项入口及许可链接、暗色280dp宽130%字体与各材质模态、菜单短标题完整。窄屏标题先复现为3行，再修正到单行（artifacts/about-row-details-diagnosis.txt）。已查看 about-two-brands.png、about-dark-narrow-liquid.png 与 about-dark-narrow-liquid-footer.png，正文、菜单和底部 slogan 可通过滚动访问。
 
