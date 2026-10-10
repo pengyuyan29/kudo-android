@@ -68,7 +68,12 @@ internal fun MemberNotificationsScreen(vm: AccountViewModel, login: () -> Unit, 
                         }.padding(horizontal = 16.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Box {
                             if (notice.actor != null) Avatar(notice.actor, 36.dp) else Icon(Icons.Rounded.NotificationsNone, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (!notice.read) Box(Modifier.align(Alignment.TopEnd).size(7.dp).background(LogoYellow, RoundedCornerShape(50)))
+                            if (notice.isSolved) Icon(Icons.Rounded.CheckBox, "话题已解决",
+                                Modifier.align(Alignment.BottomEnd).size(16.dp)
+                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(3.dp))
+                                    .testTag("notice-solved-${notice.id}"), tint = Color(0xFF3B82F6))
+                            if (!notice.read) Box(Modifier.align(Alignment.TopEnd).size(7.dp).background(LogoYellow, RoundedCornerShape(50))
+                                .testTag("notice-unread-${notice.id}"))
                         }
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                             Text(notice.description, fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)

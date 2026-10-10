@@ -34,6 +34,7 @@ class MemberAccountUiTest {
     private lateinit var http: OkHttpClient
     private lateinit var repository: CommunityRepository
     private var vm: AccountViewModel? = null
+    private var noticesFixture: String? = null
     @Before fun fixture() {
         http = OkHttpClient.Builder().addInterceptor { chain ->
             val request = chain.request()
@@ -42,7 +43,9 @@ class MemberAccountUiTest {
                 "/session/current.json" -> """{"current_user":{"id":42,"username":"fixture","name":"资料测试","trust_level":3}}"""
                 "/u/fixture.json" -> """{"user":{"id":42,"username":"fixture","name":"资料测试","trust_level":3}}"""
                 "/u/fixture/summary.json" -> """{"user_summary":{"days_visited":825,"posts_read_count":357012,"likes_received":4000,"post_count":3102}}"""
-                "/notifications" -> if (request.url.queryParameter("offset") == "30")
+                "/session/csrf" -> """{"csrf":"offline-csrf"}"""
+                "/notifications/mark-read" -> "{}"
+                "/notifications" -> noticesFixture ?: if (request.url.queryParameter("offset") == "30")
                     """{"notifications":[{"id":31,"notification_type":25,"data":{"title":"后页回应","display_username":"fixture"}}],"total_rows_notifications":31}"""
                     else """{"notifications":[${(1..30).joinToString(",") { """{"id":$it,"notification_type":2,"data":{"title":"回复夹具$it","display_username":"fixture"}}""" }}],"total_rows_notifications":31,"load_more_notifications":"/notifications?offset=30&limit=30"}"""
                 else -> error("Unexpected fixture endpoint ${request.url.encodedPath}")
@@ -101,6 +104,34 @@ class MemberAccountUiTest {
             compose.onNodeWithText(label).assertIsDisplayed()
         }
         compose.onNodeWithText("邀请链接").assertDoesNotExist()
+    }
+
+    @Test fun solvedNoticeShowsTopicAndCheckmarkWithoutConfusingUnreadOrOtherCustomEvents() {
+        noticesFixture = """{"notifications":[
+            {"id":101,"notification_type":14,"topic_id":3003776,"post_number":34,"read":false,"data":{"message":"solved.topic_solved_notification","display_username":"3023599024","topic_title":"新来的前端女同事，怎么深入交流？","title":"solved.notification.topic_solved_title"}},
+            {"id":102,"notification_type":14,"read":true,"data":{"message":"solved.topic_solved_notification","topic_title":"另一条已读解决通知"}},
+            {"id":103,"notification_type":14,"read":true,"data":{"message":"another.plugin_event","title":"普通插件通知"}}
+        ],"total_rows_notifications":3}"""
+        vm = AccountViewModel(repository, {}, {})
+        val account = vm!!
+        var target: Pair<Int, Int?>? = null
+        compose.setContent { KudoTheme(DisplaySettings()) { NotificationsScreen(account, {}, { topic, post -> target = topic to post }) } }
+        compose.waitUntil(5000) { account.noticesLoaded }
+        compose.onNodeWithText("新来的前端女同事，怎么深入交流？").assertIsDisplayed()
+        compose.onNodeWithText("3023599024 将话题标记为已解决").assertIsDisplayed()
+        for (id in listOf(101, 102)) compose.onNodeWithTag("notice-solved-$id", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("notice-unread-101", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("notice-unread-102", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("notice-solved-103", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("solved.notification.topic_solved_title").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(0, writes.get()) }
+        capture("solved-notice-fixed.png", "member-notifications")
+        compose.onNodeWithText("新来的前端女同事，怎么深入交流？").performClick()
+        compose.runOnIdle { assertEquals(3003776 to 34, target) }
+        compose.waitUntil(5000) { account.notices.first().read }
+        compose.onNodeWithTag("notice-unread-101", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("notice-solved-101", useUnmergedTree = true).assertIsDisplayed()
+        compose.runOnIdle { assertEquals(1, writes.get()) }
     }
 
     private fun capture(name: String, tag: String) {

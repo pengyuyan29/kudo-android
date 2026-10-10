@@ -70,7 +70,7 @@ data class TopicDetail(
     val originalPost: Post? get() = posts.firstOrNull { it.number == 1 } ?: pinnedOriginal
 }
 data class Notice(val id: Int, val title: String, val description: String, val topicId: Int?, val postNumber: Int?, val read: Boolean, val time: String,
-    val type: Int = 0, val actor: Member? = null, val url: String = "")
+    val type: Int = 0, val actor: Member? = null, val url: String = "", val isSolved: Boolean = false)
 data class SavedTopic(val id: Int, val topicId: Int, val title: String, val excerpt: String, val postNumber: Int?)
 data class PublishResult(val topicId: Int?, val queued: Boolean)
 
@@ -186,7 +186,8 @@ object DiscourseParser {
     fun notices(json: JSONObject): List<Notice> = json.optJSONArray("notifications").objects().map { item ->
         val data = item.optJSONObject("data") ?: JSONObject()
         val type = item.optInt("notification_type")
-        val kind = when (type) {
+        val solved = type == 14 && data.text("message") == "solved.topic_solved_notification"
+        val kind = if (solved) "将话题标记为已解决" else when (type) {
             1, 15 -> "提到了你"; 2 -> "回复了你"; 3 -> "引用了你"; 4 -> "编辑了帖子"
             5, 19 -> "赞了你的帖子"; 6 -> "发来私信"; 7 -> "邀请你加入私信"; 9, 17 -> "发布了新话题"
             11 -> "链接了你的帖子"; 12 -> "授予了你徽章"; 13 -> "邀请你参与话题"; 20 -> "你的内容已通过审核"
@@ -194,9 +195,12 @@ object DiscourseParser {
         }
         val username = data.text("display_username").ifBlank { data.text("original_username") }.ifBlank { item.text("acting_user_username") }
         val actor = username.takeIf(String::isNotBlank)?.let { Member(item.optInt("acting_user_id"), it, data.text("display_name"), item.text("acting_user_avatar_template")) }
-        Notice(item.getInt("id"), plainText(data.text("title").ifBlank { data.text("topic_title") }.ifBlank { data.text("badge_name") }).ifBlank { kind },
-            "$username $kind".trim(), item.positiveInt("topic_id"), item.positiveInt("post_number"), item.optBoolean("read"), item.text("created_at"),
-            type, actor, data.text("url").ifBlank { data.text("link") }.ifBlank { data.positiveInt("badge_id")?.let { "https://linux.do/badges/$it" }.orEmpty() })
+        val title = if (solved) plainText(data.text("topic_title")).ifBlank { plainText(item.text("fancy_title")) }.ifBlank { "话题已解决" }
+            else plainText(data.text("title").ifBlank { data.text("topic_title") }.ifBlank { data.text("badge_name") }).ifBlank { kind }
+        Notice(item.getInt("id"), title,
+            if (solved && username.isBlank()) "话题已解决" else "$username $kind".trim(),
+            item.positiveInt("topic_id"), item.positiveInt("post_number"), item.optBoolean("read"), item.text("created_at"),
+            type, actor, data.text("url").ifBlank { data.text("link") }.ifBlank { data.positiveInt("badge_id")?.let { "https://linux.do/badges/$it" }.orEmpty() }, solved)
     }
 }
 
