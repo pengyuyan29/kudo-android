@@ -10,7 +10,9 @@ Status: implemented
 
 专用徽章页面合并/badges.json目录与/user-badges/{username}.json?grouped=true的个人授予记录。获得状态仅以指定用户的授予记录为准，不使用目录中当前会话的has_badge。目录保留long_description，补入目录外的已获得徽章；读取失败不把未知状态显示成未获得。
 
-使用惰性宫格，约100dp最小单元，普通手机三列，窄屏大字减少列数、宽屏增加。宫格只显示图标和名字，已获得先列出，其他按服务端分组顺序排列。图片徽章保留原图，未获得转灰；Font Awesome图标按金银铜着色，未获得为中性灰。已知站点图标随应用打包，未知图标回退通用徽章。
+使用惰性宫格，约100dp最小单元，普通手机三列，窄屏大字减少列数、宽屏增加。宫格只显示圆框图标和下方名字，取消矩形卡片；圆框内部使用主题surface，页面背景使用主题background。已获得先列出，其他按服务端分组顺序排列。圆框与Font Awesome图标使用服务端对应的金银铜色，未获得使用主题中性灰；图片徽章保留原图，未获得转灰。已知站点图标随应用打包，未知图标回退通用徽章。
+
+“已获得 x / y”移至顶栏右侧，移除常驻刷新按钮和宫格顶部统计行。加载或失败时隐藏未知统计，失败页仍保留重试；重新进入页面重新读取数据。
 
 名称预留两行，超出两行显示省略，弹窗标题保留全名。打包34个站点使用的Font Awesome字形，vote-up-filled使用同义thumbs-up；图片徽章加载失败回退对应字形。授权说明随资源与关于页同步。
 
@@ -35,6 +37,10 @@ Status: implemented
 RMX2202 / Android13的BadgeGalleryUiTest共4项全过（artifacts/badge-gallery-final-device.txt），验证360dp三列、700dp六列、280dp暗色130%字号两列、图片灰化像素、全部已知图标、获得次数/日期、条件内链接、官网入口及拖动关闭。已查看badges-grid-light.png、badges-grid-wide.png、badges-grid-dark-narrow.png和badge-dark-narrow-details.png。首次链接检查错误地点击整行Text语义；改为点击链接字形的实际位置后通过，产品链接回调未改变。
 
 最终日期标签使用“获得时间”，避免将grouped接口时间推断为最近一次获得；重新构建并覆盖安装后，详情文案、条件链接和拖动关闭的定向真机用例再次通过（artifacts/badge-gallery-time-label-device.txt，1项）。
+
+圆框版Debug和测试APK构建、覆盖安装成功。3项相关真机用例通过：360dp三列、统计在顶栏右侧且无刷新、圆框与图标同心、图片灰化、详情链接及拖动关闭（artifacts/badge-circle-device.txt中的2项）；700dp六列、280dp暗色130%字体两列、41/82统计与标题完整单行、详情可滚动（artifacts/badge-circle-header-final.txt的1项）。已查看badge-circle-light.png、badge-circle-wide.png和badge-circle-dark-narrow.png，金银铜圆框、无矩形卡片和主题背景符合要求。截图使用离线图标/图片夹具。
+
+宽窄切换首次检查将TextLayoutResult保留的排版可用宽度误判为截断（paragraph=624、Text.width=294，但实际字形right=294且截图完整）。改为核对单行、全部字符、无省略和实际字形边界后通过，不放宽可见性或修改产品文字尺寸。
 
 ## Consequences
 

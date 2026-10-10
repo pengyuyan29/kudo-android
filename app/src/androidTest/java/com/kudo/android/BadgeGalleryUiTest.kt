@@ -35,8 +35,8 @@ class BadgeGalleryUiTest {
         listOf("欢迎", "自传作者", "编辑者", "第一个赞", "首次分享", "第一个表情符号", "首次引用")[id - 1],
         "收到一个赞", "<p>收到社区成员的一个赞即可获得。</p><p><a href=\"https://linux.do/guidelines\">社区指南</a></p>",
         if (id == 1) "heart" else "user", if (image) "https://badge.test/$id.png" else null,
-        3, 0, earned, if (earned) 2 else 0, if (earned) "2026-10-01T00:00:00Z" else "")
-    private val badges = listOf(badge(1, true), badge(2), badge(3, true, true), badge(4, image = true), badge(5), badge(6), badge(7))
+        when (id) { 1 -> 1; 3 -> 2; else -> 3 }, 0, earned, if (earned) 2 else 0, if (earned) "2026-10-01T00:00:00Z" else "")
+    private val badges = listOf(badge(1, true), badge(2), badge(3, true, true), badge(4, image = true), badge(5, true), badge(6), badge(7))
 
     @Before fun images() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -69,6 +69,17 @@ class BadgeGalleryUiTest {
         val rows = (1..4).map { compose.onNodeWithTag("badge-$it").assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
         assertEquals(rows[0].top, rows[1].top, 1f); assertEquals(rows[0].top, rows[2].top, 1f)
         assertTrue(rows[3].top > rows[0].bottom)
+        compose.onNodeWithContentDescription("刷新").assertDoesNotExist()
+        val statistics = compose.onNodeWithTag("badge-statistics").assertTextEquals("已获得 3 / 7")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val title = compose.onNodeWithText("我的徽章").fetchSemanticsNode().boundsInRoot
+        assertTrue(statistics.left >= title.right)
+        assertEquals(title.center.y, statistics.center.y, 1f)
+        assertTrue(statistics.bottom < rows.first().top)
+        val frame = compose.onNodeWithTag("badge-frame-1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val logo = compose.onNodeWithTag("badge-logo-1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertEquals(frame.width, frame.height, 1f)
+        assertEquals(frame.center.x, logo.center.x, 1f); assertEquals(frame.center.y, logo.center.y, 1f)
         compose.onNodeWithTag("badge-1").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "已获得"))
         compose.onNodeWithTag("badge-2").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "未获得"))
         compose.onNodeWithText("收到一个赞").assertDoesNotExist()
@@ -112,9 +123,10 @@ class BadgeGalleryUiTest {
     @Test fun wideAndNarrowLargeTextAdaptTheirColumnCountsAndKeepDetailsScrollable() {
         var width by mutableStateOf(700.dp)
         var settings by mutableStateOf(DisplaySettings())
+        val catalog = List(82) { index -> badges[index % badges.size].copy(id = index + 1, earned = index < 41) }
         compose.setContent {
             DeviceConfigurationOverride(DeviceConfigurationOverride.ForcedSize(DpSize(width, 700.dp))) {
-                KudoTheme(settings) { BadgePage(badges) }
+                KudoTheme(settings) { BadgePage(catalog) }
             }
         }
         val first = compose.onNodeWithTag("badge-1").fetchSemanticsNode().boundsInRoot
@@ -125,7 +137,19 @@ class BadgeGalleryUiTest {
         val narrow = (1..3).map { compose.onNodeWithTag("badge-$it").assertIsDisplayed().fetchSemanticsNode().boundsInRoot }
         assertEquals(narrow[0].top, narrow[1].top, 1f)
         assertTrue(narrow[2].top > narrow[0].bottom)
+        compose.onNodeWithTag("badge-statistics").assertTextEquals("已获得 41 / 82").assertIsDisplayed()
         capture("badges-grid-dark-narrow.png")
+        for (node in listOf(compose.onNodeWithTag("badge-statistics"), compose.onNodeWithText("我的徽章"))) {
+            val layouts = mutableListOf<TextLayoutResult>()
+            node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            assertEquals("顶栏应保持单行", 1, layouts.single().lineCount)
+            val layout = layouts.single()
+            // A paragraph can retain its pre-resize available width while the actual glyphs fit the Text.
+            assertFalse("顶栏文字不能被省略", layout.isLineEllipsized(0))
+            assertEquals(layout.layoutInput.text.length, layout.getLineEnd(0, visibleEnd = true))
+            assertTrue("顶栏文字不能超出边界", layout.getLineRight(0) <= layout.size.width + 1f)
+            assertTrue(layout.getLineLeft(0) >= -1f)
+        }
         compose.onNodeWithTag("badge-2").performClick()
         compose.onNodeWithText("在社区查看").performScrollTo().assertIsDisplayed()
         capture("badge-dark-narrow-details.png")

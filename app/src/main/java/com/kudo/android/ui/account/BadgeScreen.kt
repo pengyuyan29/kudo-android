@@ -2,13 +2,14 @@ package com.kudo.android.ui.account
 
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -59,24 +60,22 @@ internal fun BadgePage(badges: List<UserBadge>, loading: Boolean = false, error:
         Column(Modifier.fillMaxSize().then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)
             .focusProperties { onEnter = { if (showing) cancelFocusChange() } }.focusGroup()) {
             AccountPageTopBar("我的徽章", back) {
-                CommunityIconButton(Icons.Rounded.Refresh, "刷新", refresh, enabled = !loading && !showing)
+                if (!loading && error == null) Text("已获得 ${badges.count { it.earned }} / ${badges.size}",
+                    Modifier.padding(horizontal = 8.dp).testTag("badge-statistics"), maxLines = 1,
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             LazyVerticalGrid(columns, Modifier.weight(1f).testTag("badge-grid"), contentPadding = PaddingValues(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (loading) item(span = { GridItemSpan(maxLineSpan) }) { LoadingRow() }
                 else if (error != null) item(span = { GridItemSpan(maxLineSpan) }) { ErrorState(error, refresh, login) }
                 else {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Text("已获得 ${badges.count { it.earned }} / ${badges.size}", Modifier.padding(bottom = 4.dp),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
                     items(badges, key = { it.id }) { badge ->
-                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                             .clickable(role = Role.Button) { selected = badge; sheet.targetState = true }
                             .semantics { stateDescription = if (badge.earned) "已获得" else "未获得" }
-                            .heightIn(min = 112.dp).padding(horizontal = 6.dp, vertical = 16.dp).testTag("badge-${badge.id}"),
+                            .heightIn(min = 112.dp).padding(horizontal = 6.dp, vertical = 12.dp).testTag("badge-${badge.id}"),
                             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            BadgeLogo(badge, Modifier.size(44.dp))
+                            BadgeEmblem(badge, Modifier.size(76.dp))
                             Text(badge.name, Modifier.fillMaxWidth(), textAlign = TextAlign.Center,
                                 style = MaterialTheme.typography.bodyMedium, minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis,
                                 color = if (badge.earned) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -91,7 +90,7 @@ internal fun BadgePage(badges: List<UserBadge>, loading: Boolean = false, error:
         CommunitySheet(sheet, selected?.name ?: "徽章详情", { sheet.targetState = false }, showActions = false) {
             selected?.let { badge ->
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    BadgeLogo(badge, Modifier.size(56.dp))
+                    BadgeEmblem(badge, Modifier.size(64.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(if (badge.earned) "已获得" else "未获得", style = MaterialTheme.typography.titleMedium)
                         Text(when (badge.type) { 1 -> "金色徽章"; 2 -> "银色徽章"; else -> "铜色徽章" },
@@ -116,10 +115,22 @@ internal fun BadgePage(badges: List<UserBadge>, loading: Boolean = false, error:
 }
 
 @Composable
-private fun BadgeLogo(badge: UserBadge, modifier: Modifier = Modifier) {
-    val tint = if (!badge.earned) Color(0xFFB5B5B5) else when (badge.type) {
+private fun badgeTint(badge: UserBadge): Color = if (!badge.earned) MaterialTheme.colorScheme.outline else when (badge.type) {
         1 -> Color(0xFFE5BF00); 2 -> Color(0xFFA8A8A8); else -> Color(0xFFCD7F32)
     }
+
+@Composable
+private fun BadgeEmblem(badge: UserBadge, modifier: Modifier = Modifier) {
+    Box(modifier.testTag("badge-frame-${badge.id}").clip(CircleShape)
+        .background(MaterialTheme.colorScheme.surface).border(2.dp, badgeTint(badge), CircleShape),
+        contentAlignment = Alignment.Center) {
+        BadgeLogo(badge, Modifier.fillMaxSize(.5f))
+    }
+}
+
+@Composable
+private fun BadgeLogo(badge: UserBadge, modifier: Modifier = Modifier) {
+    val tint = badgeTint(badge)
     val context = LocalContext.current
     val vector = remember(badge.icon, context) { BadgeIcons.get(context, badge.icon) }
     var failed by remember(badge.imageUrl) { mutableStateOf(false) }
