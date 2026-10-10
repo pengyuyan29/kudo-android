@@ -12,6 +12,46 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FeedPageCacheTest {
+    @Test fun confirmedReadingInvalidatesOnlyReadDependentPagesAndKeepsScrollRequests() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val paths = CopyOnWriteArrayList<String>()
+        MockWebServer().use { server ->
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse {
+                    paths += request.path!!
+                    return MockResponse().setBody(when {
+                        request.path == "/site.json" -> """{"categories":[{"id":1,"name":"分类"}]}"""
+                        request.path!!.contains("topic-tracking") -> "[]"
+                        else -> """{"topic_list":{"topics":[{"id":3,"title":"离线话题"}]}}"""
+                    })
+                }
+            }
+            server.start()
+            val vm = FeedViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))), initialUser = Member(7, "seven", "七", ""))
+            suspend fun idle() = withContext(Dispatchers.Default) { withTimeout(5000) { vm.viewModelScope.coroutineContext.job.children.toList().joinAll() } }
+            try {
+                idle()
+                for (filter in listOf("new", "read", "bookmarks", "latest")) { vm.select(filter); idle() }
+                val count = paths.count { it == "/latest.json" }
+                vm.refreshReadListsIfRequested(1, 7); idle()
+                assertFalse(vm.pages.value.containsKey("unread"))
+                assertFalse(vm.pages.value.containsKey("new"))
+                assertFalse(vm.pages.value.containsKey("read"))
+                assertTrue(vm.pages.value.containsKey("bookmarks"))
+                assertEquals(count, paths.count { it == "/latest.json" })
+                assertEquals(0L, vm.state.value.scrollToTopRequest)
+                vm.select("unread"); idle()
+                val unreadCount = paths.count { it == "/unseen.json" }
+                vm.refreshReadListsIfRequested(1, 7); idle()
+                vm.refreshReadListsIfRequested(2, 8); idle()
+                assertEquals(unreadCount, paths.count { it == "/unseen.json" })
+                vm.refreshReadListsIfRequested(2, 7); idle()
+                assertEquals(unreadCount + 1, paths.count { it == "/unseen.json" })
+                assertEquals(0L, vm.state.value.scrollToTopRequest)
+            } finally { vm.viewModelScope.coroutineContext[Job]?.cancelAndJoin(); Dispatchers.resetMain() }
+        }
+    }
+
     @Test fun revisitingPagesKeepsPaginationWithoutRequestsAndAccountSwitchClearsAllCaches() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         val paths = CopyOnWriteArrayList<String>()

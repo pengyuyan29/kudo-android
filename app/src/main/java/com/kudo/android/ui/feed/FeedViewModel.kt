@@ -33,6 +33,8 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
     private var baseline: Map<Int, Topic>? = null
     private var acknowledgeOnProbe = false
     private var lastRefreshEpoch = 0
+    private var lastReadingEpoch = 0
+    private var readingCountJob: Job? = null
     init { refresh() }
     fun setUser(value: Member?): Boolean {
         if (value?.id == user?.id && value?.unifiedNew == user?.unifiedNew) return false
@@ -50,7 +52,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         if (filter == _state.value.filter) return
         val previous = _state.value
         _pages.update { it + (previous.filter to previous.copy(loading = previous.loading && previous.topics.isEmpty(), loadingMore = false)) }
-        job?.cancel(); moreJob?.cancel(); generation++
+        job?.cancel(); moreJob?.cancel(); readingCountJob?.cancel(); generation++
         acknowledgeOnProbe = false
         val cached = _pages.value[filter]?.takeIf { !it.loading }
         baseline = cached?.topics?.associateBy(Topic::id)
@@ -69,6 +71,32 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         lastRefreshEpoch = epoch
         _pages.value = emptyMap()
         refresh()
+    }
+
+    fun refreshReadListsIfRequested(epoch: Int, accountId: Int?) {
+        val account = user ?: return
+        if (account.id != accountId || epoch <= 0 || epoch == lastReadingEpoch) return
+        lastReadingEpoch = epoch
+        val dependent = setOf("unread", "new", "read")
+        _pages.update { pages -> pages.filterKeys { it !in dependent }.mapValues { it.value.copy(newCount = null) } }
+        if (_state.value.filter in dependent) {
+            refresh()
+        } else if (categoryId == null) {
+            // Reading must not replace public pages, pagination or their saved scroll positions.
+            readingCountJob?.cancel()
+            val token = generation
+            _state.update { it.copy(newCount = null) }
+            readingCountJob = viewModelScope.launch {
+                try {
+                    val count = withContext(Dispatchers.IO) { repository.newTopicCount(account) }
+                    if (token == generation && user?.id == account.id) {
+                        _state.update { it.copy(newCount = count) }
+                        _pages.update { pages -> pages.mapValues { it.value.copy(newCount = count) } }
+                    }
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { /* A missing count must not replace a successful public page. */ }
+            }
+        }
     }
 
     fun setUpdatesActive(active: Boolean) {
@@ -126,6 +154,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
     fun refresh() {
         job?.cancel()
         moreJob?.cancel()
+        readingCountJob?.cancel()
         val token = ++generation
         val refreshRevision = arrivalRevision
         val account = user
