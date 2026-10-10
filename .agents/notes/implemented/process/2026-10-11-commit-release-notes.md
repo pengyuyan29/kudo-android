@@ -35,6 +35,10 @@ GitHub的generate-notes主要按PR整理，直接提交可能没有可用更新�
 
 2026-10-11首次真实发布v0.1.5：Tag固定指向b3c072c，因没有先前稳定Tag，正文整理全部祖先提交。云端运行38074297223第二轮完整通过，GitHub Release正文与脚本本地生成文件逐字一致（忽略尾部空白），包含高频拖动修复并附Tag提交历史链接。发布后实际下载APK和摘要并验签通过，验收记录见[签名与Tag发布](2026-10-08-signing-and-tag-releases.md)；云端正文留存于artifacts/release/0.1.5/cloud/release-notes.md。仓库仍私有，App匿名更新检查留待公开后验收。
 
+## Commit subject validation
+
+A versioned `.githooks/commit-msg` hook calls `scripts/check_commit_message.py` and accepts the supported Conventional Commit types, optional scopes, and merge subjects. The local repository enables this hook with `core.hooksPath=.githooks`; standalone tests cover valid, invalid, commented, and merge messages. Existing history remains unchanged and future commits are rejected when their subject has no recognized prefix.
+
 ## Consequences
 
 日志只呈现App功能、修复和体验变化，首次版本与增量版本使用相同过滤规则，工程变更可从完整比较链接追溯。日志质量仍取决于commit标题；旧提交中混合功能与验收说明的标题不会自动改写，发布前需要查看预览。未来拆分运行时模块时必须同步文件范围。真实云端正文已验收，但私有仓库内认证访问不能证明App的匿名访问路径；本轮生成的v0.1.5预览不代表已发布正文已被修改。
