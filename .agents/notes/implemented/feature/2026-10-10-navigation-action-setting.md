@@ -21,8 +21,8 @@ DisplaySettings增加NavigationAction枚举，存储枚举名，缺失或未知�
 
 ## Testing
 
-NavigationActionUiTest两项真机通过，覆盖缺省/未知枚举回退、单选保存与取消、偏好重建及两个模式唯一可访问动作。Debug和测试APK构建通过，日志artifacts/member-navigation-fixed-ui.txt。
+NavigationActionUiTest两项真机通过，覆盖缺省/未知枚举回退、单选保存与取消、偏好重建及两个模式唯一可访问动作。Debug和测试APK构建通过，日志artifacts/member-navigation-fixed-ui.txt。实际账号设置切换搜索后，黄色胶囊显示黑色放大镜并进入原生“搜索社区”；验收后恢复发帖，截图artifacts/runtime-search-action.png和页面结构runtime-native-search-layout.json。
 
 ## Consequences
 
-新增设置可能延长小屏列表，测试与用户需能滚动到其余选项。导航材质只换前景图标，真机复核可访问入口唯一和采样层图标一致。
+新增设置延长小屏列表，其余选项继续通过滚动访问。导航材质只换前景图标，可访问入口唯一、采样层图标一致已通过真机回归；宽屏和其他Android版本尚无本次视觉样本。

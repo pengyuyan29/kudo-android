@@ -77,3 +77,7 @@ CommunityUiTest 的整栏抬升与取消复位检查同样按真实16ms间隔推
 本轮失败复现为 artifacts/navigation-scale-repro.txt / navigation-center-repro.txt，完整回归为 navigation-scale-instrumentation.txt。navigation-scale-before-after.png、navigation-raised-lens.png / navigation-material-dark-large.png 截图与 navigation-glass-coolapk-motion.mp4 / navigation-glass-kudo-motion.mp4 同机慢拖确认整栏放大、镜片中心图标和文字继续放大、前景弧面边缘折射、双高亮和松手收敛；navigation-glass-home.png 确认静止灰面和品牌黄且没有额外镜片白圈，结束留在真实首页。此前材质复现与 10 项回归保留在 navigation-material-repro.txt / navigation-material-instrumentation.txt，双高亮复现与 7 项回归保留在 navigation-preview-repro.txt / navigation-preview-instrumentation.txt。录屏仅验证动作与材质，不作为帧率基准。
 
 较早在 MI 6X（Android 9 / API 28）安装启动正常，半透明兼容材质正常，但当时网络连接失败；未以旧机完成在线验收。用户换机后，不再运行模拟器。较早 API 36 模拟器结果仅为历史验证，不替代本次真机结果。
+
+## Android CLI与仪器截图隔离
+
+Android CLI layout会让com.android.cli.interact.instrumentation继续持有UiAutomation。随后仪器截图可能报already registered / Not connected并导致测试进程收尾失败；这不是产品布局失败。运行截图仪器测试前，仅停止这个CLI测试辅助包，保留应用数据和用户服务。2026-10-11排除冲突后13项相关测试通过，日志artifacts/runtime-notification-device-fixed.txt；角标的子节点在LiquidBottomTab合并语义中需使用useUnmergedTree检索，再检查唯一实际采样入口。

@@ -32,6 +32,7 @@ class MemberHeaderUiTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         previous = SingletonImageLoader.get(context)
         val bitmap = Bitmap.createBitmap(40, 40, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.rgb(20, 180, 60)) }
+        for (x in 0..39) for (y in 0..19) bitmap.setPixel(x, y, android.graphics.Color.rgb(220, 40, 20))
         val bytes = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
         bitmap.recycle()
         images = ImageLoader.Builder(context).components {
@@ -91,5 +92,36 @@ class MemberHeaderUiTest {
         compose.onNodeWithTag("member-profile").performTouchInput { swipeDown(); swipeDown() }
         compose.waitForIdle()
         assertTrue(compose.onNodeWithTag("member-header-viewport").fetchSemanticsNode().boundsInRoot.height > header.width * .9f)
+    }
+    @Test fun collapseKeepsOriginalImageBottomWithOnlySlightlyDarkerMask() {
+        var loaded = false
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            Box(Modifier.width(360.dp).height(700.dp)) {
+                ProfileScreen(Member(42, "fixture", "图片底部", "https://member-image.test/avatar"), {}, {}, {}, {}, statusBarStyle = { loaded = it == false })
+            }
+        } }
+        compose.waitUntil(5000) { loaded }
+        val full = compose.onNodeWithTag("member-header-viewport").captureToImage().toPixelMap()
+        val upper = full[2, full.height / 4]
+        val lower = full[2, full.height - 5]
+        assertTrue(upper.red > upper.green * 2)
+        assertTrue(lower.green > lower.red * 2)
+        compose.onNodeWithTag("member-profile").performTouchInput { swipeUp() }
+        compose.onNodeWithTag("member-compact-header").assertIsDisplayed()
+        val compact = compose.onNodeWithTag("member-header-viewport").captureToImage().toPixelMap()
+        val bottom = compact[2, compact.height - 5]
+        assertTrue("吸顶应显示原图绿色底部", bottom.green > bottom.red * 2)
+        assertTrue("遮罩只略微加深", lower.green - bottom.green in .03f.. .13f)
+    }
+    @Test fun missingImageUsesWhiteBaseAndDarkStatusIcons() {
+        var style: Boolean? = null
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            Box(Modifier.width(360.dp).height(700.dp)) {
+                ProfileScreen(Member(42, "fixture", "白底", ""), {}, {}, {}, {}, statusBarStyle = { style = it })
+            }
+        } }
+        val full = compose.onNodeWithTag("member-header-viewport").captureToImage().toPixelMap()[2, 2]
+        assertTrue(full.red > .98f && full.green > .98f && full.blue > .98f)
+        compose.runOnIdle { assertEquals(true, style) }
     }
 }

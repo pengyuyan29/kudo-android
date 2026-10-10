@@ -16,13 +16,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
 import com.kudo.android.ui.topic.RichContent
 import kotlinx.coroutines.*
 import org.jsoup.nodes.Entities
 
-internal class ChatViewModel(private val repository: CommunityRepository, val channelId: Int) : ViewModel() {
+internal class ChatViewModel(private val repository: CommunityRepository, val channelId: Int, val initialMessage: Int? = null) : ViewModel() {
     var title by mutableStateOf("聊天"); private set
     var messages by mutableStateOf<List<ChatEntry>>(emptyList()); private set
     var loading by mutableStateOf(false); private set
@@ -32,6 +34,10 @@ internal class ChatViewModel(private val repository: CommunityRepository, val ch
     private var refreshJob: Job? = null
     private var loadJob: Job? = null
     private var generation = 0
+    private var active = false
+    private var readJob: Job? = null
+    private var lastRead = 0
+    private var readTarget = 0
     init {
         viewModelScope.launch {
             try { title = withContext(Dispatchers.IO) {
@@ -41,6 +47,8 @@ internal class ChatViewModel(private val repository: CommunityRepository, val ch
         }
     }
     fun active(value: Boolean) {
+        active = value
+        if (!value) { readJob?.cancel(); readJob = null }
         refreshJob?.cancel(); refreshJob = null
         if (value) refreshJob = viewModelScope.launch {
             while (isActive) { if (!loading && !sending) load(); delay(20_000) }
@@ -54,7 +62,7 @@ internal class ChatViewModel(private val repository: CommunityRepository, val ch
         val epoch = ++generation
         loadJob = viewModelScope.launch {
             try {
-                val result = withContext(Dispatchers.IO) { repository.chatMessages(channelId, before) }
+                val result = withContext(Dispatchers.IO) { repository.chatMessages(channelId, before, initialMessage.takeIf { messages.isEmpty() }) }
                 if (epoch == generation) {
                     val updates = result.messages.associateBy { it.id }
                     messages = (messages.filterNot { it.id in updates } + result.messages).filterNot { it.deleted }.sortedBy { it.id }
@@ -62,6 +70,21 @@ internal class ChatViewModel(private val repository: CommunityRepository, val ch
                 }
             } catch (e: CancellationException) { throw e } catch (e: Exception) { if (epoch == generation) error = e }
             finally { if (epoch == generation) loading = false }
+        }
+    }
+    fun readVisible(messageId: Int, accepted: (Int) -> Unit) {
+        if (!active || messageId <= lastRead) return
+        readTarget = maxOf(readTarget, messageId)
+        if (readJob?.isActive == true) return
+        readJob = viewModelScope.launch {
+            try {
+                while (active && readTarget > lastRead) {
+                    val target = readTarget
+                    withContext(Dispatchers.IO) { repository.readChat(channelId, target) }
+                    lastRead = target
+                    accepted(target)
+                }
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { error = e }
         }
     }
     fun send(raw: String, accepted: () -> Unit) {
@@ -80,11 +103,29 @@ internal class ChatViewModel(private val repository: CommunityRepository, val ch
 
 @Composable
 internal fun ChatScreen(vm: ChatViewModel, member: Member, settings: AppSettings, back: () -> Unit,
-    login: () -> Unit, website: () -> Unit, link: (String) -> Unit, user: (String) -> Unit) {
+    login: () -> Unit, website: () -> Unit, link: (String) -> Unit, user: (String) -> Unit,
+    read: (Int) -> Unit = {}) {
     val draftKey = "${member.id}_chat_${vm.channelId}"
     var raw by remember(member.id, vm.channelId) { mutableStateOf(settings.draft(draftKey).raw) }
     val scroll = rememberLazyListState()
+    var located by remember(vm) { mutableStateOf(false) }
+    val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    val visibleId by remember(scroll) { derivedStateOf { scroll.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? Int }.maxOrNull() } }
+    val latestRead by rememberUpdatedState(read)
     LifecycleResumeEffect(vm) { vm.active(true); onPauseOrDispose { vm.active(false) } }
+    LaunchedEffect(vm.messages, vm.initialMessage) {
+        if (!located && vm.messages.isNotEmpty()) {
+            val index = vm.messages.asReversed().indexOfFirst { it.id == vm.initialMessage }
+            if (index >= 0) scroll.scrollToItem(index)
+            located = true
+        }
+    }
+    LaunchedEffect(visibleId, lifecycle, located, vm.error) {
+        if (lifecycle.isAtLeast(Lifecycle.State.RESUMED) && located && vm.error == null) visibleId?.let { id ->
+            delay(700)
+            vm.readVisible(id) { latestRead(it) }
+        }
+    }
     BackHandler(vm.sending) { }
     Column(Modifier.fillMaxSize().imePadding()) {
         AccountPageTopBar(vm.title, { if (!vm.sending) back() }) {

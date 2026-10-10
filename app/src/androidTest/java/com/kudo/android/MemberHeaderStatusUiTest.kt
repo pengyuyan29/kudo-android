@@ -3,6 +3,7 @@ package com.kudo.android
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,10 +22,11 @@ class MemberHeaderStatusUiTest {
         compose.runOnUiThread { compose.activity.enableEdgeToEdge() }
         var style: Boolean? = null
         var inset = 0
+        var showing by mutableStateOf(true)
         compose.setContent { KudoTheme(DisplaySettings()) {
             inset = WindowInsets.statusBars.getTop(LocalDensity.current)
             Box(Modifier.fillMaxSize()) { Box(Modifier.height(480.dp)) {
-                ProfileScreen(Member(42, "fixture", "资料测试", "", trustLevel = 3), {}, {}, {}, {}, statusBarStyle = { style = it })
+                if (showing) ProfileScreen(Member(42, "fixture", "资料测试", "", trustLevel = 3), {}, {}, {}, {}, statusBarStyle = { style = it })
             } }
         } }
         compose.waitForIdle()
@@ -33,5 +35,8 @@ class MemberHeaderStatusUiTest {
         compose.waitForIdle()
         compose.onNodeWithTag("member-compact-header").assertIsDisplayed()
         compose.runOnIdle { assertEquals(true, style) }
+        compose.runOnIdle { showing = false }
+        compose.waitForIdle()
+        compose.runOnIdle { assertNull(style) }
     }
 }

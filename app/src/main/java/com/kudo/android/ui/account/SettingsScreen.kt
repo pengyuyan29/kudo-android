@@ -39,6 +39,10 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 @Composable
 fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit, user: Member?, logout: () -> Unit, back: () -> Unit, openLink: (String) -> Unit, manageIgnored: () -> Unit = {}) {
     val context = LocalContext.current
+    var notificationsEnabled by remember { mutableStateOf(false) }
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        notificationsEnabled = context.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled()
+    }
     var dialog by rememberSaveable { mutableStateOf("theme") }
     val visibility = remember { MutableTransitionState(false) }
     val backdrop = rememberLayerBackdrop()
@@ -72,6 +76,14 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                 if (user != null) item {
                     Column(Modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface)) {
                         SettingRow("已忽略用户", "${user.ignoredUsers.size} 人 · 与社区账号同步", !showing, manageIgnored)
+                    }
+                }
+                item { SectionLabel("消息通知") }
+                item {
+                    Column(Modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface)) {
+                        SettingRow("消息通知", if (notificationsEnabled) "已开启 · 运行期间接收" else "未开启 · 点击管理", !showing) {
+                            context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+                        }
                     }
                 }
                 item { SectionLabel("链接打开") }

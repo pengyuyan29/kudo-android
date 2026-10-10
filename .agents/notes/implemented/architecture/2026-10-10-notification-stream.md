@@ -14,7 +14,7 @@ DiscourseMessageBus共享同一长轮询实现，FeedUpdates与NotificationUpdat
 
 ## Related decisions
 
-检索MessageBus、通知与会话。与[首页更新](../feature/2026-10-08-home-live-refresh.md)部分重叠并保留安全、退避、取消边界；与[运行通知方案](../../proposed/feature/2026-10-10-runtime-local-notifications.md)部分重叠，本篇承担传输协议，系统展示及账号应用层由后者记录。没有完全吸收或过时提案。
+检索MessageBus、通知与会话。与[首页更新](../feature/2026-10-08-home-live-refresh.md)部分重叠并保留安全、退避、取消边界；与[运行通知方案](../../implemented/feature/2026-10-10-runtime-local-notifications.md)部分重叠，本篇承担传输协议，系统展示及账号应用层由后者记录。没有完全吸收或过时提案。
 
 ## Alternatives considered
 

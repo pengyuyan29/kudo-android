@@ -32,9 +32,11 @@ internal fun MemberNotificationsScreen(vm: AccountViewModel, login: () -> Unit, 
     Column(Modifier.fillMaxSize().testTag("member-notifications")) {
         Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).statusBarsPadding()
             .heightIn(min = 48.dp).padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("消息", Modifier.weight(1f), fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium)
+            Text("消息", fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium)
+            MessageCountBadge(vm.unreadCount, Modifier.padding(start = 6.dp))
+            Spacer(Modifier.weight(1f))
             CommunityIconButton(Icons.Rounded.Refresh, "刷新通知", { vm.loadNotices() }, enabled = !vm.noticesLoading)
-            TextButton({ vm.markRead() }, enabled = vm.notices.any { !it.read }) { Text("全部已读", fontSize = 12.sp) }
+            TextButton({ vm.markRead() }, enabled = vm.unreadCount > 0 || vm.notices.any { !it.read }) { Text("全部已读", fontSize = 12.sp) }
         }
         AccountTabs(NoticeGroup.entries.map { it.title }, pager.currentPage) { scope.launch { pager.animateScrollToPage(it) } }
         HorizontalPager(pager, Modifier.weight(1f)) { index ->

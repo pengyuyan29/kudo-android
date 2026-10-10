@@ -72,7 +72,8 @@ private fun ObserveHomeUpdates(feed: FeedViewModel, user: Member?) {
 }
 
 @Composable
-fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long = 0L, consumeLink: () -> Unit = {}) {
+fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long = 0L, consumeLink: () -> Unit = {},
+    incomingNotification: NotificationTarget? = null, consumeNotification: () -> Unit = {}) {
     val display by app.settings.display.collectAsStateWithLifecycle()
     var darkStatusIcons by remember { mutableStateOf<Boolean?>(null) }
     KudoTheme(display, darkStatusIcons) {
@@ -115,6 +116,9 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
         LaunchedEffect(account) { account.events.collect { snackbar.showSnackbar(it) } }
         LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { account.checkSession() } }
         IncomingLinuxDoLink(nav, incomingUrl, linkSequence, { selected = 0 }, consumeLink)
+        com.kudo.android.notifications.NotificationPermission(account.user?.id)
+        IncomingNotification(nav, incomingNotification, account.sessionReady, account.user?.id, linkSequence,
+            { selected = 3 }, account::readNotificationTarget, { app.notifications.consume(it); consumeNotification() })
         TopicPresentationEnvironment(app.repository, account.user?.id) {
         AvatarEnvironment(app.repository, account.user?.id) {
             ImageGalleryHost(loadAlbum = { id ->
@@ -171,7 +175,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             GlassNavigation(selected, {
                                 selected = it
                                 if (it == 0 && state.forUser(account.user).hasUpdates) feed.refreshFromNavigation()
-                            }, { if (display.navigationAction == NavigationAction.SEARCH) nav.navigate("search") else editor() }, backdrop, display.glass, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(20.dp).widthIn(max = 530.dp).fillMaxWidth(), homeHasUpdates = state.forUser(account.user).hasUpdates, action = display.navigationAction)
+                            }, { if (display.navigationAction == NavigationAction.SEARCH) nav.navigate("search") else editor() }, backdrop, display.glass, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(20.dp).widthIn(max = 530.dp).fillMaxWidth(), homeHasUpdates = state.forUser(account.user).hasUpdates, action = display.navigationAction, unreadCount = account.unreadCount)
                         }
                     }
                     composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
@@ -244,12 +248,15 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             }, recipient = entry.arguments?.getString("recipient").orEmpty(), existingDraftKey = entry.arguments?.getString("draft").orEmpty())
                         } } ?: Column { AccountPageTopBar("写私信", { nav.popBackStack() }); EmptyState("请先登录", "登录后发送私信。", actionLabel = "登录", action = ::login) }
                     }
-                    composable("chat/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
+                    composable("chat/{id}?message={message}", arguments = listOf(navArgument("id") { type = NavType.IntType },
+                        navArgument("message") { type = NavType.IntType; defaultValue = 0 })) { entry ->
                         account.user?.let { member ->
                             val id = entry.arguments!!.getInt("id")
-                            val vm = model("chat-${member.id}-$id") { ChatViewModel(app.repository, id) }
+                            val initialMessage = entry.arguments?.getInt("message")?.takeIf { it > 0 }
+                            val vm = model("chat-${member.id}-$id-$initialMessage") { ChatViewModel(app.repository, id, initialMessage) }
                             ChatScreen(vm, member, app.settings, { nav.popBackStack() }, ::login,
-                                { openWebPage("https://linux.do/chat/c/-/$id") }, ::openLink, ::user)
+                                { openWebPage("https://linux.do/chat/c/-/$id") }, ::openLink, ::user,
+                                read = { if (account.user?.id == member.id) account.chatRead(id, it) })
                         } ?: Column { AccountPageTopBar("聊天", { nav.popBackStack() }); EmptyState("请先登录", "登录后查看聊天。", actionLabel = "登录", action = ::login) }
                     }
                     composable("web?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) { entry ->

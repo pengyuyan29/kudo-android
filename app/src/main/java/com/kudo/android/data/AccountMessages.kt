@@ -22,16 +22,21 @@ suspend fun CommunityRepository.createPrivateMessage(draft: Draft): PublishResul
 data class ChatEntry(val id: Int, val author: Member, val cooked: String, val raw: String, val time: String, val deleted: Boolean)
 data class ChatPage(val messages: List<ChatEntry>, val morePast: Boolean)
 
-suspend fun CommunityRepository.chatMessages(channelId: Int, before: Int? = null): ChatPage {
+suspend fun CommunityRepository.chatMessages(channelId: Int, before: Int? = null, target: Int? = null): ChatPage {
     require(channelId > 0)
     val query = mutableMapOf("page_size" to "50")
     before?.let { query["direction"] = "past"; query["target_message_id"] = it.toString() }
+    if (before == null) target?.takeIf { it > 0 }?.let { query["target_message_id"] = it.toString() }
     val json = client.get("/chat/api/channels/$channelId/messages", query)
     val array = json.optJSONArray("messages") ?: throw ApiFailure(FailureKind.SERVER, "服务器未返回聊天消息")
     return ChatPage(array.objects().map { message ->
         ChatEntry(message.getInt("id"), DiscourseParser.member(message.optJSONObject("user") ?: JSONObject()),
             message.text("cooked"), message.text("message"), message.text("created_at"), !message.isNull("deleted_at"))
     }, json.optJSONObject("meta")?.optBoolean("can_load_more_past") == true)
+}
+suspend fun CommunityRepository.readChat(channelId: Int, messageId: Int) {
+    require(channelId > 0 && messageId > 0)
+    client.write("PUT", "/chat/api/channels/$channelId/read?message_id=$messageId")
 }
 suspend fun CommunityRepository.sendChat(channelId: Int, raw: String): Int {
     require(channelId > 0 && raw.isNotBlank())

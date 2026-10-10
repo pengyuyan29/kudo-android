@@ -21,8 +21,8 @@ Status: implemented
 
 ## Testing
 
-MemberHeaderUiTest、MemberHeaderStatusUiTest和MemberAccountUiTest共7项真机通过，角标先在旧版复现0个外侧像素，修复后完整显示；方形、昵称同行等级、吸顶身份及主页箭头、长昵称短窗口验证通过。日志artifacts/member-header-badge-repro.txt与member-navigation-fixed-ui.txt；访客4项已有回归通过。
+MemberHeaderUiTest、MemberHeaderStatusUiTest和MemberAccountUiTest共7项真机通过，角标先在旧版复现0个外侧像素，修复后完整显示；方形、昵称同行等级、吸顶身份及主页箭头、长昵称短窗口验证通过。日志artifacts/member-header-badge-repro.txt与member-navigation-fixed-ui.txt；访客4项已有回归通过。最终增加上下两色图片验证吸顶保留底部、遮罩只增加0.08、无图白底及退出恢复状态栏；个人中心5项真机通过，日志artifacts/runtime-header-chat-device.txt。真实展开与吸顶截图artifacts/runtime-member-square.png和runtime-member-compact.png已人工检查。
 
 ## Consequences
 
-短窗口不能机械维持1:1，否则下方无触摸区域；该场景有明确高度上限。视觉与滚动需真机验证，状态栏在展开和吸顶都保持白色图标，离开恢复主题。
+短窗口不能机械维持1:1，否则下方无触摸区域；该场景有明确高度上限。图片就绪时展开和吸顶均使用白色状态栏图标，无图白底使用深色图标，离开恢复主题。视觉与滚动已在RMX2202验证，其他设备尺寸仍需独立验收。
