@@ -28,6 +28,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 fun ComponentRegistry.Builder.communityAnimations(legacyWebP: Boolean = Build.VERSION.SDK_INT < 28): ComponentRegistry.Builder = apply {
+    add(AvifAnimationDecoder.Factory())
     add(FrameAnimationDecoder.Factory(legacyWebP))
     if (Build.VERSION.SDK_INT >= 28) add(AnimatedImageDecoder.Factory()) else add(GifDecoder.Factory())
 }

@@ -3,6 +3,7 @@ package com.kudo.android.ui.topic
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.drawable.Animatable
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -32,6 +33,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
@@ -48,6 +50,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.em
 import coil3.compose.AsyncImage
+import coil3.asDrawable
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kudo.android.data.AvatarMetadataCache
 import com.kudo.android.ui.components.AvatarImage
 import com.kudo.android.ui.components.ImageAspectBadge
@@ -70,6 +76,7 @@ sealed interface ArticleBlock {
         val url: String, val alt: String, val ratio: Float? = null,
         val originalUrl: String = url, val filename: String = "",
         val dimensions: String = "", val sizeLabel: String = "",
+        val displayWidth: Float? = null,
     ) : ArticleBlock
     data class Embed(val url: String, val title: String, val description: String = "", val image: String? = null, val site: String = "") : ArticleBlock
     data object Rule : ArticleBlock
@@ -129,10 +136,12 @@ fun parseArticle(html: String): List<ArticleBlock> {
                     val ratio = if (width != null && height != null && width > 0 && height > 0) {
                         (width / height).takeIf { it.isFinite() && it > 0 }
                     } else null
-                    result.add(ArticleBlock.Image(previewSource(element, url), element.attr("alt"), ratio,
-                        originalUrl = lightbox?.attr("href")?.let(::mediaUrl) ?: url,
+                    val original = lightbox?.attr("href")?.let(::mediaUrl) ?: url
+                    result.add(ArticleBlock.Image(if (element.hasClass("animated")) original else previewSource(element, url), element.attr("alt"), ratio,
+                        originalUrl = original,
                         filename = metadata?.selectFirst(".filename")?.text().orEmpty(),
-                        dimensions = dimensions, sizeLabel = information.removePrefix(dimensions).trim()))
+                        dimensions = dimensions, sizeLabel = information.removePrefix(dimensions).trim(),
+                        displayWidth = width?.takeIf { lightbox == null && ratio != null && it.isFinite() && it > 0 }))
                 }
             }
             "iframe", "video", "audio" -> {
@@ -408,12 +417,20 @@ private fun CodeBlock(code: String) {
 @Composable
 private fun ArticleImage(image: ArticleBlock.Image, anchor: GalleryThumbnailAnchor, tag: String, open: () -> Unit) {
     val gallery = LocalImageGallery.current
+    val resources = LocalResources.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var animation by remember(image.url) { mutableStateOf<Animatable?>(null) }
+    LifecycleResumeEffect(animation) {
+        if (animation?.isRunning == false) animation?.start()
+        onPauseOrDispose { animation?.stop() }
+    }
     var decodedRatio by remember(image.url) { mutableStateOf<Float?>(null) }
     val cornerRadius = with(LocalDensity.current) { 11.dp.toPx() }
     SideEffect { anchor.cornerRadius = cornerRadius }
     DisposableEffect(anchor) { onDispose { anchor.coordinates = null; anchor.painter = null } }
     Box(
-        Modifier.heightIn(max = 300.dp).aspectRatio(decodedRatio ?: image.ratio ?: 1.6f)
+        Modifier.then(image.displayWidth?.let { Modifier.widthIn(max = it.dp) } ?: Modifier)
+            .heightIn(max = 300.dp).aspectRatio(decodedRatio ?: image.ratio ?: 1.6f)
             .bringIntoViewRequester(anchor.requester).onGloballyPositioned { anchor.coordinates = it }.testTag(tag)
             .graphicsLayer { alpha = if (gallery?.hiddenAnchor === anchor) 0f else 1f }
             .clip(RoundedCornerShape(11.dp)).clickable(onClick = open)) {
@@ -423,6 +440,8 @@ private fun ArticleImage(image: ArticleBlock.Image, anchor: GalleryThumbnailAnch
                 val bitmap = state.result.image
                 if (bitmap.width > 0 && bitmap.height > 0) decodedRatio = bitmap.width.toFloat() / bitmap.height
                 anchor.painter = state.painter
+                animation = bitmap.asDrawable(resources) as? Animatable
+                if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) animation?.stop()
             })
         ImageAspectBadge(decodedRatio ?: image.ratio)
     }

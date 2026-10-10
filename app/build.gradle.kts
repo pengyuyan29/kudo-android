@@ -123,6 +123,8 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
     implementation("com.github.penfeizhou.android.animation:apng:3.0.5")
     implementation("com.github.penfeizhou.android.animation:awebp:3.0.5")
+    implementation("com.github.penfeizhou.android.animation:avif:3.0.5")
+    implementation("org.aomedia.avif.android:avif:1.1.1.14d8e3c4")
     implementation("androidx.vectordrawable:vectordrawable-animated:1.2.0")
     implementation("org.jsoup:jsoup:1.18.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")

@@ -16,6 +16,10 @@ Avatar 的展示场景显式区分账户入口和公开内容，不能用“是�
 
 图片优先使用 animated_avatar，失败回退 avatar_template。按内容识别格式，不以 .png 后缀判断；APNG 需要额外解码能力。动画只在前台可见时播放，离开组合或退到后台后停止；资质动图复用同一能力。
 
+共享图片加载器额外识别 ISO BMFF ftyp 的 avis 品牌并使用同版本 AVIF 模块。3004973 的第 2 楼实际是 512×512、44 帧的 AVIF，Android 13 静态解码器只返回封面。接管前限制输入 16MiB，再通过 native 元数据检查边长 4096、4M 像素和最多1000帧；AVIF 不支持采样，因此不能沿用 APNG 的采样假设。正文和查看器均绑定 Drawable 生命周期，正文小附件尺寸规则见[图片布局](../bug-fix/2026-10-09-article-image-layout.md)。
+
+AVIFDecoder 固定 getSampleSize=1，却继承会缩小像素缓冲的 setDesiredSize；在64px样本按32px显示时产生 Buffer not large enough for pixels 并输出透明帧。适配层覆写 setDesiredSize 固定1，保证帧缓冲与实际解码尺寸一致，不修改共享 APNG/WebP 实现。
+
 动画暂停直接绑定 LifecycleResumeEffect 的 onPauseOrDispose。仅收集生命周期状态后等 Compose 重组不能保证后台停止，因为宿主暂停时重组器本身也会暂停；图片在后台完成加载时还必须立即停止 Drawable。可见性控制保留，用于首页折叠后仍在组合中的头像。全局加载器由 Application 提供，初始化与受限网络配置见[原生架构](../architecture/2026-10-07-native-community-client.md)。
 
 ## Evidence and related notes
@@ -27,6 +31,7 @@ Avatar 的展示场景显式区分账户入口和公开内容，不能用“是�
 ## Alternatives considered
 
 - 只注册 Coil GIF 解码器：集成少且沿用图片缓存，但不能解决 APNG，也无法从静态缩略图恢复原动画。
+- 用 WebView 播放 AVIF：浏览器编解码完整，但每个附件额外维护网页生命周期与触摸层；现有库已有同版本 AVIF 模块，保持原生图片、缩放及来源动画。
 - LINE ApngDrawable：接口简单、支持 Android Drawable，但原生层加载全部帧，指定显示尺寸不等于降低原始帧内存；列表中多头像更适合按帧解码与采样的实现。
 - 每个 Avatar 请求用户资料：组件独立、更新直接，但滚动会造成请求风暴；采用可见请求合并、批量用户卡片和有上限的短期缓存。
 - 用当前用户 ID 决定角标：无需增加展示参数，但会错误地把本人帖子和本人公开个人页也换成状态；使用显式场景。
@@ -34,6 +39,8 @@ Avatar 的展示场景显式区分账户入口和公开内容，不能用“是�
 - 只由 Compose 状态驱动动画停止：可见性与生命周期都能汇成一个布尔值，调用简单，但 Activity 暂停时重组器可能已停止工作；直接绑定生命周期清理，状态仍负责滚出屏幕后的暂停。
 
 ## Verification
+
+AVIF 先由确定性三帧真机测试复现只返回静态封面（artifacts/article-repro-device.txt）。接入后同一测试发现上游采样缓冲缺陷（avif-device.txt），修复后5项解码测试及1项正文小图测试通过（avif-fixed-device.txt）；首轮21项相册与代码复制同样通过。动画结论来自红绿蓝真实像素，不只是 Animatable 类型。容器识别、畸形头部、不消耗输入和旧相册恢复的相关 JVM 通过（avif-build.txt）。API26/27及非 arm64 设备仍需后续兼容验证。
 
 新增20项JVM测试覆盖帖子用户 ID、两种状态字段、空值与错误类型、资质、独立动图地址、头部检测和角标策略；批量补齐覆盖合并、缓存上限与过期、失败退避、账号销毁和取消。当前全部57项JVM通过。
 

@@ -24,12 +24,13 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 internal val LocalImageGallery = staticCompositionLocalOf<ImageGalleryState?> { null }
 
 internal fun ArticleBlock.Image.saveImage(): List<Any> = arrayListOf(
-    url, alt, ratio ?: 0f, originalUrl, filename, dimensions, sizeLabel,
+    url, alt, ratio ?: 0f, originalUrl, filename, dimensions, sizeLabel, displayWidth ?: 0f,
 )
 
 internal fun restoreGalleryImage(values: List<Any>) = ArticleBlock.Image(
     values[0] as String, values[1] as String, (values[2] as Float).takeIf { it > 0 },
     values[3] as String, values[4] as String, values[5] as String, values[6] as String,
+    (values.getOrNull(7) as? Float)?.takeIf { it > 0 },
 )
 
 internal val GalleryImageSaver = listSaver<ArticleBlock.Image, Any>(

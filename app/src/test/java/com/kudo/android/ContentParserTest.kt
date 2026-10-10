@@ -10,6 +10,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ContentParserTest {
+    @Test fun animatedSmallAttachmentKeepsHtmlWidthAndOriginalAnimationInsteadOfStaticSrcset() {
+        val image = parseArticle("""<img class="animated" src="/small.avif" width="153" height="153" srcset="/still.png 2x">""").single() as ArticleBlock.Image
+        assertEquals(153f, image.displayWidth)
+        assertEquals("https://linux.do/small.avif", image.url)
+        val lightbox = parseArticle("""<a class="lightbox" href="/long.png"><img src="/preview.png" width="90" height="500"></a>""").single() as ArticleBlock.Image
+        assertNull(lightbox.displayWidth)
+    }
     @Test fun tagsAcceptNamesAndObjectsWithoutDisplayingRawJson() {
         val page = DiscourseParser.topicPage(JSONObject("""{"topic_list":{"topics":[{"id":1,"title":"标签测试","tags":["Android",{"id":1461,"name":"纯水","slug":"1461-tag"},null,{"id":2},""]}]}}"""))
         assertEquals(listOf("Android", "纯水"), page.topics.single().tags)

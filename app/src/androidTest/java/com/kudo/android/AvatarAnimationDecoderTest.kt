@@ -26,6 +26,11 @@ import java.nio.ByteBuffer
 @RunWith(AndroidJUnit4::class)
 class AvatarAnimationDecoderTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @Test fun animatedAvifRendersAllFramesInsteadOfTheStillCover() = runBlocking {
+        val drawable = load("three-frame.avif")
+        assertTrue("动画 AVIF 不能只显示静态封面", drawable is Animatable)
+        assertFrames("three-frame.avif", drawable)
+    }
 
     @Test fun apngIsNotFlattenedByTheApplicationImageLoader() = runBlocking {
         val drawable = load("three-frame.png")

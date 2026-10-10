@@ -12,6 +12,8 @@ Status: implemented
 
 图片预览优先选用站点 `srcset` 中最高有效密度的 HTTPS 候选，没有合法候选时使用 `src`。支持 Discourse 的 `x` 描述符与有有效 HTML 宽度时的 `w` 描述符；无描述符按 1x 处理，无效、非正数和不安全地址忽略。原图仍来自 lightbox href，缺失时保留原 src；不会把更清晰的缩略图误作完整附件。Coil 按最终布局尺寸采样，不为正文直接下载超大原图。
 
+非 lightbox 的独立附件保留 HTML 显示宽度，作为正文最大宽度，避免 153×153 表情动图被拉到300dp。lightbox 的 width 是站点缩略图尺寸，不能限制为90dp而损害长图可读性，继续采用预览限高规则。animated 图片保留原动画来源，不从 srcset 选择静态候选；解码结果只补比例，不覆盖作者指定的显示宽度。相册保存/恢复此尺寸字段并兼容旧的七字段记录，查看器仍展示完整原图。
+
 ## Existing note audit
 
 - [行内表情](../../implemented/bug-fix/2026-10-09-inline-emoji-images.md)：部分重叠，继续将 emoji 与普通图片分开，不修改表情排版。
@@ -29,6 +31,8 @@ Status: implemented
 - 正文继续显示附件信息：无需新增查看入口；用户明确要求精简阅读区，信息迁到大图菜单。
 
 ## Verification
+
+153×153 小附件在真机先复现被拉到300dp（artifacts/article-repro-device.txt），修复后 ArticleImageSizingUiTest 验证153dp宽高与点击原图地址，日志 avif-fixed-device.txt。ContentParserTest 覆盖动画源优先、HTML宽度、lightbox缩略图宽度不误限。21项相册回归通过（avif-device.txt），原有长图、缩放、翻页与来源矩形机制保持。
 
 限高复现的两项真机测试先失败：有尺寸和无尺寸的长图分别被撑高到 1640dp、1800dp，日志 artifacts/image-preview-height-repro.txt。修复后 ImageGalleryUiTest 的 16 项全部通过（31.303 秒），长图变为 60×300dp、靠左、下方内容可见，点击仍交付原图；图片翻页、缩放、返回目标及动画像素回归通过，日志 image-preview-height-fixed.txt。93 项 JVM 测试通过，日志 image-preview-height-build.txt。只读核查确认话题 847468 的第 4 楼原图为 1600×8828、src 为 90×500，证据保存在 image-preview-source.json。
 

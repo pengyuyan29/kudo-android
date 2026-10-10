@@ -1,6 +1,7 @@
 package com.kudo.android
 
 import com.kudo.android.media.animationHeader
+import com.kudo.android.media.isAnimatedAvif
 import okio.Buffer
 import org.junit.Assert.*
 import org.junit.Test
@@ -9,6 +10,16 @@ import java.nio.ByteBuffer
 
 class AnimationHeaderTest {
     private fun fixture(name: String) = File("src/androidTest/assets/avatars/$name").readBytes()
+    @Test fun avifAnimationUsesTheContainerBrandWithoutConsumingTheSource() {
+        val bytes = fixture("three-frame.avif")
+        val source = Buffer().write(bytes)
+        assertTrue(isAnimatedAvif(source))
+        assertArrayEquals(bytes, source.readByteArray())
+        assertFalse(isAnimatedAvif(Buffer().write(fixture("static.png"))))
+        assertFalse(isAnimatedAvif(Buffer().write(bytes.copyOf(12))))
+        val bad = bytes.copyOf(); ByteBuffer.wrap(bad).putInt(0, Int.MAX_VALUE)
+        assertFalse(isAnimatedAvif(Buffer().write(bad)))
+    }
 
     @Test fun animationDetectionPreservesTheInputForFollowingDecoders() {
         val bytes = fixture("three-frame.png")
