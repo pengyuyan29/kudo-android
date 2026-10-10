@@ -32,3 +32,7 @@ TopicReadingUiTest 的7项真机用例全部通过（artifacts/topic-flow-device
 ## Consequences
 
 本地反馈不是写入确认，网络失败后下次会话可能重新显示服务器未读。进程结束前最后计时仍可能来不及送达。
+
+## First-floor clarification
+
+The topic top bar does not render an unread indicator for the original post. Floor one is represented by the topic header, so showing the same indicator there duplicates the first-floor state and interferes with the header layout. Unread indicators remain available for later posts.

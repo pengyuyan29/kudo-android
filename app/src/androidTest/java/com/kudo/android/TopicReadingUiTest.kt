@@ -31,7 +31,7 @@ class TopicReadingUiTest {
         compose.setContent { KudoTheme(DisplaySettings()) {
             TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, readingEnabled = false)
         } }
-        compose.onNodeWithTag("unread-post-1").assertIsDisplayed()
+        compose.onNodeWithTag("unread-post-1").assertDoesNotExist()
         compose.onNodeWithTag("unread-post-2").assertExists()
         compose.onNodeWithTag("unread-post-3").assertDoesNotExist()
         compose.onNodeWithTag("unread-post-4").assertDoesNotExist()

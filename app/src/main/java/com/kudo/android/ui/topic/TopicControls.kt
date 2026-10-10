@@ -77,7 +77,6 @@ internal fun TopicTopBar(
                     color = if (canClick) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        state.detail?.originalPost?.let { PostUnreadIndicator(it, state) }
         IconButton(onClick = more, enabled = enabled && state.detail != null) { Icon(Icons.Rounded.MoreVert, "更多") }
     }
 }
