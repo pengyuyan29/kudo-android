@@ -21,6 +21,7 @@ data class TopicState(
     val replyLoads: Map<Int, ReplyLoad> = emptyMap(),
     val readNumbers: Set<Int> = emptySet(),
     val boostEmojis: Set<String>? = null, val boostRulesLoading: Boolean = false, val boostRulesError: String? = null,
+    val jumping: Boolean = false, val jumpError: String? = null, val targetRevision: Long = 0,
 ) {
     val allPosts get() = (detail?.posts.orEmpty() + related + listOfNotNull(detail?.originalPost)).distinctBy(Post::id)
     val threads get() = postThreads(detail?.posts.orEmpty() + related)
@@ -42,6 +43,8 @@ class TopicViewModel(
     private var authorJob: Job? = null
     private var originalJob: Job? = null
     private var contextJob: Job? = null
+    private var jumpJob: Job? = null
+    private var jumpGeneration = 0L
     private val replyJobs = mutableMapOf<Int, Job>()
     private var generation = 0
     private val messages = Channel<String>(Channel.BUFFERED)
@@ -63,13 +66,16 @@ class TopicViewModel(
         authorJob?.cancel()
         originalJob?.cancel()
         contextJob?.cancel()
+        jumpJob?.cancel(); jumpGeneration++
         replyJobs.values.forEach { it.cancel() }; replyJobs.clear()
         generation++
         _state.update { it.copy(loading = true, loadingMore = false, error = null, moreError = null,
-            authorLoading = false, originalLoading = false, contextLoading = false, contextError = null, replyLoads = emptyMap()) }
+            authorLoading = false, originalLoading = false, contextLoading = false, contextError = null, replyLoads = emptyMap(),
+            jumping = false, jumpError = null) }
+        val target = _state.value.targetNumber
         refreshJob = viewModelScope.launch {
             try {
-                val detail = withContext(Dispatchers.IO) { repository.detail(topicId, number) }
+                val detail = withContext(Dispatchers.IO) { repository.detail(topicId, target) }
                 _state.update { it.copy(detail = detail, related = emptyList(), loading = false, authorProfile = null, authorError = null, originalError = null) }
                 loadAuthor()
                 loadOriginal()
@@ -82,7 +88,7 @@ class TopicViewModel(
     fun more() {
         val snapshot = _state.value
         val detail = snapshot.detail ?: return
-        if (snapshot.loadingMore || snapshot.loading) return
+        if (snapshot.loadingMore || snapshot.loading || snapshot.jumping) return
         val loaded = (detail.posts + snapshot.related).map { it.id }.toSet()
         val ids = detail.stream.filterNot { it in loaded }.take(20)
         if (ids.isEmpty()) return
@@ -106,10 +112,44 @@ class TopicViewModel(
         }
     }
 
+    fun jumpTo(number: Int) {
+        val snapshot = _state.value
+        val detail = snapshot.detail ?: return
+        if (snapshot.loading) return
+        if (number !in 1..detail.highestPostNumber) {
+            _state.update { it.copy(jumpError = "请输入 1 至 ${detail.highestPostNumber} 的楼层") }; return
+        }
+        jumpJob?.cancel()
+        val token = ++jumpGeneration
+        _state.update { it.copy(jumping = true, jumpError = null) }
+        jumpJob = viewModelScope.launch {
+            try {
+                val known = _state.value.allPosts.firstOrNull { it.number == number }
+                val window = if (known == null) withContext(Dispatchers.IO) { repository.detail(topicId, number) } else null
+                if (window != null && (window.id != topicId || window.posts.none { it.number == number })) {
+                    throw ApiFailure(FailureKind.SERVER, "此楼层不存在或暂不可访问")
+                }
+                if (token != jumpGeneration) return@launch
+                _state.update { current ->
+                    val latest = current.detail ?: return@update current
+                    val existing = current.allPosts.associateBy(Post::id)
+                    current.copy(detail = if (window == null) latest.copy(posts = (latest.posts + listOfNotNull(known)).distinctBy(Post::id).sortedBy(Post::number)) else latest.copy(
+                        posts = (latest.posts + window.posts.map { existing[it.id] ?: it }).distinctBy(Post::id).sortedBy(Post::number),
+                        stream = (latest.stream + window.stream).distinct(), highestPostNumber = maxOf(latest.highestPostNumber, window.highestPostNumber)),
+                        jumping = false, targetNumber = number, targetRevision = current.targetRevision + 1)
+                }
+                resolveContext()
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { if (token == jumpGeneration) _state.update { it.copy(jumping = false, jumpError = e.message ?: "跳转失败，请重试") } }
+        }
+    }
+
     fun resolveContext() {
         contextJob?.cancel()
         val initial = _state.value.allPosts
-        if (missingReplyParents(initial).isEmpty()) return
+        if (missingReplyParents(initial).isEmpty()) {
+            _state.update { it.copy(contextLoading = false, contextError = null) }; return
+        }
         val token = generation
         _state.update { it.copy(contextLoading = true, contextError = null) }
         contextJob = viewModelScope.launch {

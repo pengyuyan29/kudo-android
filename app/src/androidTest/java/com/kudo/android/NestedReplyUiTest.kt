@@ -21,8 +21,12 @@ class NestedReplyUiTest {
     private val root = first.copy(id = 2, number = 2, cooked = "<p>一级评论正文</p>", replyTo = 1)
     private val children = (3..7).map { root.copy(id = it, number = it, author = author.copy(id = it, username = "child$it", name = "子作者$it"), cooked = "<p>子回复正文$it</p>", replyTo = if (it == 7) 3 else 2) }
     private val detail = TopicDetail(5, "楼中楼话题", 1, listOf(first, root) + children, (1..7).toList(), false)
+    private val repository = CommunityRepository(DiscourseClient(object : SessionCookies {
+        override fun get(url: String) = ""
+        override fun set(url: String, cookie: String) {}
+    }))
     @Composable private fun Screen(target: Int? = null, reply: (Post?) -> Unit = {}, bookmark: (Post) -> Unit = {}, settings: DisplaySettings = DisplaySettings(), ignored: Set<String> = emptySet()) {
-        KudoTheme(settings) { CompositionLocalProvider(LocalIgnoredUsers provides ignored) {
+        KudoTheme(settings) { TopicActionsHost(repository, author.copy(id = 99, username = "viewer", ignoredUsers = ignored), GlassMode.TRANSLUCENT, {}, { _, _ -> }, {}) {
             TopicScreen(TopicState(detail, false, targetNumber = target), GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, bookmark, reply, {}, {}, {}, {})
         } }
     }
@@ -38,7 +42,8 @@ class NestedReplyUiTest {
         compose.onNodeWithTag("reply-preview-post-3").performClick()
         compose.onNodeWithText("评论回复").assertIsDisplayed()
         capture("nested-reply-thread.png")
-        compose.onNode(hasContentDescription("收藏此楼层") and hasAnyAncestor(hasTestTag("post-3"))).performClick()
+        compose.onNode(hasContentDescription("更多操作") and hasAnyAncestor(hasTestTag("post-3"))).performClick()
+        compose.onNodeWithText("收藏").performClick()
         compose.onNode(hasText("回复") and hasClickAction() and hasAnyAncestor(hasTestTag("post-3"))).performClick()
         compose.onNodeWithText("评论回复").assertDoesNotExist()
         compose.runOnIdle { assertEquals(3, replied); assertEquals(3, saved) }

@@ -277,7 +277,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${state.detail?.title.orEmpty()}\nhttps://linux.do/t/$id") }, "分享话题")) },
                             follow = { authenticated { vm.follow() } }, react = { post, reaction -> authenticated { vm.react(post, reaction) } }, openBrowser = ::openBrowser, loadReplies = vm::loadReplies, resolveContext = vm::resolveContext,
                             readingEnabled = !replyShowing, onReadingBatch = { readingSync.submit(state.viewerId, it) }, onPostsRead = vm::markRead,
-                            loadBoostRules = vm::loadBoostRules, boost = vm::boost)
+                            loadBoostRules = vm::loadBoostRules, boost = vm::boost, jumpTo = vm::jumpTo)
                         }
                         val currentUser = account.user
                         val target = replyTarget

@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceAtMost
@@ -58,6 +59,8 @@ internal fun LiquidButton(
     horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
     tint: Color = Color.Unspecified,
     surfaceColor: Color = Color.Unspecified,
+    progress: Float? = null,
+    progressColor: Color = Color.Unspecified,
     content: @Composable RowScope.() -> Unit
 ) {
     val animationScope = rememberCoroutineScope()
@@ -116,6 +119,9 @@ internal fun LiquidButton(
                     }
                     if (!canBlur) drawRect(fallbackSurface)
                     else if (surfaceColor.isSpecified) drawRect(surfaceColor)
+                    if (progress != null && progressColor.isSpecified) {
+                        drawRect(progressColor, size = Size(size.width * progress.coerceIn(0f, 1f), size.height))
+                    }
                 }
             )
             .then(if (onClick == null) Modifier else Modifier.clickable(

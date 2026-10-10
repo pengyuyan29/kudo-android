@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.DriveFileRenameOutline
@@ -16,13 +18,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.Avatar
 import com.kudo.android.ui.components.TopicAuthorMetadata
@@ -115,21 +121,34 @@ internal fun TopicBottomBar(
     reply: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, share: () -> Unit,
     choose: (Post) -> Unit, modifier: Modifier = Modifier,
     boost: (Post) -> Unit = {},
+    currentFloor: Int = 1, floors: () -> Unit = {},
 ) {
     val detail = state.detail ?: return
     val first = detail.originalPost
     val available = enabled && !state.loading && first != null && first.id !in state.busy
-    Row(modifier.navigationBarsPadding().padding(horizontal = 20.dp, vertical = 20.dp).fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    BoxWithConstraints(modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 20.dp).fillMaxWidth()) {
+    val compact = maxWidth < 320.dp || (LocalDensity.current.fontScale > 1.2f && maxWidth < 360.dp) || (detail.highestPostNumber >= 10000 && maxWidth < 380.dp)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         LiquidButton(onClick = reply, enabled = enabled && !detail.closed, backdrop = backdrop, mode = glass,
             surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-            contentColor = MaterialTheme.colorScheme.onSurface, contentPadding = PaddingValues(horizontal = 16.dp),
+            contentColor = MaterialTheme.colorScheme.onSurface, contentPadding = PaddingValues(horizontal = if (compact) 14.dp else 16.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start),
-            modifier = Modifier.testTag("topic-reply")) {
+            modifier = Modifier.testTag("topic-reply").semantics { contentDescription = "写回复" }) {
             Icon(Icons.Outlined.DriveFileRenameOutline, null, Modifier.size(20.dp).testTag("topic-reply-icon"))
-            Text("写回复", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Normal, maxLines = 1)
+            if (!compact) Text("写回复", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Normal, maxLines = 1)
         }
-        Spacer(Modifier.weight(1f))
+        val floor = currentFloor.coerceIn(1, detail.highestPostNumber)
+        LiquidButton(onClick = floors, enabled = enabled && !state.loading, backdrop = backdrop, mode = glass,
+            surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = .45f),
+            progress = floor.toFloat() / detail.highestPostNumber, progressColor = LogoYellow.copy(alpha = .27f),
+            contentPadding = PaddingValues(horizontal = 8.dp),
+            modifier = Modifier.weight(1f).testTag("topic-floor-index").semantics {
+                contentDescription = "楼层索引，当前第 $floor 楼，共 ${detail.highestPostNumber} 楼"
+                progressBarRangeInfo = ProgressBarRangeInfo(floor.toFloat(), 1f..detail.highestPostNumber.toFloat())
+            }) {
+            BasicText("$floor / ${detail.highestPostNumber}", style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.sp, stepSize = .5.sp))
+        }
         LiquidButton(onClick = null, backdrop = backdrop, mode = glass,
             surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
             contentPadding = PaddingValues(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly,
@@ -141,6 +160,7 @@ internal fun TopicBottomBar(
                 Icon(Icons.Rounded.Bolt, "Boost 主帖", Modifier.size(24.dp))
             }
         }
+    }
     }
 }
 

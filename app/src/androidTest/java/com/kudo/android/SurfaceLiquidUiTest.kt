@@ -149,7 +149,8 @@ class SurfaceLiquidUiTest {
         for (material in GlassMode.entries) {
             compose.runOnIdle { mode = material }
             val layouts = mutableListOf<TextLayoutResult>()
-            compose.onNodeWithText("写回复").assertIsDisplayed()
+            compose.onNodeWithTag("topic-reply").assertIsDisplayed()
+            compose.onNodeWithText("1 / 1").assertIsDisplayed()
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
             val layout = layouts.single()
             capture("topic-surface-${material.name.lowercase()}-dark-large.png")
@@ -166,7 +167,7 @@ class SurfaceLiquidUiTest {
             compose.onNodeWithContentDescription("赞主帖").assertIsDisplayed()
             compose.onNodeWithContentDescription("Boost 主帖").assertIsDisplayed()
             compose.onNodeWithTag("topic-actions").assertHasNoClickAction()
-            compose.onNodeWithText("写回复").performTouchInput { click() }
+            compose.onNodeWithTag("topic-reply").performTouchInput { click() }
         }
         compose.runOnIdle { assertEquals(GlassMode.entries.size, replies) }
     }

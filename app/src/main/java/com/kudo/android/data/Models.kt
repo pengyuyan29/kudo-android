@@ -67,6 +67,7 @@ data class TopicDetail(
     val createdAt: String = posts.firstOrNull { it.number == 1 }?.createdAt.orEmpty(),
     val validReactions: List<String> = emptyList(), val pinnedOriginal: Post? = null,
     val tags: List<TopicTag> = emptyList(),
+    val highestPostNumber: Int = maxOf(posts.maxOfOrNull(Post::number) ?: 1, stream.size),
 ) {
     val originalPost: Post? get() = posts.firstOrNull { it.number == 1 } ?: pinnedOriginal
 }
@@ -184,7 +185,9 @@ object DiscourseParser {
             original?.author ?: json.optJSONObject("details")?.optJSONObject("created_by")?.let { member(it) },
             json.text("created_at").ifBlank { original?.createdAt.orEmpty() },
             json.optJSONArray("valid_reactions").strings().filter { it.matches(Regex("[a-zA-Z0-9_+:-]+")) }.distinct(),
-            tags = json.optJSONArray("tags").topicTags())
+            tags = json.optJSONArray("tags").topicTags(),
+            highestPostNumber = maxOf(json.optInt("highest_post_number"), posts.maxOfOrNull(Post::number) ?: 1,
+                if (json.positiveInt("highest_post_number") == null) ids?.length() ?: 0 else 0))
     }
 
     fun notices(json: JSONObject): List<Notice> = json.optJSONArray("notifications").objects().map { item ->
