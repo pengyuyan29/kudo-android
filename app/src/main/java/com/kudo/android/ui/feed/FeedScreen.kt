@@ -72,7 +72,7 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
                 }
             }
         }
-        val tabs = FeedFilter.available(user != null, categoryTitle != null).map {
+        val tabs = FeedFilter.available(user != null).map {
             it.value to if (it == FeedFilter.NEW && state.newCount != null) "新 (${state.newCount})" else it.label
         } + if (categoryTitle == null) listOf("categories" to "类别") else emptyList()
         if (categoryTitle != null) {

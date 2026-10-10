@@ -128,7 +128,6 @@ class FeedSessionTest {
     @Test fun filterOrderMatchesGuestAndMemberNavigation() {
         assertEquals(listOf("latest", "hot", "top"), FeedFilter.available(false).map { it.value })
         assertEquals(listOf("unread", "latest", "new", "hot", "top", "posted", "read", "bookmarks"), FeedFilter.available(true).map { it.value })
-        assertFalse(FeedFilter.available(true, true).any { it == FeedFilter.POSTED || it == FeedFilter.READ || it == FeedFilter.BOOKMARKS })
     }
 
     @Test fun loginOrPublishRefreshIsConsumedOnceAcrossRootReentry() = runTest {

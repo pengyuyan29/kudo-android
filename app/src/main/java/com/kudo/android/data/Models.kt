@@ -40,9 +40,7 @@ enum class FeedFilter(val value: String, val label: String, val personal: Boolea
     READ("read", "已读", true), BOOKMARKS("bookmarks", "书签", true);
 
     companion object {
-        fun available(loggedIn: Boolean, inCategory: Boolean = false): List<FeedFilter> = entries.filter {
-            (loggedIn || !it.personal) && (!inCategory || it !in listOf(POSTED, READ, BOOKMARKS))
-        }
+        fun available(loggedIn: Boolean): List<FeedFilter> = entries.filter { loggedIn || !it.personal }
     }
 }
 data class Post(

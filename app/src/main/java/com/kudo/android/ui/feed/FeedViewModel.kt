@@ -48,7 +48,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         return true
     }
     fun select(filter: String) {
-        if (FeedFilter.available(user != null, categoryId != null).none { it.value == filter }) return
+        if (FeedFilter.available(user != null).none { it.value == filter }) return
         if (filter == _state.value.filter) return
         val previous = _state.value
         _pages.update { it + (previous.filter to previous.copy(loading = previous.loading && previous.topics.isEmpty(), loadingMore = false)) }

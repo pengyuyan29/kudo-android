@@ -8,6 +8,24 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class FeedRepositoryTest {
+    @Test fun everyCategoryFilterAndServerCursorKeepCategoryScope() = runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            val repository = CommunityRepository(DiscourseClient(NoCookies, server.url("/")))
+            for (filter in FeedFilter.entries) {
+                val endpoint = if (filter == FeedFilter.UNREAD) "unseen" else filter.value
+                val path = "/c/7/l/$endpoint.json"
+                val cursor = "$path?page=1&order=activity"
+                server.enqueue(MockResponse().setBody("""{"topic_list":{"topics":[{"id":22}],"more_topics_url":"$cursor"}}"""))
+                val first = repository.topics(filter.value, categoryId = 7)
+                assertEquals(path, server.takeRequest().path)
+                server.enqueue(MockResponse().setBody("""{"topic_list":{"topics":[{"id":23}]}}"""))
+                assertEquals(23, repository.topics(filter.value, categoryId = 7, next = first.next).topics.single().id)
+                assertEquals(cursor, server.takeRequest().path)
+            }
+        }
+    }
+
     @Test fun readingBadgesUseServerFieldsWithoutInferringUnreadFromFloorGaps() {
         val page = DiscourseParser.topicPage(org.json.JSONObject("""{"topic_list":{"topics":[
             {"id":1,"unseen":true},{"id":2,"unread_posts":12,"unseen":false},

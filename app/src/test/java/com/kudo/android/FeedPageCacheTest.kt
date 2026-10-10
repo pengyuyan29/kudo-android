@@ -12,6 +12,45 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FeedPageCacheTest {
+    @Test fun categoryPersonalPagesKeepScopeCacheAndGuestBoundaryWithoutGlobalCounts() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        val paths = CopyOnWriteArrayList<String>()
+        MockWebServer().use { server ->
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest): MockResponse {
+                    paths += request.path!!
+                    return MockResponse().setBody(if (request.path == "/site.json") """{"categories":[]}"""
+                        else """{"topic_list":{"topics":[{"id":7,"category_id":7}]}}""")
+                }
+            }
+            server.start()
+            val vm = FeedViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))), categoryId = 7,
+                initialUser = Member(1, "one", "一", ""))
+            suspend fun idle() = withContext(Dispatchers.Default) { withTimeout(5000) { vm.viewModelScope.coroutineContext.job.children.toList().joinAll() } }
+            try {
+                idle()
+                assertEquals("latest", vm.state.value.filter)
+                for (filter in listOf("posted", "read", "bookmarks")) {
+                    vm.select(filter); idle()
+                    assertEquals(filter, vm.state.value.filter)
+                    assertTrue(paths.contains("/c/7/l/$filter.json"))
+                }
+                val count = paths.size
+                vm.select("posted"); idle()
+                assertEquals(count, paths.size)
+                assertFalse(paths.any { it.contains("topic-tracking") })
+                assertNull(vm.state.value.newCount)
+                vm.setUser(null); idle()
+                assertTrue(vm.pages.value.isEmpty())
+                assertEquals("latest", vm.state.value.filter)
+                val guestCount = paths.size
+                listOf("posted", "read", "bookmarks").forEach(vm::select)
+                idle()
+                assertEquals(guestCount, paths.size)
+            } finally { vm.viewModelScope.cancel(); Dispatchers.resetMain() }
+        }
+    }
+
     @Test fun confirmedReadingInvalidatesOnlyReadDependentPagesAndKeepsScrollRequests() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         val paths = CopyOnWriteArrayList<String>()
