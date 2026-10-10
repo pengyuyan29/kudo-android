@@ -91,7 +91,15 @@ git tag -a v0.1.0 -m '发布 0.1.0'
 git push origin v0.1.0
 ```
 
-示例产物为 `Kudo-0.1.0-release.apk` 和 `Kudo-0.1.0-release.apk.sha256`，发布说明由 GitHub 自动生成。工作流先准备草稿、上传完整产物后再公开；上传失败留下的草稿可以重跑恢复，已经公开的同名 Release 不会被覆盖，应使用新版本 Tag。
+示例产物为 `Kudo-0.1.0-release.apk` 和 `Kudo-0.1.0-release.apk.sha256`。发布说明从上一个祖先正式版本到当前 Tag 的 commit 整理为“新增、修复、调整、维护”，去除合并提交与重复标题；首次版本包含完整历史。请使用能说明具体功能的中文提交标题，发布前查看生成的日志。工作流把同一份 `release-notes.md` 写入 GitHub Release，App 的“关于酷DO → 检查更新”显示该正文。工作流先准备草稿、上传完整产物后再公开；上传失败留下的草稿可以重跑恢复，已经公开的同名 Release 不会被覆盖，应使用新版本 Tag。
+
+已创建本地版本 Tag 后，可预览和人工整理日志：
+
+```powershell
+python scripts/release_notes.py --tag v0.1.0 --output artifacts/release-notes.md
+```
+
+手动发布时用 `gh release create <Tag> --notes-file artifacts/release-notes.md` 写入整理后的文件；自动 Tag 流程使用脚本生成的内容。检查更新只读取公开正式 Release，不使用私有仓库凭据；仓库私有或未发布时显示暂无公开版本。下载和查看源码使用外部浏览器。
 
 版本名为 Tag 去掉 `v`；`versionCode = major × 1000000 + minor × 1000 + patch + 1`。例如 `v1.2.3` 对应 `1.2.3` / `1002004`，`v0.1.0` 对应 `0.1.0` / `1001`。minor、patch 限制为 0–999，总值不超过 2100000000；前导零、`-rc`、`-beta` 等格式会失败。每次升级请使用更大的版本号。
 

@@ -18,7 +18,7 @@ GitHub Actions 在 v 开头的 Tag 推送时校验 Tag、执行脚本测试、�
 
 构建作业只读仓库，关闭共享 Gradle 缓存和 configuration cache；四个 Secrets 为 RELEASE_KEYSTORE_BASE64、RELEASE_STORE_PASSWORD、RELEASE_KEY_ALIAS、RELEASE_KEY_PASSWORD。密钥放 runner.temp，验证完成或失败后均尝试移除。prepare_release.py 使用 apksigner 验证 APK 完整性，比较唯一签名证书与正式密钥库导出的证书，使用 aapt 验证包名、Tag 版本及非 debuggable 标记，全部通过后才复制 APK 和生成对应 SHA256 文件。
 
-发布作业仅下载这两个产物并复查 SHA256，使用目标仓库的 GITHUB_TOKEN 写 Release，不需要额外长期发布令牌。它先创建草稿、上传完整文件后再公开；同 Tag 遗留草稿可重试，已公开版本拒绝覆盖。检查或构建失败不会进入发布作业，上传失败不会公开不完整草稿。Actions 中转产物保留 14 天，公开 Release 附件不受此限制。
+发布作业下载APK、校验文件和[提交日志](2026-10-11-commit-release-notes.md)生成的正文并复查 SHA256，使用目标仓库的 GITHUB_TOKEN 写 Release，不需要额外长期发布令牌。它先创建草稿、上传完整文件后再公开；同 Tag 遗留草稿可重试，已公开版本拒绝覆盖。检查或构建失败不会进入发布作业，上传失败不会公开不完整草稿。Actions 中转产物保留 14 天，公开 Release 附件不受此限制。
 
 本机 Git 认证使用 Git Credential Manager 的 Windows Credential Manager 存储（wincredman），origin 仅保存不含凭据的 HTTPS 地址。读取远程或认证信息时先在进程内脱敏，不能直接输出带凭据的 URL 或 credential fill 的原始结果。GitHub Secrets 由 GitHub CLI 加密提交，密钥及密码通过标准输入传递，GitHub 访问令牌只进入子进程环境。
 

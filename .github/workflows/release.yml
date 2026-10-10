@@ -102,6 +102,15 @@ jobs:
         if: always()
         run: rm -f -- "$RUNNER_TEMP/kudo-signing/release.p12"
 
+      - name: Organize release notes from commits
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: >-
+          python3 scripts/release_notes.py --tag "$RELEASE_TAG"
+          --repository "$RELEASE_REPOSITORY"
+          --output "$RUNNER_TEMP/kudo-release-dist/release-notes.md"
+
       - name: Upload verified release files
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -109,6 +118,7 @@ jobs:
           path: |
             ${{ runner.temp }}/kudo-release-dist/*.apk
             ${{ runner.temp }}/kudo-release-dist/*.sha256
+            ${{ runner.temp }}/kudo-release-dist/release-notes.md
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -144,7 +154,8 @@ jobs:
             fi
           else
             gh release create "$RELEASE_TAG" --verify-tag --draft \
-              --title "Kudo $VERSION_NAME" --generate-notes
+              --title "酷DO $VERSION_NAME" --notes-file release-notes.md
           fi
+          gh release edit "$RELEASE_TAG" --notes-file release-notes.md
           gh release upload "$RELEASE_TAG" "$APK_NAME" "$APK_NAME.sha256" --clobber
           gh release edit "$RELEASE_TAG" --draft=false
