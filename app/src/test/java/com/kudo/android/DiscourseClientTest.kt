@@ -37,6 +37,13 @@ class DiscourseClientTest {
         server.enqueue(MockResponse().setResponseCode(403).setHeader("cf-mitigated", "challenge").setBody("<html>Verify</html>"))
         val failure = runCatching { client.get("/latest.json") }.exceptionOrNull() as ApiFailure
         assertEquals(FailureKind.VERIFICATION, failure.kind)
+        assertTrue(failure.message.contains("Cloudflare"))
+    }
+    @Test fun htmlChallengeWithoutCloudflareHeaderIsReportedForManualVerification() = runBlocking {
+        server.enqueue(MockResponse().setBody("<html><title>Just a moment...</title><script src='/cdn-cgi/challenge-platform/a.js'></script></html>"))
+        val failure = runCatching { client.get("/latest.json") }.exceptionOrNull() as ApiFailure
+        assertEquals(FailureKind.VERIFICATION, failure.kind)
+        assertTrue(failure.message.contains("手动完成验证"))
     }
     @Test fun rateLimitPreservesRetryAfterAndDoesNotRetry() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "30").setBody("""{"errors":["慢一点"]}"""))

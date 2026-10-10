@@ -23,6 +23,14 @@ import kotlin.coroutines.resumeWithException
 enum class FailureKind { SIGN_IN, VERIFICATION, FORBIDDEN, NOT_FOUND, RATE_LIMIT, NETWORK, SERVER }
 class ApiFailure(val kind: FailureKind, override val message: String, val retryAfter: Int? = null) : IOException(message)
 
+internal const val CloudflareVerificationMessage = "检测到 Cloudflare 网页验证，请打开 Linux.do 手动完成验证后重试"
+
+internal fun isCloudflareChallenge(response: Response, body: String): Boolean {
+    if (response.header("cf-mitigated")?.equals("challenge", ignoreCase = true) == true) return true
+    return listOf("Just a moment...", "challenge-platform", "cf-chl-", "turnstile".lowercase())
+        .any { body.contains(it, ignoreCase = true) }
+}
+
 interface SessionCookies {
     fun get(url: String): String
     fun set(url: String, cookie: String)
@@ -95,9 +103,9 @@ class DiscourseClient(
             when {
                 it.code == 401 || (it.code == 403 && json?.text("error_type") == "not_logged_in") -> throw ApiFailure(FailureKind.SIGN_IN, "请先登录 Linux.do")
                 it.code == 429 -> throw ApiFailure(FailureKind.RATE_LIMIT, reason ?: "请求较频繁，请稍后再试", it.header("Retry-After")?.toIntOrNull())
-                it.header("cf-mitigated") == "challenge" -> throw ApiFailure(FailureKind.VERIFICATION, "需要完成 Linux.do 的网页验证")
+                isCloudflareChallenge(it, text) -> throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage)
                 notFound -> throw ApiFailure(FailureKind.NOT_FOUND, "内容不存在或暂无权限")
-                it.code == 403 && json == null -> throw ApiFailure(FailureKind.VERIFICATION, "需要完成 Linux.do 的网页验证")
+                it.code == 403 && json == null -> throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage)
                 it.code == 403 -> { csrf = null; throw ApiFailure(FailureKind.FORBIDDEN, reason ?: "当前账号没有权限，或登录状态需要刷新") }
                 !it.isSuccessful -> throw ApiFailure(FailureKind.SERVER, reason ?: "社区暂时无法处理请求（${it.code}）")
                 htmlResponse -> return JSONObject().put("html", text)

@@ -44,6 +44,8 @@ Discourse 的 JSON 403 若携带 `error_type: not_logged_in`，按未登录处�
 
 接口错误可以在原生界面提供具体恢复入口。直接 HTTP 仍可能遇到 Cloudflare 指纹限制，网页验证成功不保证 OkHttp 在所有网络可用。关注与回应采用已核实的站点插件契约，其他复杂插件正文保留网页入口。
 
+Cloudflare challenge is detected from the challenge response header and common challenge-page markers, including successful HTML responses that are not JSON. The client reports an explicit manual-verification message instead of treating the page as empty content; the WebView remains the recovery path because completing a browser challenge does not guarantee that every OkHttp request will pass.
+
 ## Verification
 
 2026-10-09 其他回应被误认为爱心及短按发错撤销请求的两项测试先失败，输出 artifacts/topic-reaction-repro.txt。修复后关注/回应契约 9 项、正文解析 10 项、头像模型 7 项全部通过，输出 topic-contract-fixed.txt。覆盖服务端计数、当前回应、不可撤销、合法路径段、失败不重试、关注成功确认、深链作者和首楼完整头像。线上字段、表情图片仅做只读核查，写操作使用 MockWebServer。
