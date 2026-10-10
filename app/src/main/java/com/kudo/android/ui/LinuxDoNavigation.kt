@@ -17,7 +17,8 @@ internal fun NavHostController.openContentLink(value: String, home: () -> Unit, 
 
 internal fun NavHostController.openLinuxDoDestination(target: LinuxDoDestination, home: () -> Unit) {
     when (target) {
-        is LinuxDoDestination.Topic -> navigate("topic/${target.id}?post=${target.number ?: 0}") { launchSingleTop = true }
+        // Each linked topic is a separate reading context; keep earlier topics on the back stack.
+        is LinuxDoDestination.Topic -> navigate("topic/${target.id}?post=${target.number ?: 0}")
         is LinuxDoDestination.User -> navigate("user/${Uri.encode(target.username)}") { launchSingleTop = true }
         is LinuxDoDestination.Category -> navigate("category/${target.id}") { launchSingleTop = true }
         LinuxDoDestination.Unavailable -> navigate("unavailable") { launchSingleTop = true }

@@ -89,6 +89,12 @@ class DeepLinkUiTest {
         fun click(value: String) { compose.runOnIdle { nav.openContentLink(value, { selected = 0 }) } }
         click("/t/topic/3001000/8")
         compose.onNodeWithText("帖子：3001000 楼层：8").assertIsDisplayed()
+        compose.runOnIdle {
+            nav.openContentLink("/t/topic/3002000/9", { selected = 0 })
+        }
+        compose.onNodeWithText("帖子：3002000 楼层：9").assertIsDisplayed()
+        compose.runOnIdle { assertTrue(nav.popBackStack()) }
+        compose.onNodeWithText("帖子：3001000 楼层：8").assertIsDisplayed()
         click("/u/stingysheep/activity/")
         compose.onNodeWithText("用户：stingysheep").assertIsDisplayed()
         click("/c/parent/develop/4")
