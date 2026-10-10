@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kudo.android.data.*
@@ -28,25 +29,25 @@ import com.kudo.android.ui.theme.Ink
 
 @Composable
 internal fun MemberHeader(member: Member, summary: UserSummary?, loading: Boolean, error: Boolean,
-    retry: () -> Unit, profile: () -> Unit, trust: () -> Unit, fraction: Float, modifier: Modifier,
+    retry: () -> Unit, profile: () -> Unit, trust: () -> Unit, fraction: Float,
+    avatarSize: Dp, identityGap: Dp, modifier: Modifier,
     onLoaded: (Boolean) -> Unit) {
     val avatar = member.animatedAvatar.ifBlank { member.avatar.replace("{size}", "512") }.let(::mediaUrl)
     var loaded by remember(member.id, member.profileBackground, avatar) { mutableStateOf(false) }
     SideEffect { onLoaded(loaded) }
     val ink = if (loaded) Color.White else Ink
     BoxWithConstraints(modifier.fillMaxWidth().background(Color.White).testTag("member-header")) {
-        val avatarSize = if (maxHeight < 280.dp) 48.dp else 64.dp
-        val identityGap = if (maxHeight < 320.dp) 12.dp else 40.dp
         val pixels = with(LocalDensity.current) { maxWidth.roundToPx().coerceIn(128, 1200) }
         AvatarImage(member.profileBackground.takeIf(String::isNotBlank)?.let(::mediaUrl) ?: avatar, pixels, true,
             Modifier.matchParentSize().testTag("member-background"), fallbackUrl = avatar,
             onLoaded = { loaded = it }, placeholder = {})
         if (loaded) Box(Modifier.matchParentSize().background(Brush.verticalGradient(listOf(
             Color.Black.copy(alpha = .24f + .08f * fraction), Color.Black.copy(alpha = .40f + .08f * fraction)))))
-        if (fraction < 1f) Column(Modifier.fillMaxSize().graphicsLayer { alpha = (1f - 2f * fraction).coerceIn(0f, 1f) }
+        // Hidden content must still measure at its expanded size while the viewport is collapsed.
+        Column(Modifier.fillMaxWidth().graphicsLayer { alpha = (1f - 2f * fraction).coerceIn(0f, 1f) }
             .then(if (fraction >= .5f) Modifier.clearAndSetSemantics {} else Modifier)
-            .statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 26.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.Bottom)) {
+            .statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 26.dp, bottom = 26.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)) {
             Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = profile).testTag("member-identity"),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Avatar(member, avatarSize,

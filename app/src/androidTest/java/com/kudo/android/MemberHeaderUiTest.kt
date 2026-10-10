@@ -1,9 +1,12 @@
 package com.kudo.android
 
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
@@ -69,16 +72,32 @@ class MemberHeaderUiTest {
         }
         assertTrue("状态角标应绘制到头像外，实际白色像素=$outsideWhite", outsideWhite > 10)
     }
-    @Test fun squareHeaderCollapsesFromListAndKeepsIdentityAndProfileArrow() {
+    @Test fun contentHeaderBalancesInsetsCollapsesFromListAndKeepsIdentityAndProfileArrow() {
+        compose.runOnUiThread { compose.activity.enableEdgeToEdge() }
         var profiles = 0
+        var statusInset = 0
+        var padding = 0f
+        var avatarSize = 0f
+        var identityGap = 0f
         compose.setContent { KudoTheme(DisplaySettings()) {
+            val density = LocalDensity.current
+            statusInset = WindowInsets.statusBars.getTop(density)
+            with(density) { padding = 26.dp.toPx(); avatarSize = 64.dp.toPx(); identityGap = 60.dp.toPx() }
             Box(Modifier.width(360.dp).height(700.dp)) {
-                ProfileScreen(Member(42, "fixture", "方形顶部", "", trustLevel = 3), {}, {}, {}, { profiles++ })
+                ProfileScreen(Member(42, "fixture", "内容顶部", "", trustLevel = 3), {}, {}, {}, { profiles++ })
             }
         } }
         val header = compose.onNodeWithTag("member-header-viewport").fetchSemanticsNode().boundsInRoot
-        assertEquals(header.width, header.height, 2f)
-        val nickname = compose.onNodeWithText("方形顶部", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val avatar = compose.onNodeWithTag("member-avatar").fetchSemanticsNode().boundsInRoot
+        val identity = compose.onNodeWithTag("member-identity").fetchSemanticsNode().boundsInRoot
+        val values = compose.onAllNodesWithText("—", useUnmergedTree = true).fetchSemanticsNodes()
+        val label = compose.onNodeWithText("访问天数", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertEquals("头像距状态栏底边为26dp", padding, avatar.top - header.top - statusInset, 2f)
+        assertEquals("统计距底部为26dp", padding, header.bottom - label.bottom, 2f)
+        assertEquals("保留64dp头像", avatarSize, avatar.height, 2f)
+        assertEquals("保留身份与统计内部间距", identityGap, values.first().boundsInRoot.top - identity.bottom, 2f)
+        assertTrue("顶部改为内容撑高", header.height < header.width)
+        val nickname = compose.onNodeWithText("内容顶部", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val level = compose.onNodeWithText("Lv.3").fetchSemanticsNode().boundsInRoot
         assertTrue(level.left >= nickname.right)
         assertEquals(nickname.center.y, level.center.y, 3f)
@@ -86,12 +105,12 @@ class MemberHeaderUiTest {
         compose.onNodeWithTag("member-profile-arrow").performClick()
         compose.onNodeWithTag("member-profile").performTouchInput { swipeUp() }
         compose.onNodeWithTag("member-compact-header").assertIsDisplayed()
-        compose.onNodeWithText("方形顶部").assertIsDisplayed()
+        compose.onNodeWithText("内容顶部").assertIsDisplayed()
         compose.onNodeWithTag("member-profile-arrow").performClick()
         compose.runOnIdle { assertEquals(3, profiles) }
         compose.onNodeWithTag("member-profile").performTouchInput { swipeDown(); swipeDown() }
         compose.waitForIdle()
-        assertTrue(compose.onNodeWithTag("member-header-viewport").fetchSemanticsNode().boundsInRoot.height > header.width * .9f)
+        assertEquals(header.height, compose.onNodeWithTag("member-header-viewport").fetchSemanticsNode().boundsInRoot.height, 2f)
     }
     @Test fun wholeIdentityOpensProfileButLevelRemainsIndependent() {
         var profiles = 0
@@ -112,6 +131,55 @@ class MemberHeaderUiTest {
         compose.onNodeWithTag("member-compact-header").performClick()
         compose.onNodeWithText("Lv.3").performClick()
         compose.runOnIdle { assertEquals(2, profiles); assertEquals(2, levels) }
+    }
+    @Test fun fontAndWindowChangesRemeasureContentAndKeepCollapsedIdentity() {
+        compose.runOnUiThread { compose.activity.enableEdgeToEdge() }
+        var fontScale by mutableFloatStateOf(1f)
+        var width by mutableStateOf(360.dp)
+        var statusInset = 0
+        var padding = 0f
+        var avatarSize = 0f
+        var shortGap = 0f
+        var listMinimum = 0f
+        compose.setContent { KudoTheme(DisplaySettings(fontScale = fontScale)) {
+            val density = LocalDensity.current
+            statusInset = WindowInsets.statusBars.getTop(density)
+            with(density) {
+                padding = 26.dp.toPx(); avatarSize = 64.dp.toPx()
+                shortGap = 32.dp.toPx(); listMinimum = 120.dp.toPx()
+            }
+            Box(Modifier.fillMaxSize()) { Box(Modifier.width(width).height(480.dp)) {
+                ProfileScreen(Member(42, "fixture", "较长的昵称用于验证内容测量", "", trustLevel = 3), {}, {}, {}, {})
+            } }
+        } }
+        fun assertInsetsAndAvatar() {
+            val header = compose.onNodeWithTag("member-header-viewport").fetchSemanticsNode().boundsInRoot
+            val avatar = compose.onNodeWithTag("member-avatar").fetchSemanticsNode().boundsInRoot
+            val label = compose.onNodeWithText("访问天数", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertEquals(padding, avatar.top - header.top - statusInset, 2f)
+            assertEquals(padding, header.bottom - label.bottom, 2f)
+            assertEquals(avatarSize, avatar.height, 2f)
+            assertTrue(compose.onNodeWithTag("member-profile").fetchSemanticsNode().boundsInRoot.height >= listMinimum)
+        }
+        assertInsetsAndAvatar()
+        val originalHeight = compose.onNodeWithTag("member-header-viewport").fetchSemanticsNode().boundsInRoot.height
+        compose.runOnIdle { fontScale = 1.3f }
+        assertInsetsAndAvatar()
+        assertTrue("大字体应自然撑高顶部", compose.onNodeWithTag("member-header-viewport").fetchSemanticsNode().boundsInRoot.height > originalHeight)
+        compose.onNodeWithTag("member-profile").performTouchInput { swipeUp() }
+        compose.onNodeWithTag("member-compact-header").assertIsDisplayed()
+        compose.runOnIdle { width = 280.dp; fontScale = 1f }
+        compose.onNodeWithTag("member-compact-header").assertIsDisplayed()
+        compose.onNodeWithTag("member-identity").assertDoesNotExist()
+        compose.onNodeWithTag("member-profile").performTouchInput { swipeDown(); swipeDown() }
+        assertInsetsAndAvatar()
+        val identity = compose.onNodeWithTag("member-identity").fetchSemanticsNode().boundsInRoot
+        val value = compose.onAllNodesWithText("—", useUnmergedTree = true).fetchSemanticsNodes().first().boundsInRoot
+        assertEquals("短窗口保留原有内部间距", shortGap, value.top - identity.bottom, 2f)
+        compose.runOnIdle { fontScale = 1.3f }
+        assertInsetsAndAvatar()
+        compose.onNodeWithTag("member-header-viewport").performTouchInput { swipeUp() }
+        compose.onNodeWithTag("member-compact-header").assertIsDisplayed()
     }
     @Test fun collapseKeepsOriginalImageBottomWithOnlySlightlyDarkerMask() {
         var loaded = false

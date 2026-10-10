@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.*
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -75,12 +76,19 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
     BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         val density = LocalDensity.current
         val minimum = WindowInsets.statusBars.getTop(density) + with(density) { 48.dp.toPx() }
-        val expanded = maxWidth.coerceAtMost((maxHeight - 120.dp).coerceAtLeast(with(density) { minimum.toDp() }))
-        val height = with(density) { expanded.toPx() }
+        val minimumHeight = with(density) { minimum.toDp() }
+        val heightLimit = (maxHeight - 120.dp).coerceAtLeast(minimumHeight)
+        // Preserve the existing avatar and inner spacing independently of the natural header height.
+        val layoutRoom = maxWidth.coerceAtMost(heightLimit)
+        var measuredHeight by remember(user.id) { mutableIntStateOf(0) }
+        val height = with(density) {
+            (if (measuredHeight > 0) measuredHeight.toDp() else layoutRoom).coerceIn(minimumHeight, heightLimit).toPx()
+        }
         val maximum = (height - minimum).coerceAtLeast(0f)
         var collapse by remember(user.id) { mutableFloatStateOf(0f) }
         val latestMaximum by rememberUpdatedState(maximum)
-        val fraction = if (maximum > 0f) (collapse / maximum).coerceIn(0f, 1f) else 1f
+        val visibleCollapse = collapse.coerceIn(0f, maximum)
+        val fraction = if (maximum > 0f) visibleCollapse / maximum else 1f
         val collapsed = fraction >= .999f
         LaunchedEffect(maximum) { collapse = collapse.coerceIn(0f, maximum) }
         val nested = remember(user.id) { object : NestedScrollConnection {
@@ -98,7 +106,7 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
             }
         } }
         Column(Modifier.fillMaxSize().nestedScroll(nested)) {
-            Box(Modifier.fillMaxWidth().height(with(density) { (height - collapse).toDp() }).clipToBounds()
+            Box(Modifier.fillMaxWidth().height(with(density) { (height - visibleCollapse).toDp() }).clipToBounds()
                 .testTag("member-header-viewport")
                 .scrollable(rememberScrollableState { delta ->
                     val previous = collapse
@@ -107,7 +115,15 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
                 }, Orientation.Vertical)) {
                 MemberHeader(member, summary, loading, summaryError, { refresh++ }, profile,
                     { destination(AccountDestination.TRUST) }, fraction,
-                    Modifier.offset { IntOffset(0, -collapse.toInt()) }.wrapContentHeight(Alignment.Top, unbounded = true).height(expanded)) {
+                    avatarSize = if (layoutRoom < 280.dp) 48.dp else 64.dp,
+                    identityGap = if (layoutRoom < 320.dp) 12.dp else 40.dp,
+                    modifier = Modifier.offset { IntOffset(0, -visibleCollapse.toInt()) }
+                        .wrapContentHeight(Alignment.Top, unbounded = true)
+                        .heightIn(min = minimumHeight, max = heightLimit)
+                        .onSizeChanged {
+                            if (collapsed && collapse > 0f) collapse = (it.height - minimum).coerceAtLeast(0f)
+                            measuredHeight = it.height
+                        }) {
                     backgroundLoaded = it
                 }
             }
