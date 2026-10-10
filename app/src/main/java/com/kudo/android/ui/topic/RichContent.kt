@@ -58,6 +58,7 @@ import java.util.UUID
 sealed interface ArticleBlock {
     data class TextBlock(val html: String, val quote: Boolean = false, val heading: Boolean = false) : ArticleBlock
     data class Quote(val blocks: List<ArticleBlock>, val author: String = "", val avatar: String? = null, val source: String? = null) : ArticleBlock
+    data class Details(val summary: String, val blocks: List<ArticleBlock>, val open: Boolean = false) : ArticleBlock
     data class Code(val text: String) : ArticleBlock
     data class Image(
         val url: String, val alt: String, val ratio: Float? = null,
@@ -100,6 +101,12 @@ fun parseArticle(html: String): List<ArticleBlock> {
             "pre" -> result.add(ArticleBlock.Code(element.wholeText()))
             "table" -> result.add(ArticleBlock.Code(element.select("tr").joinToString("\n") { row -> row.select("th,td").joinToString("  │  ") { it.text() } }))
             "hr" -> result.add(ArticleBlock.Rule)
+            "details" -> {
+                val summary = element.children().firstOrNull { it.normalName() == "summary" }
+                val body = element.clone().apply { children().firstOrNull { it.normalName() == "summary" }?.remove() }
+                result.add(ArticleBlock.Details(summary?.html()?.takeIf { summary.text().isNotBlank() } ?: "详细内容",
+                    parseArticle(body.html()), element.hasAttr("open")))
+            }
             "img" -> {
                 val raw = element.attr("src")
                 if (element.hasClass("emoji")) result.add(ArticleBlock.TextBlock(element.outerHtml(), quote))
@@ -174,6 +181,7 @@ private fun articleImageLocations(blocks: List<ArticleBlock>): List<ArticleImage
             when (block) {
                 is ArticleBlock.Image -> add(ArticleImageLocation(block, path, quotes))
                 is ArticleBlock.Quote -> visit(block.blocks, path, quotes + path)
+                is ArticleBlock.Details -> visit(block.blocks, path, quotes + path)
                 else -> Unit
             }
         }
@@ -182,6 +190,17 @@ private fun articleImageLocations(blocks: List<ArticleBlock>): List<ArticleImage
 }
 
 internal fun List<ArticleBlock>.articleImages(): List<ArticleBlock.Image> = articleImageLocations(this).map { it.image }
+
+private fun closedDetails(blocks: List<ArticleBlock>, parent: String = "root"): List<String> = buildList {
+    blocks.forEachIndexed { index, block ->
+        val path = "$parent-$index"
+        when (block) {
+            is ArticleBlock.Details -> { if (!block.open) add(path); addAll(closedDetails(block.blocks, path)) }
+            is ArticleBlock.Quote -> addAll(closedDetails(block.blocks, path))
+            else -> Unit
+        }
+    }
+}
 
 internal data class InlineEmoji(val url: String, val name: String)
 internal data class InlineArticle(val text: AnnotatedString, val emojis: Map<String, InlineEmoji>)
@@ -251,7 +270,7 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
     val images = remember(locations) { locations.map { it.image } }
     val anchors = remember(blocks) { List(images.size) { GalleryThumbnailAnchor() } }
     var collapsed by rememberSaveable(html, stateSaver = listSaver<List<String>, String>(save = { it }, restore = { it })) {
-        mutableStateOf<List<String>>(emptyList())
+        mutableStateOf(closedDetails(blocks))
     }
     val gallery = LocalImageGallery.current
     val origin = rememberSaveable { UUID.randomUUID().toString() }
@@ -287,6 +306,22 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
         blocks.forEachIndexed { index, block ->
             val path = "$parent-$index"
             key(path) { when (block) {
+            is ArticleBlock.Details -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant).testTag("article-details-$path")) {
+                val hidden = path in collapsed
+                val color = MaterialTheme.colorScheme.primary
+                val summary = remember(block.summary, color) { parseInlineArticle(block.summary, color).text }
+                Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { toggle(path) }
+                    .semantics { contentDescription = if (hidden) "展开折叠内容" else "收起折叠内容" }
+                    .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(if (hidden) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(summary, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                }
+                if (!hidden) Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                    ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, image)
+                }
+            }
             is ArticleBlock.Quote -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp).testTag("article-quote-$path"),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {

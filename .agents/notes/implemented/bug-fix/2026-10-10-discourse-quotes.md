@@ -14,6 +14,8 @@ Status: implemented
 
 折叠路径以不可变列表状态和显式列表Saver保存，状态变化替换整个列表，不在MutableState内部修改可变集合。
 
+[details 折叠](2026-10-10-discourse-details.md)使用独立容器与 open 属性，复用同一不可变路径和相册祖先展开机制；引用仍默认展开。
+
 ## Existing note audit
 
 - [原生阅读](../../implemented/feature/2026-10-07-liquid-glass-ui.md)：部分重叠，本篇补齐引用的结构语义，保留其他块的原生渲染。

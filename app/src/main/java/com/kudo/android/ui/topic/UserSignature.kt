@@ -47,6 +47,14 @@ internal fun UserSignature(post: Post, openLink: (String) -> Unit,
 @Composable
 private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> Unit, svgWebViewFactory: (Context) -> WebView) {
     blocks.forEach { block -> when (block) {
+            is ArticleBlock.Details -> {
+                var expanded by remember(block) { mutableStateOf(block.open) }
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(org.jsoup.Jsoup.parse(block.summary).text(), Modifier.fillMaxWidth().clickable { expanded = !expanded },
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    if (expanded) SignatureContent(block.blocks, openLink, svgWebViewFactory)
+                }
+            }
             is ArticleBlock.Quote -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (block.author.isNotBlank()) Text(block.author, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -57,6 +57,53 @@ class QuoteContentUiTest {
     }
     @After fun restore() { SingletonImageLoader.setUnsafe(previous); loader.shutdown() }
 
+    @Test fun updateLogStartsCollapsedAndKeepsItsChoiceAfterRestoration() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { KudoTheme(DisplaySettings()) {
+            Column(Modifier.fillMaxSize().padding(16.dp).testTag("quote-fixture")) {
+                RichContent("""<details><summary>v1.7.0更新日志</summary><p>加入catppuccin全家桶配色！</p><img src="https://quote.test/theme.png" width="565" height="500"></details>""", {}, {})
+            }
+        } }
+        compose.onNodeWithText("v1.7.0更新日志").assertIsDisplayed()
+        compose.onNodeWithText("加入catppuccin全家桶配色！").assertDoesNotExist()
+        capture("details-collapsed.png")
+        compose.onNodeWithContentDescription("展开折叠内容").performClick()
+        compose.onNodeWithText("加入catppuccin全家桶配色！").assertIsDisplayed()
+        compose.onNodeWithTag("article-image-article-0").assertIsDisplayed()
+        capture("details-expanded.png")
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText("加入catppuccin全家桶配色！").assertIsDisplayed()
+        compose.onNodeWithContentDescription("收起折叠内容").performClick()
+        compose.onNodeWithTag("article-image-article-0").assertDoesNotExist()
+    }
+
+    @Test fun galleryReturnOpensNestedDetailsAndQuoteWithoutChangingPhotoIndices() {
+        val gallery = ImageGalleryState()
+        lateinit var scope: CoroutineScope
+        val html = """<details open><summary>外层更新</summary><aside class="quote" data-username="author"><div class="title">引用作者:</div><blockquote><details><summary>内层更新</summary><img src="https://quote.test/repeat.png" width="100" height="60"></details></blockquote></aside></details><img src="https://quote.test/outside.png" width="100" height="60">"""
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            scope = rememberCoroutineScope()
+            CompositionLocalProvider(LocalImageGallery provides gallery) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) { RichContent(html, {}, {}) }
+            }
+        } }
+        compose.onNodeWithText("内层更新").assertIsDisplayed()
+        compose.onNodeWithTag("article-image-article-0").assertDoesNotExist()
+        compose.onNodeWithContentDescription("收起引用").performClick()
+        compose.onNodeWithContentDescription("收起折叠内容").performClick()
+        compose.onNodeWithTag("article-image-article-1").performClick()
+        compose.runOnIdle {
+            assertEquals(1, gallery.session!!.index)
+            assertEquals(2, gallery.session!!.images.size)
+            scope.launch { gallery.dismiss(0) }
+        }
+        compose.waitUntil(5000) { gallery.session == null }
+        compose.onNodeWithTag("article-image-article-0").assertIsDisplayed()
+        compose.onNodeWithText("内层更新").assertIsDisplayed()
+        compose.onNodeWithTag("article-image-article-0").performClick()
+        compose.runOnIdle { assertEquals(0, gallery.session!!.index) }
+    }
+
     @Test fun quoteIsOneRegionWithSmallAvatarAndOriginalPostNavigation() {
         var link = ""
         var image = ""
