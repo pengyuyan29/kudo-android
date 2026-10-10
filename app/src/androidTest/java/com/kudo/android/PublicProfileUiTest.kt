@@ -54,7 +54,10 @@ class PublicProfileUiTest {
                             val url = data.toString(); fetched.add(url)
                             if (url.endsWith("bad.png")) throw IOException("offline failed image")
                             val bitmap = Bitmap.createBitmap(80, 80, Bitmap.Config.ARGB_8888)
-                            bitmap.eraseColor(if (url.endsWith("card.png")) 0xFF235C63.toInt() else 0xFFA66635.toInt())
+                            bitmap.eraseColor(0xFFA66635.toInt())
+                            if (url.endsWith("card.png")) for (y in 0 until 80) for (x in 0 until 80) {
+                                bitmap.setPixel(x, y, if (y < 60) 0xFF3874A0.toInt() else 0xFF4B9477.toInt())
+                            }
                             val bytes = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray()
                             bitmap.recycle()
                             return SourceFetchResult(ImageSource(Buffer().write(bytes), options.fileSystem), "image/png", DataSource.MEMORY)
@@ -69,9 +72,11 @@ class PublicProfileUiTest {
     @After fun restore() { SingletonImageLoader.setUnsafe(previous); loader.shutdown() }
     private fun show(card: String = "https://profile.test/card.png", dark: Boolean = false, scale: Float = 1f,
         opened: (String) -> Unit = {}, status: (Boolean?) -> Unit = {}) {
-        compose.setContent { KudoTheme(DisplaySettings(theme = if (dark) ThemeMode.DARK else ThemeMode.LIGHT, fontScale = scale)) {
+        compose.setContent {
+            var icons by remember { mutableStateOf<Boolean?>(null) }
+            KudoTheme(DisplaySettings(theme = if (dark) ThemeMode.DARK else ThemeMode.LIGHT, fontScale = scale), darkStatusIcons = icons) {
             PublicProfilePage(PublicProfileState(profile, loading = false, cardBackground = card, cardLoading = false,
-                summary = summary, summaryLoading = false, feeds = feeds), 2, {}, {}, opened, {}, {}, {}, statusBarStyle = status)
+                summary = summary, summaryLoading = false, feeds = feeds), 2, {}, {}, opened, {}, {}, {}, statusBarStyle = { icons = it; status(it) })
         } }
         compose.waitUntil(5000) { fetched.isNotEmpty() }
     }
@@ -88,6 +93,28 @@ class PublicProfileUiTest {
         compose.onNodeWithTag("profile-follow").assertIsDisplayed()
         compose.runOnIdle { assertTrue(fetched.any { it.endsWith("card.png") }); assertFalse(fetched.any { it.endsWith("wrong-profile.png") }) }
         screenshot("public-profile-light.png")
+    }
+    @Test fun expandedHeaderIsSquareAndCollapsedToolbarKeepsImageAndActions() {
+        var style: Boolean? = null
+        show(status = { style = it })
+        val header = compose.onNodeWithTag("public-profile-header").fetchSemanticsNode().boundsInRoot
+        assertEquals("展开顶部为1:1", header.width, header.height, 2f)
+        val expanded = compose.onRoot().captureToImage().toPixelMap()
+        val expandedBottom = expanded[expanded.width - 5, header.bottom.toInt() - 8]
+        repeat(2) { compose.onNodeWithTag("profile-list-SUMMARY").performTouchInput { swipeUp() } }
+        compose.onNodeWithTag("profile-toolbar-avatar", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("profile-toolbar-follow").assertIsDisplayed()
+        compose.onNodeWithContentDescription("个人主页更多操作").assertIsDisplayed()
+        compose.onNodeWithText("2394").assertDoesNotExist()
+        val tabs = compose.onNodeWithTag("profile-tabs").fetchSemanticsNode().boundsInRoot
+        val pixels = compose.onRoot().captureToImage().toPixelMap()
+        val bottom = pixels[pixels.width - 5, tabs.top.toInt() - 8]
+        assertTrue("收起后仍是原图底部绿色区域", bottom.green > bottom.blue * 1.1f)
+        assertTrue("遮罩只稍微更不透明", bottom.green in (expandedBottom.green * .65f)..(expandedBottom.green * .99f))
+        compose.runOnIdle { assertEquals(false, style) }
+        compose.runOnIdle { assertFalse(androidx.core.view.WindowCompat.getInsetsController(compose.activity.window,
+            compose.activity.window.decorView).isAppearanceLightStatusBars) }
+        screenshot("public-profile-square-collapsed.png")
     }
     @Test fun failedCardFallsBackToAvatarPixels() {
         show("https://profile.test/bad.png")
@@ -125,13 +152,13 @@ class PublicProfileUiTest {
         compose.waitForIdle()
         compose.runOnIdle { assertTrue("刷新后当前回复标签必须重新读取，不能永远停在加载中", requested.contains(ProfileTab.REPLIES)) }
     }
-    @Test fun scrollingPinsTabsAndRestoresStatusBarStyle() {
+    @Test fun scrollingPinsTabsAndKeepsWhiteStatusBarForeground() {
         var style: Boolean? = null
         show(status = { style = it })
         compose.runOnIdle { assertEquals(false, style) }
         compose.onNodeWithTag("profile-list-SUMMARY").performTouchInput { swipeUp() }
         compose.onNodeWithTag("profile-list-SUMMARY").performTouchInput { swipeUp() }
-        compose.runOnIdle { assertNull(style) }
+        compose.runOnIdle { assertEquals(false, style) }
         compose.onNodeWithTag("profile-tabs").assertIsDisplayed()
         val tabs = compose.onNodeWithTag("profile-tabs").fetchSemanticsNode().boundsInRoot
         assertTrue("吸顶标签应位于屏幕上方", tabs.top < 300f)
@@ -199,16 +226,47 @@ class PublicProfileUiTest {
     }
     @Test fun narrowLargeTextRetainsScrollableBodyAndAnonymousActionsRequestLogin() {
         var logins = 0
-        compose.setContent { KudoTheme(DisplaySettings(fontScale = 1.3f)) { Box(Modifier.width(280.dp).fillMaxHeight()) {
+        compose.setContent { KudoTheme(DisplaySettings(fontScale = 1.3f), darkStatusIcons = false) { Box(Modifier.width(280.dp).fillMaxHeight()) {
             PublicProfilePage(PublicProfileState(profile.copy(member = member.copy(bio = "很长的个人简介".repeat(20))), loading = false,
                 cardLoading = false, summary = summary, summaryLoading = false, feeds = feeds), null, {}, { logins++ }, {}, {}, {}, {})
         } } }
         compose.onNodeWithTag("profile-follow").performClick()
         compose.runOnIdle { assertEquals(1, logins) }
+        compose.onNodeWithContentDescription("查看完整个人资料").performClick()
+        compose.onNodeWithText("很长的个人简介".repeat(20)).assertIsDisplayed()
+        compose.onNodeWithTag("liquid-action-sheet").performTouchInput { swipeDown() }
         compose.onNodeWithTag("profile-pager").assertIsDisplayed()
         compose.onNodeWithTag("profile-list-SUMMARY").performTouchInput { swipeUp() }
         compose.onNodeWithTag("profile-list-SUMMARY").performTouchInput { swipeUp() }
         compose.onNodeWithText("热门主题").assertIsDisplayed()
         screenshot("public-profile-narrow-large.png")
+    }
+    @Test fun collapsedFollowPreservesPermissionsBusyStateAndCallbacks() {
+        var current by mutableStateOf(profile)
+        var viewer by mutableStateOf<Int?>(null)
+        var busy by mutableStateOf(false)
+        var logins = 0
+        var follows = 0
+        var style: Boolean? = null
+        var visible by mutableStateOf(true)
+        compose.setContent { KudoTheme(DisplaySettings(fontScale = 1.3f)) { Box(Modifier.width(280.dp).fillMaxHeight()) {
+            if (visible) PublicProfilePage(PublicProfileState(current, loading = false, cardLoading = false,
+                summary = summary, summaryLoading = false, feeds = feeds, followBusy = busy), viewer,
+                {}, { logins++ }, {}, {}, {}, {}, statusBarStyle = { style = it },
+                follow = { follows++; current = current.copy(member = current.member.copy(isFollowed = true)) })
+        } } }
+        repeat(2) { compose.onNodeWithTag("profile-list-SUMMARY").performTouchInput { swipeUp() } }
+        compose.onNodeWithTag("profile-toolbar-follow").performClick()
+        compose.runOnIdle { assertEquals(1, logins); viewer = 2 }
+        compose.onNodeWithTag("profile-toolbar-follow").performClick()
+        compose.onNodeWithTag("profile-toolbar-follow").assertTextEquals("已关注")
+        compose.runOnIdle { assertEquals(1, follows); busy = true }
+        compose.onNodeWithTag("profile-toolbar-follow").assertIsNotEnabled()
+        compose.runOnIdle { busy = false; viewer = member.id }
+        compose.onNodeWithTag("profile-toolbar-follow").assertDoesNotExist()
+        compose.runOnIdle { viewer = 2; current = profile.copy(member = member.copy(canFollow = false)) }
+        compose.onNodeWithTag("profile-toolbar-follow").assertDoesNotExist()
+        compose.runOnIdle { visible = false }
+        compose.runOnIdle { assertNull(style) }
     }
 }

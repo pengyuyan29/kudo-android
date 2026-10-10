@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.*
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.nestedscroll.*
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -63,55 +62,56 @@ internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: 
     statusBarStyle: (Boolean?) -> Unit = {}, refresh: () -> Unit = {}, retrySummary: () -> Unit = {}, retryCard: () -> Unit = {},
     load: (ProfileTab, Boolean, Boolean) -> Unit = { _, _, _ -> }, follow: () -> Unit = {},
     showFollows: (Boolean) -> Unit = {}, closeFollows: () -> Unit = {}) {
-    val profile = state.profile
-    val pager = rememberPagerState(pageCount = { ProfileTab.entries.size })
-    val scope = rememberCoroutineScope()
-    val density = LocalDensity.current
-    val minimum = WindowInsets.statusBars.getTop(density) + with(density) { 48.dp.toPx() }
-    var headerHeight by remember(profile?.member?.id) { mutableFloatStateOf(with(density) { 400.dp.toPx() }) }
-    var collapse by remember(profile?.member?.id) { mutableFloatStateOf(0f) }
-    val maximum = (headerHeight - minimum).coerceAtLeast(0f)
-    val collapsed = collapse >= maximum - 1 && maximum > 0
-    val latestMaximum by rememberUpdatedState(maximum)
-    LaunchedEffect(maximum) { collapse = collapse.coerceIn(0f, maximum) }
-    val nested = remember(profile?.member?.id) { object : NestedScrollConnection {
-        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-            if (available.y >= 0) return Offset.Zero
-            val previous = collapse
-            collapse = (collapse - available.y).coerceIn(0f, latestMaximum)
-            return Offset(0f, previous - collapse)
-        }
-        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-            if (available.y <= 0) return Offset.Zero
-            val previous = collapse
-            collapse = (collapse - available.y).coerceIn(0f, latestMaximum)
-            return Offset(0f, previous - collapse)
-        }
-    } }
-    val latestLoad by rememberUpdatedState(load)
-    val activeTab = ProfileTab.entries[pager.settledPage]
-    val activeFeed = state.feeds[activeTab]
-    LaunchedEffect(activeTab, activeFeed?.loaded, activeFeed?.loading, activeFeed?.error) {
-        if (activeTab != ProfileTab.SUMMARY && activeFeed?.loaded != true && activeFeed?.loading != true && activeFeed?.error == null)
-            latestLoad(activeTab, false, false)
-    }
-    SideEffect { statusBarStyle(if (profile != null && !collapsed) false else null) }
-    DisposableEffect(Unit) { onDispose { statusBarStyle(null) } }
-    val moreVisibility = remember { MutableTransitionState(false) }
-    val followsVisibility = remember { MutableTransitionState(false) }
-    LaunchedEffect(state.showingFollowers) { followsVisibility.targetState = state.showingFollowers != null }
-    var selectedBadge by remember { mutableStateOf<UserBadge?>(null) }
-    val badgeVisibility = remember { MutableTransitionState(false) }
-    val context = LocalContext.current
-    val pageUrl = profile?.member?.username?.let { "https://linux.do/u/${android.net.Uri.encode(it)}" }.orEmpty()
     BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("public-user-page")) {
-        val headerLimit = with(density) { (maxHeight - 120.dp).toPx().coerceAtLeast(minimum) }
+        val profile = state.profile
+        val pager = rememberPagerState(pageCount = { ProfileTab.entries.size })
+        val scope = rememberCoroutineScope()
+        val density = LocalDensity.current
+        val minimum = WindowInsets.statusBars.getTop(density) + with(density) { 48.dp.toPx() }
+        val expandedHeight = maxWidth.coerceAtMost((maxHeight - 120.dp).coerceAtLeast(with(density) { minimum.toDp() }))
+        val headerHeight = with(density) { expandedHeight.toPx() }
+        var collapse by remember(profile?.member?.id) { mutableFloatStateOf(0f) }
+        val maximum = (headerHeight - minimum).coerceAtLeast(0f)
+        val collapsed = collapse >= maximum - 1 && maximum > 0
+        val latestMaximum by rememberUpdatedState(maximum)
+        LaunchedEffect(maximum) { collapse = collapse.coerceIn(0f, maximum) }
+        val nested = remember(profile?.member?.id) { object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y >= 0) return Offset.Zero
+                val previous = collapse
+                collapse = (collapse - available.y).coerceIn(0f, latestMaximum)
+                return Offset(0f, previous - collapse)
+            }
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (available.y <= 0) return Offset.Zero
+                val previous = collapse
+                collapse = (collapse - available.y).coerceIn(0f, latestMaximum)
+                return Offset(0f, previous - collapse)
+            }
+        } }
+        val latestLoad by rememberUpdatedState(load)
+        val activeTab = ProfileTab.entries[pager.settledPage]
+        val activeFeed = state.feeds[activeTab]
+        LaunchedEffect(activeTab, activeFeed?.loaded, activeFeed?.loading, activeFeed?.error) {
+            if (activeTab != ProfileTab.SUMMARY && activeFeed?.loaded != true && activeFeed?.loading != true && activeFeed?.error == null)
+                latestLoad(activeTab, false, false)
+        }
+        SideEffect { statusBarStyle(if (profile != null) false else null) }
+        DisposableEffect(Unit) { onDispose { statusBarStyle(null) } }
+        val moreVisibility = remember { MutableTransitionState(false) }
+        val detailsVisibility = remember(profile?.member?.id) { MutableTransitionState(false) }
+        val followsVisibility = remember { MutableTransitionState(false) }
+        LaunchedEffect(state.showingFollowers) { followsVisibility.targetState = state.showingFollowers != null }
+        var selectedBadge by remember { mutableStateOf<UserBadge?>(null) }
+        val badgeVisibility = remember { MutableTransitionState(false) }
+        val context = LocalContext.current
+        val pageUrl = profile?.member?.username?.let { "https://linux.do/u/${android.net.Uri.encode(it)}" }.orEmpty()
         if (profile == null) Column(Modifier.fillMaxSize()) {
             PageTopBar("个人主页", back)
             if (state.loading) LoadingRow() else state.error?.let { ErrorState(it, refresh, login) }
         } else {
             Column(Modifier.fillMaxSize().nestedScroll(nested)) {
-                Box(Modifier.fillMaxWidth().height(with(density) { (headerHeight - collapse.coerceAtMost(maximum)).coerceAtMost(headerLimit).toDp() }).clipToBounds()
+                Box(Modifier.fillMaxWidth().height(with(density) { (headerHeight - collapse.coerceAtMost(maximum)).toDp() }).clipToBounds()
                     .scrollable(rememberScrollableState { delta ->
                         val previous = collapse
                         collapse = (collapse - delta).coerceIn(0f, maximum)
@@ -119,8 +119,10 @@ internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: 
                     }, Orientation.Vertical)) {
                     PublicProfileHeader(profile, state.summary, state.cardBackground, viewerId, state.followBusy,
                         { if (viewerId == null) login() else follow() }, { if (viewerId == null) login() else message() }, showFollows,
-                        Modifier.offset { IntOffset(0, -collapse.toInt()) }.wrapContentHeight(unbounded = true)
-                            .onSizeChanged { headerHeight = it.height.toFloat() }, openLink)
+                        Modifier.offset { IntOffset(0, -collapse.toInt()) }.wrapContentHeight(Alignment.Top, unbounded = true)
+                            .height(expandedHeight), openLink,
+                        collapseFraction = if (maximum > 0f) (collapse / maximum).coerceIn(0f, 1f) else 1f,
+                        details = { detailsVisibility.targetState = true })
                 }
                 ProfileTabs(pager.currentPage) { index -> scope.launch { pager.animateScrollToPage(index) } }
                 HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth().testTag("profile-pager"), key = { ProfileTab.entries[it].name }) { index ->
@@ -159,7 +161,12 @@ internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: 
                     }
                 }
             }
-            ProfileToolbar(profile.member.displayName, collapsed, back, search, { moreVisibility.targetState = true }, Modifier.align(Alignment.TopCenter))
+            ProfileToolbar(profile.member, collapsed, viewerId, state.followBusy,
+                { if (viewerId == null) login() else follow() }, back, search,
+                { moreVisibility.targetState = true }, Modifier.align(Alignment.TopCenter))
+        }
+        CommunitySheet(detailsVisibility, "个人资料", { detailsVisibility.targetState = false }, showActions = false) {
+            profile?.let { PublicProfileDetails(it, state.summary, openLink) }
         }
         CommunitySheet(moreVisibility, "个人主页", { moreVisibility.targetState = false }, showActions = false) {
             ProfileMenuRow("复制主页链接") {
