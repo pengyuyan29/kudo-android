@@ -46,7 +46,8 @@ internal open class SignatureImageWebView(context: Context) : WebView(context) {
 
 @Composable
 internal fun SvgSignatureImage(url: String, modifier: Modifier = Modifier,
-    webViewFactory: (Context) -> WebView = { SignatureImageWebView(it) }) {
+    webViewFactory: (Context) -> WebView = { SignatureImageWebView(it) }, onFailure: () -> Unit = {}) {
+    val failure by rememberUpdatedState(onFailure)
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val lifecycleState by lifecycle.currentStateFlow.collectAsState()
     var visible by remember(url) { mutableStateOf(false) }
@@ -98,12 +99,16 @@ internal fun SvgSignatureImage(url: String, modifier: Modifier = Modifier,
                         }
                         override fun onPageFinished(view: WebView, value: String) { if (!failed) loaded = true }
                         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                            if (request.isForMainFrame || request.url.toString() == url) { failed = true; loaded = false }
+                            if (request.isForMainFrame || request.url.toString() == url) { failed = true; loaded = false; failure() }
                         }
                         override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
                             if (response.statusCode >= 400 && (request.isForMainFrame || request.url.toString() == url)) {
-                                failed = true; loaded = false
+                                failed = true; loaded = false; failure()
                             }
+                        }
+                        override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: android.net.http.SslError) {
+                            handler.cancel()
+                            if (error.url == url) { failed = true; loaded = false; failure() }
                         }
                     }
                     webView = this

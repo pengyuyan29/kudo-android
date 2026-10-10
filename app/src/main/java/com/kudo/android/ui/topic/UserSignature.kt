@@ -37,35 +37,48 @@ internal fun UserSignature(post: Post, openLink: (String) -> Unit,
     svgWebViewFactory: (Context) -> WebView = { SignatureImageWebView(it) }) {
     if (!LocalDisplaySettings.current.showSignatures || post.signature.isBlank()) return
     val blocks = remember(post.signature) { signatureBlocks(post.signature) }
-    if (blocks.isEmpty()) return
+    var failedImages by remember(post.signature) { mutableStateOf<Set<String>>(emptySet()) }
+    val visible = remember(blocks, failedImages) { usableSignatureBlocks(blocks, failedImages) }
+    if (visible.isEmpty()) return
     Column(Modifier.fillMaxWidth().testTag("user-signature-${post.id}"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        SignatureContent(blocks, openLink, svgWebViewFactory)
+        SignatureContent(visible, openLink, svgWebViewFactory) { failedImages = failedImages + it }
+    }
+}
+
+private fun usableSignatureBlocks(blocks: List<ArticleBlock>, failed: Set<String>): List<ArticleBlock> = blocks.mapNotNull { block ->
+    when (block) {
+        is ArticleBlock.Image -> block.takeUnless { it.url in failed }
+        is ArticleBlock.Quote -> usableSignatureBlocks(block.blocks, failed).takeIf { it.isNotEmpty() }?.let { block.copy(blocks = it) }
+        is ArticleBlock.Details -> usableSignatureBlocks(block.blocks, failed).takeIf { it.isNotEmpty() }?.let { block.copy(blocks = it) }
+        ArticleBlock.Rule -> null
+        else -> block
     }
 }
 
 @Composable
-private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> Unit, svgWebViewFactory: (Context) -> WebView) {
-    blocks.forEach { block -> when (block) {
+private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> Unit, svgWebViewFactory: (Context) -> WebView, failed: (String) -> Unit) {
+    blocks.forEach { block -> key(block) { when (block) {
             is ArticleBlock.Details -> {
                 var expanded by remember(block) { mutableStateOf(block.open) }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(org.jsoup.Jsoup.parse(block.summary).text(), Modifier.fillMaxWidth().clickable { expanded = !expanded },
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                    if (expanded) SignatureContent(block.blocks, openLink, svgWebViewFactory)
+                    if (expanded) SignatureContent(block.blocks, openLink, svgWebViewFactory, failed)
                 }
             }
             is ArticleBlock.Quote -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (block.author.isNotBlank()) Text(block.author, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                SignatureContent(block.blocks, openLink, svgWebViewFactory)
+                SignatureContent(block.blocks, openLink, svgWebViewFactory, failed)
             }
             is ArticleBlock.Image -> BoxWithConstraints(Modifier.fillMaxWidth().heightIn(max = 120.dp)
                 .aspectRatio(block.ratio ?: 3.8f).clip(RoundedCornerShape(6.dp))
                 .semantics { contentDescription = "用户签名图片" }) {
                 val pixels = with(LocalDensity.current) { maxWidth.roundToPx() }.coerceAtLeast(1)
-                if (isSvgSignature(block.url)) SvgSignatureImage(block.url, Modifier.fillMaxSize(), svgWebViewFactory)
+                if (isSvgSignature(block.url)) SvgSignatureImage(block.url, Modifier.fillMaxSize(), svgWebViewFactory) { failed(block.url) }
                 else AvatarImage(block.url, pixels, true, Modifier.fillMaxSize(), contentScale = ContentScale.Fit,
+                    onLoaded = { if (!it) failed(block.url) },
                     placeholder = { Text("签名图片", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) })
             }
             is ArticleBlock.TextBlock -> {
@@ -79,5 +92,5 @@ private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> U
             is ArticleBlock.Embed -> Text(block.title, Modifier.clickable { openLink(block.url) }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
             is ArticleBlock.Code -> Text(block.text, style = MaterialTheme.typography.bodySmall)
             ArticleBlock.Rule -> Unit
-        } }
+        } } }
 }

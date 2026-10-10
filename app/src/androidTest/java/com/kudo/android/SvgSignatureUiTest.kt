@@ -39,6 +39,20 @@ class SvgSignatureUiTest {
 
     private fun create(context: Context): WebView = FixtureWebView(context).also { views += it }
 
+    @Test fun failedSvgRemovesTheSignatureAndReleasesItsWebView() {
+        compose.setContent { KudoTheme(DisplaySettings(showSignatures = true)) {
+            Column(Modifier.fillMaxWidth()) { UserSignature(sample, {}, ::create) }
+        } }
+        compose.waitUntil(5000) { views.isNotEmpty() }
+        compose.runOnIdle {
+            val view = views.last()
+            view.webViewClient.onReceivedHttpError(view, request(sample.signature),
+                WebResourceResponse("image/svg+xml", "UTF-8", 404, "Not Found", emptyMap(), "".byteInputStream()))
+        }
+        compose.onNodeWithTag("user-signature-60").assertDoesNotExist()
+        compose.waitUntil(3000) { views.all { it.released } }
+    }
+
     @Test fun cssAnimatedSvgDefaultsOffRendersFramesAndReleasesWhenDisabled() {
         var settings by mutableStateOf(DisplaySettings())
         compose.setContent { KudoTheme(settings) {
