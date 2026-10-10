@@ -1,0 +1,60 @@
+package com.kudo.android.data
+
+import kotlinx.coroutines.*
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Test
+
+class GitHubUpdatesTest {
+    @Test fun versionComparisonUsesNumbersAndStableReleaseRules() {
+        val release = parseRelease(JSONObject("""{"tag_name":"v0.10.0"}"""))
+        assertTrue(release.isNewerThan("0.9.999"))
+        assertFalse(release.isNewerThan("0.10.0"))
+        assertFalse(release.isNewerThan("1.0.0"))
+        for (bad in listOf("v01.2.3", "v1.1000.0", "v2100.0.0", "v1.2.3-rc.1", "v1.2.3\n", "1.2.3")) {
+            assertThrows(UpdateFailure::class.java) { parseRelease(JSONObject().put("tag_name", bad)) }
+        }
+        for (flag in listOf("draft", "prerelease")) {
+            assertThrows(UpdateFailure::class.java) { parseRelease(JSONObject().put("tag_name", "v1.2.3").put(flag, true)) }
+        }
+    }
+
+    @Test fun publicRequestPreservesChangelogAndNeverIncludesCredentials() = runBlocking {
+        MockWebServer().use { server ->
+            val notes = "## 新增\n- 检查更新\n\n## 修复\n- 修复头像裁切"
+            server.enqueue(MockResponse().setBody(JSONObject().put("tag_name", "v1.2.3").put("body", notes)
+                .put("name", "酷DO 1.2.3").put("published_at", "2026-10-11T01:00:00Z")
+                .put("html_url", "https://invalid.test/").toString()))
+            val release = GitHubUpdates(endpoint = server.url("/latest")).latest()
+            assertEquals(notes, release.notes)
+            assertEquals("$KudoSourceUrl/releases/tag/v1.2.3", release.url)
+            val request = server.takeRequest()
+            assertNull(request.getHeader("Cookie")); assertNull(request.getHeader("Authorization"))
+            assertEquals("application/vnd.github+json", request.getHeader("Accept"))
+        }
+    }
+
+    @Test fun missingPrivateRateLimitedAndMalformedReleasesAreNotLatestSuccesses() = runBlocking {
+        MockWebServer().use { server ->
+            for ((code, body, text) in listOf(Triple(404, "{}", "暂无公开版本"), Triple(429, "{}", "限制请求"),
+                Triple(403, "{}", "限制请求"), Triple(500, "{}", "暂不可用"), Triple(200, "invalid", "无法读取"))) {
+                server.enqueue(MockResponse().setResponseCode(code).setBody(body))
+                try { GitHubUpdates(endpoint = server.url("/latest")).latest(); fail("应报告错误") }
+                catch (e: UpdateFailure) { assertTrue(e.message.contains(text)) }
+            }
+        }
+    }
+
+    @Test fun nullBodyIsAnEmptyChangelogAndCancellationIsPreserved() = runBlocking {
+        assertEquals("", parseRelease(JSONObject("""{"tag_name":"v1.2.3","body":null}""")).notes)
+        MockWebServer().use { server ->
+            server.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.NO_RESPONSE))
+            val job = async { GitHubUpdates(endpoint = server.url("/latest")).latest() }
+            withContext(Dispatchers.IO) { server.takeRequest() }
+            job.cancel()
+            try { job.await(); fail("取消必须传播") } catch (_: CancellationException) { }
+        }
+    }
+}

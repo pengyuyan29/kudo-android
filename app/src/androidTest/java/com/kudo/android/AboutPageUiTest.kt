@@ -42,7 +42,7 @@ class AboutPageUiTest {
         assertTrue(left.right < heart.left && heart.right < right.left)
         assertEquals(left.center.y, right.center.y, 1f)
         compose.onNodeWithText("酷DO是独立 LINUX DO 第三方安卓原生客户端").assertIsDisplayed()
-        compose.onNodeWithText(BuildConfig.VERSION_NAME).assertDoesNotExist()
+        compose.onNodeWithText(BuildConfig.VERSION_NAME, useUnmergedTree = true).assertIsDisplayed()
         compose.onNode(hasText("酷DO") and hasClickAction()).assertDoesNotExist()
         compose.onNodeWithText("${BuildConfig.VERSION_NAME} · LINUX DO 第三方客户端").assertDoesNotExist()
         compose.onNodeWithText("技术与设计参考").assertDoesNotExist()

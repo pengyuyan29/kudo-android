@@ -22,6 +22,10 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.kudo.android.R
+import com.kudo.android.BuildConfig
+import com.kudo.android.data.GitHubUpdates
+import com.kudo.android.data.GitHubRelease
+import com.kudo.android.data.KudoSourceUrl
 import com.kudo.android.ui.components.PageTopBar
 import com.kudo.android.ui.components.liquid.LiquidModal
 import com.kudo.android.ui.components.liquid.LiquidModalAction
@@ -32,7 +36,9 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 internal const val KudoAboutText = "酷DO是独立 LINUX DO 第三方安卓原生客户端"
 
 @Composable
-fun AboutScreen(openLink: (String) -> Unit = {}, back: () -> Unit) {
+fun AboutScreen(openLink: (String) -> Unit = {}, openExternal: (String) -> Unit = {},
+    checkUpdate: (suspend () -> GitHubRelease)? = null, back: () -> Unit) {
+    val updates = remember { GitHubUpdates() }
     val settings = LocalDisplaySettings.current
     val backdrop = rememberLayerBackdrop()
     val visibility = remember { MutableTransitionState(false) }
@@ -61,6 +67,8 @@ fun AboutScreen(openLink: (String) -> Unit = {}, back: () -> Unit) {
                 }
                 item {
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface)) {
+                        SettingRow("检查更新", BuildConfig.VERSION_NAME, !showing) { show("update") }
+                        SettingRow("查看源码", "GitHub", !showing) { openExternal(KudoSourceUrl) }
                         SettingRow("开源致谢", "", !showing) { show("licenses") }
                         SettingRow("社区指南", "真诚 · 友善 · 团结 · 专业", !showing) { openLink("https://linux.do/guidelines") }
                         SettingRow("隐私说明", "", !showing) { show("privacy") }
@@ -70,7 +78,8 @@ fun AboutScreen(openLink: (String) -> Unit = {}, back: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
             }
         }
-        LiquidModal(visibility, if (dialog == "privacy") "隐私说明" else "开源致谢",
+        if (dialog == "update") UpdateSheet(visibility, checkUpdate ?: updates::latest, openExternal, ::dismiss)
+        else LiquidModal(visibility, if (dialog == "privacy") "隐私说明" else "开源致谢",
             false, backdrop, settings.glass, ::dismiss, sheetBackground = MaterialTheme.colorScheme.background,
             actions = { LiquidModalAction("知道了", ::dismiss, Modifier.fillMaxWidth(), primary = true) }) {
             Text(when (dialog) {

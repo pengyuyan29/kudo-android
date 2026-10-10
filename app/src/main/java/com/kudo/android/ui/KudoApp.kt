@@ -311,7 +311,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                     }
                     composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); scope.launch { snackbar.showSnackbar("欢迎回来，${account.user?.displayName}") } }) }
                     composable("settings") { SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openWebPage, { nav.navigate("ignored-users") }) }
-                    composable("about") { AboutScreen(openLink = ::openWebPage) { nav.popBackStack() } }
+                    composable("about") { AboutScreen(openLink = ::openWebPage, openExternal = ::openBrowser) { nav.popBackStack() } }
                     composable("ignored-users") {
                         LaunchedEffect(Unit) { account.checkSession() }
                         key(account.user?.id) { IgnoredUsersScreen(account.user, app.repository, { nav.popBackStack() }, ::login) { id, username ->
