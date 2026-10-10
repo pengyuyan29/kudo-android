@@ -94,7 +94,7 @@ class TopicViewModel(
         val detail = snapshot.detail ?: return
         if (snapshot.loadingMore || snapshot.loading || snapshot.jumping) return
         val loaded = detail.posts.map { it.id }.toSet()
-        val orderedStream = if (snapshot.targetNumber == null) detail.stream else {
+        val orderedStream = if (snapshot.targetRevision == 0L || snapshot.targetNumber == null) detail.stream else {
             val targetId = snapshot.allPosts.firstOrNull { it.number == snapshot.targetNumber }?.id
             targetId?.let { id -> detail.stream.indexOf(id).takeIf { it >= 0 }?.let { detail.stream.drop(it + 1) } }
                 ?: detail.stream

@@ -38,7 +38,7 @@ TopicFloorNavigationTest覆盖真实最高编号、已加载和重复目标零�
 
 ## Far jump continuation
 
-After a jump completes, automatic pagination must select missing stream IDs after the target post. Loading the first page again inserts posts before the target and shifts the visible floor back to the low twenties. If the target post is not present in the stream index, pagination stays paused until a refresh supplies an ordered anchor.
+After an in-app jump completes (`targetRevision > 0`), automatic pagination must select missing stream IDs after the target post. Loading the first page again inserts posts before the target and shifts the visible floor back to the low twenties. Initial deep links keep the existing forward pagination so the original post can still be restored. If the target post is not present in the stream index, pagination falls back to the server order.
 
 ## Consequences
 
