@@ -1,10 +1,38 @@
 package com.kudo.android
 
 import com.kudo.android.data.TopicReadingProgress
+import com.kudo.android.data.DiscourseParser
+import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
 class TopicReadingProgressTest {
+    @Test fun readFieldKeepsMissingNullAndMalformedValuesUnknown() {
+        fun read(value: String) = DiscourseParser.post(JSONObject("""{"id":1,"post_number":1$value}""")).read
+        assertEquals(false, read(",\"read\":false"))
+        assertEquals(true, read(",\"read\":true"))
+        assertNull(read(""))
+        assertNull(read(",\"read\":null"))
+        assertNull(read(",\"read\":\"false\""))
+    }
+
+    @Test fun readFeedbackRequiresOneSecondAndNotifiesOnceIndependentlyOfUpload() {
+        val progress = TopicReadingProgress(12)
+        progress.visible(setOf(8), 0)
+        progress.tick(600)
+        assertTrue(progress.takeReadNumbers().isEmpty())
+        progress.visible(emptySet(), 600)
+        progress.tick(5000)
+        assertTrue(progress.takeReadNumbers().isEmpty())
+        progress.visible(setOf(8, 11), 5000)
+        progress.tick(5400)
+        assertEquals(setOf(8), progress.takeReadNumbers())
+        progress.drain()
+        progress.tick(6000)
+        assertEquals(setOf(11), progress.takeReadNumbers())
+        progress.tick(7000)
+        assertTrue(progress.takeReadNumbers().isEmpty())
+    }
     @Test fun onlyVisibleFloorsAccumulateAndBriefFlashesDoNotFlush() {
         val progress = TopicReadingProgress(12)
         progress.visible(setOf(8), 0)

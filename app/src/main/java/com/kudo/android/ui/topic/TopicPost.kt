@@ -45,6 +45,7 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
                 }
                 }
                 Text("#${post.number}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                PostUnreadIndicator(post, state)
                 val actions = LocalTopicActions.current
                 IconButton(onClick = { actions.openReply(detail.id, post, bookmark) }, enabled = enabled && !state.loading && post.id !in state.busy) {
                     Icon(Icons.Rounded.MoreHoriz, "更多操作", Modifier.size(20.dp))

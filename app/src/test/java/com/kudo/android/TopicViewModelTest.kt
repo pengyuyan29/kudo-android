@@ -23,6 +23,29 @@ class TopicViewModelTest {
     private suspend fun TopicViewModel.awaitState(predicate: (TopicState) -> Boolean): TopicState =
         withContext(Dispatchers.IO) { withTimeout(5_000) { state.first(predicate) } }
 
+    @Test fun localReadFeedbackSurvivesLatePageAndRefreshWithoutMarkingSkippedFloors() = runTest {
+        val gate = CountDownLatch(1)
+        withTopic(response = { request ->
+            if (request.path!!.contains("/posts.json")) {
+                gate.await(5, TimeUnit.SECONDS)
+                MockResponse().setBody("""{"post_stream":{"posts":[{"id":11,"post_number":2,"read":false}]}}""")
+            } else null
+        }) { vm, _ ->
+            try {
+                vm.awaitState { !it.loading }
+                vm.more()
+                vm.markRead(setOf(1, 2, 38))
+                assertEquals(setOf(1), vm.state.value.readNumbers)
+                gate.countDown()
+                val paged = vm.awaitState { !it.loadingMore }
+                assertEquals(setOf(1), paged.readNumbers)
+                assertEquals(false, paged.allPosts.first { it.number == 2 }.read)
+                vm.markRead(setOf(2)); vm.refresh()
+                assertEquals(setOf(1, 2), vm.awaitState { !it.loading }.readNumbers)
+            } finally { gate.countDown() }
+        }
+    }
+
     @Test fun reactionUsesTheServerConfirmedPostInsteadOfLocalArithmetic() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         MockWebServer().use { server ->
@@ -44,7 +67,7 @@ class TopicViewModelTest {
                 assertEquals(27, after.likes)
                 assertEquals(27, after.reactionCount)
                 assertEquals("heart", after.activeReaction)
-            } finally { vm.viewModelScope.cancel(); Dispatchers.resetMain() }
+            } finally { vm.viewModelScope.coroutineContext[Job]?.cancelAndJoin(); Dispatchers.resetMain() }
         }
     }
 
@@ -76,7 +99,7 @@ class TopicViewModelTest {
                 val after = vm.awaitState { !it.loadingMore }.detail!!.posts.first()
                 assertEquals("翻页不得恢复写操作前的赞数", reacted.likes, after.likes)
                 assertEquals(reacted.activeReaction, after.activeReaction)
-            } finally { releasePage.countDown(); vm.viewModelScope.cancel(); Dispatchers.resetMain() }
+            } finally { releasePage.countDown(); vm.viewModelScope.coroutineContext[Job]?.cancelAndJoin(); Dispatchers.resetMain() }
         }
     }
 
@@ -192,7 +215,7 @@ class TopicViewModelTest {
             }
             server.start()
             val vm = TopicViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))), 5, number, viewerId = 99)
-            try { block(vm, server) } finally { vm.viewModelScope.cancel(); Dispatchers.resetMain() }
+            try { block(vm, server) } finally { vm.viewModelScope.coroutineContext[Job]?.cancelAndJoin(); Dispatchers.resetMain() }
         }
     }
 }

@@ -10,6 +10,7 @@ class TopicReadingProgress(private val topicId: Int) {
     private var topicTime = 0L
     private val pending = mutableMapOf<Int, Long>()
     private val total = mutableMapOf<Int, Long>()
+    private val notified = mutableSetOf<Int>()
 
     fun visible(numbers: Set<Int>, now: Long) {
         tick(now)
@@ -43,4 +44,8 @@ class TopicReadingProgress(private val topicId: Int) {
         eligible.keys.forEach(pending::remove)
         return TopicReadingBatch(topicId, topicTime, eligible).also { topicTime = 0 }
     }
+
+    /** Local feedback is independent of the batched network drain. */
+    fun takeReadNumbers(): Set<Int> = total.filter { (number, time) -> time >= 1000 && number !in notified }
+        .keys.toSet().also { notified += it }
 }

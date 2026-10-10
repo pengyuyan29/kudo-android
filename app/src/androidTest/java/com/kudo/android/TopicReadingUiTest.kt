@@ -1,6 +1,7 @@
 package com.kudo.android
 
 import android.os.SystemClock
+import android.graphics.Bitmap
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.*
@@ -9,17 +10,78 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.dp
+import androidx.test.platform.app.InstrumentationRegistry
 import com.kudo.android.data.*
 import com.kudo.android.ui.topic.*
 import com.kudo.android.ui.theme.KudoTheme
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import java.io.File
 
 class TopicReadingUiTest {
     @get:Rule val compose = createComposeRule()
     private val author = Member(2, "test", "离线作者", "")
     private fun post(number: Int, html: String = "<p>实际可见的正文</p>") = Post(number + 100, number, author, html, "", 0, false, null, null, false)
+
+    @Test fun unreadDotsRespectServerStateAndFadeGraduallyAfterLocalReading() {
+        val posts = listOf(post(1).copy(read = false), post(2).copy(read = false), post(3).copy(read = true), post(4))
+        val detail = TopicDetail(12, "蓝点状态", 1, posts, posts.map(Post::id), false)
+        var state by mutableStateOf(TopicState(detail, false, viewerId = 7))
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, readingEnabled = false)
+        } }
+        compose.onNodeWithTag("unread-post-1").assertIsDisplayed()
+        compose.onNodeWithTag("unread-post-2").assertExists()
+        compose.onNodeWithTag("unread-post-3").assertDoesNotExist()
+        compose.onNodeWithTag("unread-post-4").assertDoesNotExist()
+        capture("post-unread-blue.png")
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { state = state.copy(readNumbers = setOf(1)) }
+        compose.mainClock.advanceTimeBy(900)
+        compose.onNodeWithTag("unread-post-1").assertExists()
+        capture("post-unread-fading.png")
+        compose.mainClock.advanceTimeBy(1100)
+        compose.onNodeWithTag("unread-post-1").assertDoesNotExist()
+        compose.mainClock.autoAdvance = true
+        compose.runOnIdle { state = state.copy(viewerId = null) }
+        compose.onNodeWithTag("unread-post-2").assertDoesNotExist()
+    }
+
+    private fun capture(name: String) {
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val screenshot = instrumentation.uiAutomation.takeScreenshot()
+        val output = File(instrumentation.targetContext.getExternalFilesDir(null), "ui-tests/$name")
+        output.parentFile!!.mkdirs()
+        output.outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        screenshot.recycle()
+    }
+
+    @Test fun realExposureMarksOnlyTheBodyAndThreadPreviewStaysUnreadUntilOpened() {
+        val batches = mutableListOf<TopicReadingBatch>()
+        val root = post(8).copy(read = false)
+        val child = post(9).copy(replyTo = 8, read = false)
+        val detail = TopicDetail(12, "实际读到", 1, listOf(root, child), listOf(root.id, child.id), false)
+        var state by mutableStateOf(TopicState(detail, false, viewerId = 7))
+        var blocked by mutableStateOf(true)
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            CompositionLocalProvider(LocalReadingBlocked provides blocked) {
+                TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+                    onReadingBatch = { batches += it }, onPostsRead = { state = state.copy(readNumbers = state.readNumbers + it) })
+            }
+        } }
+        compose.waitForIdle(); SystemClock.sleep(1300)
+        compose.runOnIdle { assertTrue(state.readNumbers.isEmpty()); blocked = false }
+        compose.waitUntil(4000) { 8 in state.readNumbers }
+        compose.runOnIdle { assertEquals(setOf(8), state.readNumbers); blocked = true }
+        compose.waitUntil(3000) { batches.isNotEmpty() }
+        compose.onNodeWithText("查看 1 条回复").performClick()
+        compose.onNodeWithTag("unread-post-9").assertIsDisplayed()
+        compose.runOnIdle { blocked = false }
+        compose.waitUntil(4000) { 9 in state.readNumbers }
+        compose.runOnIdle { blocked = true; assertEquals(setOf(8, 9), state.readNumbers) }
+    }
 
     @Test fun detailAndThreadSheetUseSeparateViewportsAndOnlyFullRepliesCount() {
         var active by mutableStateOf(true)

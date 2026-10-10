@@ -19,6 +19,7 @@ data class TopicState(
     val targetNumber: Int? = null,
     val related: List<Post> = emptyList(), val contextLoading: Boolean = false, val contextError: Throwable? = null,
     val replyLoads: Map<Int, ReplyLoad> = emptyMap(),
+    val readNumbers: Set<Int> = emptySet(),
 ) {
     val allPosts get() = (detail?.posts.orEmpty() + related + listOfNotNull(detail?.originalPost)).distinctBy(Post::id)
     val threads get() = postThreads(detail?.posts.orEmpty() + related)
@@ -45,6 +46,14 @@ class TopicViewModel(
     private val messages = Channel<String>(Channel.BUFFERED)
     val events = messages.receiveAsFlow()
     init { refresh() }
+
+    fun markRead(numbers: Set<Int>) {
+        if (_state.value.viewerId == null) return
+        _state.update { current ->
+            val known = current.allPosts.map(Post::number).toSet()
+            current.copy(readNumbers = current.readNumbers + numbers.intersect(known))
+        }
+    }
 
     fun refresh() {
         if (_state.value.busy.isNotEmpty() || _state.value.followBusy) return

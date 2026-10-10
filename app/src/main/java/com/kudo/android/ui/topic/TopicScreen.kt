@@ -29,7 +29,7 @@ import com.kudo.android.ui.components.liquid.LiquidModalAction
 import kotlinx.coroutines.flow.first
 
 @Composable
-fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}) {
+fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}, onPostsRead: (Set<Int>) -> Unit = {}) {
     val backdrop = rememberLayerBackdrop()
     val modalBackdrop = rememberLayerBackdrop()
     val visibility = remember { MutableTransitionState(false) }
@@ -67,7 +67,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     AutomaticPostLoading(listState, "more-posts", detail?.stream to state.allPosts.map(Post::id),
         hasMore && !showing && !covered && !state.loading && !state.loadingMore && !state.contextLoading &&
             state.error == null && state.moreError == null && (state.targetNumber == null || located), more)
-    TopicReadingEnvironment(detail?.id ?: 0, state.viewerId, readingEnabled && detail != null && !state.loading, onReadingBatch) {
+    TopicReadingEnvironment(detail?.id ?: 0, state.viewerId, readingEnabled && detail != null && !state.loading, onReadingBatch, onPostsRead) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Box(Modifier.fillMaxSize().layerBackdrop(modalBackdrop)
             .then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)

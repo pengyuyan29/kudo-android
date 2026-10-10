@@ -14,6 +14,8 @@ Status: implemented
 
 阅读计算、传输、Compose 可见性、缓存更新分成小单元分别提交；真实账号不执行测试阅读写入，使用离线服务器和屏幕夹具验收。
 
+[逐楼未读蓝点](../feature/2026-10-10-post-unread-indicator.md)解析服务器 read 并增加实际曝光1秒后的本地渐隐反馈；计时、上传确认与首页缓存契约继续由本篇约束。本地反馈不等于服务器确认，不提前失效首页缓存。
+
 ## Related decisions
 
 按阅读、timings、已读、缓存检索活跃笔记。[会话筛选](../../implemented/feature/2026-10-08-session-feed-filters.md)的“本次不新增阅读写入”被本篇部分取代，接口筛选与账号边界保留；[首页横向分页](../../implemented/feature/2026-10-10-home-pager.md)的缓存约束部分重叠；[更新提示](../../implemented/feature/2026-10-08-home-live-refresh.md)仍负责远端新内容提示，不因阅读更新扰动公共列表。无完全吸收或过时提案。
