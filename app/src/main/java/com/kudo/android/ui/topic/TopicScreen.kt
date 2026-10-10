@@ -27,7 +27,7 @@ import com.kudo.android.ui.components.liquid.LiquidModal
 import com.kudo.android.ui.components.liquid.LiquidModalAction
 
 @Composable
-fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}) {
+fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}) {
     val backdrop = rememberLayerBackdrop()
     val modalBackdrop = rememberLayerBackdrop()
     val visibility = remember { MutableTransitionState(false) }
@@ -60,13 +60,15 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             }
         }
     }
+    TopicReadingEnvironment(detail?.id ?: 0, state.viewerId, readingEnabled && detail != null && !state.loading, onReadingBatch) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Box(Modifier.fillMaxSize().layerBackdrop(modalBackdrop)
             .then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)
             .focusProperties { onEnter = { if (showing) cancelFocusChange() } }.focusGroup()) {
             Column(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
                 TopicTopBar(state, !showing, back, user, follow) { detail?.let { actions.openDetail(it.id, it.originalPost, bookmark) } }
-                LazyColumn(state = listState, modifier = Modifier.testTag("topic-posts"), contentPadding = PaddingValues(bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PostReadingViewport(110.dp) { viewport ->
+                LazyColumn(state = listState, modifier = Modifier.testTag("topic-posts").then(viewport), contentPadding = PaddingValues(bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (state.loading && detail == null) item { LoadingRow() }
                     if (state.error != null) item { ErrorState(state.error, retry, login) }
                     if (detail != null) {
@@ -100,6 +102,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                         else item { Text("已读完全部回复", Modifier.fillMaxWidth().padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
                     }
                 }
+                }
             }
             TopicBottomBar(state, backdrop, glass, !showing, { replyTo(null) }, like, bookmark, share, ::choose,
                 Modifier.align(Alignment.BottomCenter))
@@ -121,7 +124,8 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             LiquidModal(threadVisibility, "评论回复", true, modalBackdrop, glass, { threadVisibility.targetState = false },
                 actions = { LiquidModalAction("关闭", { threadVisibility.targetState = false }, Modifier.fillMaxWidth()) }) {
                 if (thread != null && detail != null) {
-                    LazyColumn(state = threadList, modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("thread-posts")) {
+                    PostReadingViewport { viewport ->
+                    LazyColumn(state = threadList, modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("thread-posts").then(viewport)) {
                         item("root") { TopicPost(thread.root, detail, state, !reactionShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose) }
                         items(thread.replies, key = { it.id }) { post ->
                             HorizontalDivider()
@@ -132,6 +136,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                         else if (load?.error != null) item { ErrorState(load.error, { loadReplies(thread.root, false) }, login) }
                         else if (state.hasMoreReplies(thread.root)) item { TextButton({ loadReplies(thread.root, false) }, Modifier.fillMaxWidth()) { Text("加载更多回复") } }
                         else item { Text("已显示全部回复", Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    }
                     }
                 } else Text("原评论暂不可访问，请关闭后重试")
             }
@@ -146,5 +151,6 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                 }
             }
         }
+    }
     }
 }

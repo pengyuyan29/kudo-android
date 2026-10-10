@@ -34,6 +34,8 @@ TopicReadingSync 使用导航外作用域的串行队列，每次提交核对账
 
 FeedPageCacheTest 验证阅读成功只失效 unread/new/read；已缓存书签和当前 latest 不重新请求话题，计数单独更新，重复epoch与其他账号通知无效，回顶请求不增加。
 
+5项真机阅读用例通过（artifacts/reading-ui-fixed.txt），其中详情页集成验证楼中楼摘要不计读，打开回复弹窗后只由其正文视口计读。ImageGalleryHost 和 TopicActionsHost 向下提供合并的遮挡状态，回复编辑器由导航层暂停，关闭后恢复实际正文曝光。
+
 ## Consequences
 
 保守长文判定可能较网页版稍晚更新未读；进程被系统直接结束时最后一小段可能无法送达。服务器使用最高实际读到楼层更新阅读位置，深链跳楼与网页同样可能推进位置，不能据此声称中间楼层逐条已阅读。

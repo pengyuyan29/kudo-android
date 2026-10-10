@@ -75,6 +75,7 @@ fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: Gl
             .then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)
             .focusProperties { onEnter = { if (showing) cancelFocusChange() } }.focusGroup()) {
             CompositionLocalProvider(LocalTopicActions provides controller,
+                LocalReadingBlocked provides (LocalReadingBlocked.current || showing),
                 LocalIgnoredUsers provides viewer?.ignoredUsers.orEmpty().map { it.lowercase(java.util.Locale.ROOT) }.toSet(), content = content)
         }
         val title = when (state.panel) {

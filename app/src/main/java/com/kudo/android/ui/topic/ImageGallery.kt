@@ -207,7 +207,8 @@ fun ImageGalleryHost(
     val active = gallery.session
     val currentLoad by rememberUpdatedState(loadAlbum)
     LaunchedEffect(active, active?.retry) { if (active != null) gallery.loadAlbum(active, currentLoad) }
-    CompositionLocalProvider(LocalImageGallery provides gallery) {
+    CompositionLocalProvider(LocalImageGallery provides gallery,
+        LocalReadingBlocked provides (LocalReadingBlocked.current || active != null)) {
         Box(Modifier.fillMaxSize()) {
             Box(Modifier.fillMaxSize().then(if (active != null) Modifier.clearAndSetSemantics {} else Modifier)
                 .focusProperties { onEnter = { if (active != null) cancelFocusChange() } }.focusGroup()) {
