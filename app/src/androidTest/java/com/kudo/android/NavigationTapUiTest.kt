@@ -1,0 +1,84 @@
+package com.kudo.android
+
+import android.os.SystemClock
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import com.kudo.android.data.*
+import com.kudo.android.ui.components.GlassNavigation
+import com.kudo.android.ui.components.liquid.DampedDragAnimation
+import com.kudo.android.ui.theme.KudoTheme
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+
+class NavigationTapUiTest {
+    @get:Rule val compose = createComposeRule()
+
+    @Test fun releaseWhilePositionIsMovingClearsVelocityAndScale() {
+        lateinit var animation: DampedDragAnimation
+        compose.setContent {
+            val scope = rememberCoroutineScope()
+            animation = remember { DampedDragAnimation(scope, 0f, 0f..4f, .001f, 1f, 78f / 56f,
+                {}, {}, { _, _ -> }) }
+        }
+        compose.mainClock.autoAdvance = false
+        compose.runOnIdle { animation.press(); animation.updateValue(4f) }
+        repeat(6) { compose.mainClock.advanceTimeByFrame(); SystemClock.sleep(16) }
+        compose.runOnIdle { animation.release() }
+        repeat(120) { compose.mainClock.advanceTimeByFrame(); SystemClock.sleep(16) }
+        compose.runOnIdle {
+            assertEquals("松手后位置动画不能留下形变速度", 0f, animation.velocity, .001f)
+            assertEquals(0f, animation.pressProgress, .001f)
+            assertEquals(1f, animation.scaleX, .001f)
+            assertEquals(1f, animation.scaleY, .001f)
+        }
+        compose.mainClock.autoAdvance = true
+    }
+
+    @Test fun directAndInterruptedTapsAlwaysRestoreTheRestingLens() {
+        var selected by mutableIntStateOf(0)
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            val backdrop = rememberLayerBackdrop()
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(Color.White))
+                GlassNavigation(selected, { selected = it }, {}, backdrop, GlassMode.LIQUID,
+                    Modifier.align(Alignment.Center).padding(20.dp).fillMaxWidth().testTag("tap-navigation"))
+            }
+        } }
+        compose.waitForIdle()
+        val initial = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
+        val navigation = compose.onNodeWithTag("tap-navigation")
+        compose.mainClock.autoAdvance = false
+        fun frames(count: Int) { repeat(count) { compose.mainClock.advanceTimeByFrame(); SystemClock.sleep(16) } }
+        fun tap(index: Int, hold: Int) {
+            navigation.performTouchInput { down(Offset(width * ((index + .5f) / 5f), centerY)) }
+            frames(hold)
+            navigation.performTouchInput { up() }
+        }
+        for ((index, hold) in listOf(4 to 1, 1 to 3, 3 to 10, 0 to 1, 4 to 2, 0 to 12, 4 to 1)) {
+            tap(index, hold)
+            frames(2)
+        }
+        frames(100)
+        compose.waitForIdle()
+        val lens = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
+        val panel = compose.onNodeWithTag("navigation-surface").fetchSemanticsNode().boundsInRoot
+        assertEquals(4, selected)
+        assertEquals("点击停下后宽度不能残留速度拉伸", initial.width, lens.width, 1.5f)
+        assertEquals("点击停下后高度不能残留速度压缩", initial.height, lens.height, 1.5f)
+        assertEquals("上下留白恢复一致", lens.top - panel.top, panel.bottom - lens.bottom, 1.5f)
+        assertEquals("末端留白与上下相同", panel.right - lens.right, lens.top - panel.top, 1.5f)
+        compose.mainClock.autoAdvance = true
+    }
+}

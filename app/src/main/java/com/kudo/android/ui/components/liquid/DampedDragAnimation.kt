@@ -9,13 +9,14 @@ package com.kudo.android.ui.components.liquid
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.MutatorMutex
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.unit.IntSize
+import android.os.SystemClock
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.flow.filter
@@ -58,7 +59,11 @@ internal class DampedDragAnimation(
     private val scaleYAnimation =
         Animatable(initialScale, 0.001f)
 
-    private val mutatorMutex = MutatorMutex()
+    private var positionJob: Job? = null
+    private var velocityJob: Job? = null
+    private var shapeJob: Job? = null
+    private var pointerPressed = false
+    private var trackingDrag = false
 
     private val velocityTracker = VelocityTracker()
 
@@ -75,8 +80,8 @@ internal class DampedDragAnimation(
         inspectDragGestures(
             onDragStart = { down ->
                 distance = Offset.Zero
-                onDragStarted(down.position)
                 press()
+                onDragStarted(down.position)
             },
             onDragEnd = {
                 onDragStopped()
@@ -87,16 +92,22 @@ internal class DampedDragAnimation(
                 release()
             }
         ) { change, dragAmount ->
-            onDrag(size, dragAmount)
             distance += dragAmount
+            trackingDrag = distance.getDistance() > viewConfiguration.touchSlop
+            onDrag(size, dragAmount)
             // Keep taps clickable; consume movement so crossing publish cannot click it.
             if (distance.getDistance() > viewConfiguration.touchSlop) change.consume()
         }
     }
 
     fun press() {
+        pointerPressed = true
+        trackingDrag = false
         velocityTracker.resetTracking()
-        animationScope.launch {
+        velocityJob?.cancel()
+        velocityJob = animationScope.launch { velocityAnimation.snapTo(0f) }
+        shapeJob?.cancel()
+        shapeJob = animationScope.launch {
             launch { pressProgressAnimation.animateTo(1f, pressProgressAnimationSpec) }
             launch { scaleXAnimation.animateTo(pressedScale, scaleXAnimationSpec) }
             launch { scaleYAnimation.animateTo(pressedScale, scaleYAnimationSpec) }
@@ -104,14 +115,16 @@ internal class DampedDragAnimation(
     }
 
     fun release() {
-        animationScope.launch {
+        // Stop accepting samples before scheduling reset: a finishing position spring is not a drag.
+        pointerPressed = false
+        trackingDrag = false
+        settleVelocity()
+        shapeJob?.cancel()
+        shapeJob = animationScope.launch {
             awaitFrame()
-            if (value != targetValue) {
-                val threshold = (valueRange.endInclusive - valueRange.start) * 0.025f
-                snapshotFlow { valueAnimation.value }
-                    .filter { abs(it - valueAnimation.targetValue) < threshold }
-                    .first()
-            }
+            val threshold = (valueRange.endInclusive - valueRange.start) * 0.025f
+            snapshotFlow { abs(valueAnimation.value - valueAnimation.targetValue) < threshold }
+                .filter { it }.first()
             launch { pressProgressAnimation.animateTo(0f, pressProgressAnimationSpec) }
             launch { scaleXAnimation.animateTo(initialScale, scaleXAnimationSpec) }
             launch { scaleYAnimation.animateTo(initialScale, scaleYAnimationSpec) }
@@ -119,32 +132,33 @@ internal class DampedDragAnimation(
     }
 
     fun updateValue(value: Float) {
-        val targetValue = value.coerceIn(valueRange)
-        animationScope.launch {
-            launch { valueAnimation.animateTo(targetValue, valueAnimationSpec) { updateVelocity() } }
+        val target = value.coerceIn(valueRange)
+        positionJob?.cancel()
+        positionJob = animationScope.launch {
+            valueAnimation.animateTo(target, valueAnimationSpec) {
+                if (pointerPressed && trackingDrag) updateVelocity()
+            }
+            // The finger may remain down after movement stops; keep the pressed lens but clear stretch.
+            settleVelocity()
         }
     }
 
     fun animateToValue(value: Float) {
-        animationScope.launch {
-            mutatorMutex.mutate {
-                press()
-                val targetValue = value.coerceIn(valueRange)
-                launch { valueAnimation.animateTo(targetValue, valueAnimationSpec) }
-                if (velocity != 0f) {
-                    launch { velocityAnimation.animateTo(0f, velocityAnimationSpec) }
-                }
-                release()
-            }
-        }
+        val target = value.coerceIn(valueRange)
+        positionJob?.cancel()
+        positionJob = animationScope.launch { valueAnimation.animateTo(target, valueAnimationSpec) }
+        release()
+    }
+
+    private fun settleVelocity() {
+        velocityJob?.cancel()
+        velocityJob = animationScope.launch { velocityAnimation.animateTo(0f, velocityAnimationSpec) }
     }
 
     private fun updateVelocity() {
-        velocityTracker.addPosition(
-            System.currentTimeMillis(),
-            Offset(value, 0f)
-        )
-        val targetVelocity = velocityTracker.calculateVelocity().x / (valueRange.endInclusive - valueRange.start)
-        animationScope.launch { velocityAnimation.animateTo(targetVelocity, velocityAnimationSpec) }
+        velocityTracker.addPosition(SystemClock.uptimeMillis(), Offset(value, 0f))
+        val target = velocityTracker.calculateVelocity().x / (valueRange.endInclusive - valueRange.start)
+        velocityJob?.cancel()
+        velocityJob = animationScope.launch { velocityAnimation.animateTo(target, velocityAnimationSpec) }
     }
 }
