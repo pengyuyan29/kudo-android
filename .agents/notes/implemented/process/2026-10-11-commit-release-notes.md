@@ -39,6 +39,8 @@ GitHub的generate-notes主要按PR整理，直接提交可能没有可用更新�
 
 A versioned `.githooks/commit-msg` hook calls `scripts/check_commit_message.py` and accepts the supported Conventional Commit types, optional scopes, and merge subjects. The local repository enables this hook with `core.hooksPath=.githooks`; standalone tests cover valid, invalid, commented, and merge messages. Existing history remains unchanged and future commits are rejected when their subject has no recognized prefix.
 
+The repository also provides `scripts/check_commit_history.py` for CI and release branches. It validates only the supplied revision range, so existing unprefixed history is not rewritten while every new pull request or push can be rejected before release. Clones must run `git config core.hooksPath .githooks` once to activate the local hook; the CI range check remains the shared enforcement point when a clone has not installed local hooks.
+
 ## Consequences
 
 日志只呈现App功能、修复和体验变化，首次版本与增量版本使用相同过滤规则，工程变更可从完整比较链接追溯。日志质量仍取决于commit标题；旧提交中混合功能与验收说明的标题不会自动改写，发布前需要查看预览。未来拆分运行时模块时必须同步文件范围。真实云端正文已验收，但私有仓库内认证访问不能证明App的匿名访问路径；本轮生成的v0.1.5预览不代表已发布正文已被修改。

@@ -4,6 +4,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from check_commit_message import validate
+from check_commit_history import invalid_records, parse_records
 
 
 class CommitMessageTest(unittest.TestCase):
@@ -20,6 +21,14 @@ class CommitMessageTest(unittest.TestCase):
     def test_allows_merge_subjects_and_ignores_comment_lines(self):
         self.assertTrue(validate("# comment\nfix: 修复问题\n")[0])
         self.assertTrue(validate("Merge branch 'main'\n")[0])
+
+    def test_history_parser_keeps_subjects_with_non_ascii_text(self):
+        records = parse_records("a1\x00feat: 修复中文标题\na2\x00fix(ui): 修复界面\n")
+        self.assertEqual([("a1", "feat: 修复中文标题"), ("a2", "fix(ui): 修复界面")], records)
+
+    def test_history_validator_reports_only_unprefixed_subjects(self):
+        records = [("good", "docs: 更新说明"), ("bad", "修复旧问题"), ("merge", "Merge branch 'main'")]
+        self.assertEqual([("bad", "修复旧问题")], invalid_records(records))
 
 
 if __name__ == "__main__":
