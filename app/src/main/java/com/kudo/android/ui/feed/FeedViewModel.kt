@@ -117,9 +117,17 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         updateJob = viewModelScope.launch {
             coroutineScope {
                 launch {
-                    source.observe(account).collect {
-                        arrivalRevision++
-                        channel.trySend(Unit)
+                    try {
+                        source.observe(account).collect {
+                            arrivalRevision++
+                            channel.trySend(Unit)
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: ApiFailure) {
+                        if (e.kind == FailureKind.VERIFICATION) {
+                            _state.update { it.copy(error = e) }
+                        }
                     }
                 }
                 // Reconcile gaps after backgrounding, even when private push authentication is unavailable.
