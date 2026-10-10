@@ -1,11 +1,14 @@
 Font Awesome Free 6.7.2 icons
 Copyright 2024 Fonticons, Inc. (https://fontawesome.com)
 Source: https://github.com/FortAwesome/Font-Awesome/tree/6.7.2/svgs/solid
+Regular/brand sources: https://github.com/FortAwesome/Font-Awesome/tree/6.7.2/svgs
+Badge subset: Linux.do's Font Awesome SVG sprite (2026-10-10),
+https://cdn.ldstatic.com/svg-sprite/linux.do/svg-105-f4d9fa0e349dea354dc791b37e8a215cc892bd80.js
 License: Creative Commons Attribution 4.0 International (CC BY 4.0)
 https://creativecommons.org/licenses/by/4.0/
 
 Kudo adapts the selected SVG paths into Jetpack Compose ImageVectors,
-with proportional sizing and category colors. Original paths are unchanged.
+with proportional sizing and category/badge colors. Original paths are unchanged.
 
 Attribution 4.0 International
 

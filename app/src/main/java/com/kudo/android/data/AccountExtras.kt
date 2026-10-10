@@ -16,16 +16,6 @@ suspend fun CommunityRepository.accountRecords(destination: AccountDestination, 
             array.objects().map { item -> AccountRecord(item.getInt("id"), item.text("title").ifBlank { "待审核回复" },
                 item.text("raw").ifBlank { item.text("raw_text") }, item.text("created_at"), item.positiveInt("topic_id"), payload = item.toString()) }
         }
-        AccountDestination.BADGES -> {
-            val json = client.get(path("user-badges", "${username.lowercase()}.json"), mapOf("grouped" to "true"))
-            val badges = json.optJSONArray("badges")?.objects()?.associateBy { it.optInt("id") }
-                ?: throw ApiFailure(FailureKind.SERVER, "服务器未返回徽章数据")
-            json.optJSONArray("user_badges").objects().mapNotNull { grant ->
-                val badge = badges[grant.optInt("badge_id")] ?: return@mapNotNull null
-                AccountRecord(badge.getInt("id"), badge.text("name"), plainText(badge.text("description")), grant.text("granted_at"),
-                    url = "https://linux.do/badges/${badge.getInt("id")}", payload = badge.toString())
-            }.distinctBy { it.id }
-        }
         AccountDestination.INVITES -> parseAccountInvites(client.getCollection(path("u", username, "invited", "pending")))
         AccountDestination.CHAT -> {
             val json = client.get("/chat/api/me/channels")

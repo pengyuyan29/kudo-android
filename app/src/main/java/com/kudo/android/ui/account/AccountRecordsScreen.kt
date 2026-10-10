@@ -23,6 +23,10 @@ import org.json.JSONObject
 internal fun AccountRecordsScreen(destination: AccountDestination, user: Member, repository: CommunityRepository,
     settings: AppSettings, back: () -> Unit, login: () -> Unit, website: (String) -> Unit,
     topic: (Int, Int?) -> Unit, channel: (Int) -> Unit, edit: (Int?, Int?) -> Unit, copy: (String) -> Unit) {
+    if (destination == AccountDestination.BADGES) {
+        BadgeScreen(user, repository, back, login, website)
+        return
+    }
     var records by remember(user.id, destination) { mutableStateOf<List<AccountRecord>>(emptyList()) }
     var loading by remember(user.id, destination) { mutableStateOf(true) }
     var busy by remember { mutableStateOf(false) }
@@ -56,7 +60,6 @@ internal fun AccountRecordsScreen(destination: AccountDestination, user: Member,
                         when (destination) {
                             AccountDestination.CHAT -> channel(record.id)
                             AccountDestination.INVITES -> if (record.url.isNotBlank()) copy(record.url)
-                            AccountDestination.BADGES -> website(record.url)
                             else -> { selected = record; sheet.targetState = true }
                         }
                     }.padding(horizontal = 16.dp, vertical = 15.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -70,7 +73,6 @@ internal fun AccountRecordsScreen(destination: AccountDestination, user: Member,
                 if (!loading && error == null && records.isEmpty()) item {
                     EmptyState(when (destination) {
                         AccountDestination.PENDING -> "没有待审核内容"
-                        AccountDestination.BADGES -> "还没有徽章"
                         AccountDestination.INVITES -> "暂无待使用的邀请链接"
                         else -> "还没有聊天频道"
                     }, "", Icons.Rounded.Inbox)

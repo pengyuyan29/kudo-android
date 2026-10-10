@@ -22,13 +22,10 @@ class AccountExtrasTest {
             assertEquals(1, server.requestCount)
         } finally { server.shutdown() }
     }
-    @Test fun badgeRecordsJoinOnlyGrantedBadgeIdsAndPendingKeepsRawText() = runBlocking {
+    @Test fun pendingKeepsRawTextAndItsOriginalTopic() = runBlocking {
         val server = MockWebServer()
         try {
             val repository = CommunityRepository(DiscourseClient(cookies, server.url("/")))
-            server.enqueue(MockResponse().setBody("""{"badges":[{"id":2,"name":"已获得"},{"id":3,"name":"未获得"}],"user_badges":[{"badge_id":2,"granted_at":"2026-01-01"}]}"""))
-            assertEquals("已获得", repository.accountRecords(AccountDestination.BADGES, "Member").single().title)
-            assertEquals("/user-badges/member.json?grouped=true", server.takeRequest().path)
             server.enqueue(MockResponse().setBody("""{"pending_posts":[{"id":9,"topic_id":3,"raw_text":"审核原文"}]}"""))
             val pending = repository.accountRecords(AccountDestination.PENDING, "member").single()
             assertEquals("审核原文", pending.body); assertEquals(3, pending.topicId)

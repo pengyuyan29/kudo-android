@@ -80,7 +80,7 @@ fun AboutScreen(openLink: (String) -> Unit = {}, back: () -> Unit) {
             actions = { LiquidModalAction("知道了", ::dismiss, Modifier.fillMaxWidth(), primary = true) }) {
             Text(when (dialog) {
                 "privacy" -> "酷DO 直接连接 Linux.do。登录在官网页面完成；应用不收集密码，不接入统计或广告服务。Cookie 与草稿保存在应用私有目录，禁用系统备份，退出登录后清除。帖子中的外部图片会向其来源站点发起请求。"
-                "licenses" -> "Jetpack Compose、Backdrop（含官方玻璃示例）、Shapes、OkHttp、Coil、APNG4Android：Apache License 2.0。Jsoup：MIT。分类、标签与资质图标采用 Font Awesome Free 6.7.2，© 2024 Fonticons, Inc.，CC BY 4.0；原始矢量路径不变，适配原生尺寸与颜色。底部导航与详情操作栏改编自 Backdrop catalog 的 LiquidBottomTabs / Surface Liquid Button，弹窗材质改编自官方 Dialog；接口行为参考 FluxDO，页面布局参考酷安。"
+                "licenses" -> "Jetpack Compose、Backdrop（含官方玻璃示例）、Shapes、OkHttp、Coil、APNG4Android：Apache License 2.0。Jsoup：MIT。分类、标签、徽章与资质图标采用 Font Awesome Free 6.7.2，© 2024 Fonticons, Inc.，CC BY 4.0；原始矢量路径不变，适配原生尺寸与颜色。底部导航与详情操作栏改编自 Backdrop catalog 的 LiquidBottomTabs / Surface Liquid Button，弹窗材质改编自官方 Dialog；接口行为参考 FluxDO，页面布局参考酷安。"
                 else -> "酷DO ${BuildConfig.VERSION_NAME}\n\n$KudoAboutText"
             }, style = MaterialTheme.typography.bodyMedium, color = LocalContentColor.current.copy(alpha = 0.8f))
             if (dialog == "licenses") {
