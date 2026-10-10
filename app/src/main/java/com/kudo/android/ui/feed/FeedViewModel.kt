@@ -127,6 +127,8 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
                     } catch (e: ApiFailure) {
                         if (e.kind == FailureKind.VERIFICATION) {
                             _state.update { it.copy(error = e) }
+                            updatesActive = false
+                            updateJob?.cancel()
                         }
                     }
                 }

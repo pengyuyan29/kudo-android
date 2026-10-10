@@ -23,13 +23,19 @@ class FeedUpdatesTest {
         val server = MockWebServer()
         server.start()
         server.enqueue(MockResponse().setBody("""{"topic_list":{"topics":[]}}"""))
+        val subscriptions = AtomicInteger()
         val vm = FeedViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))),
-            updates = FeedUpdates { flow { throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage) } })
+            updates = FeedUpdates {
+                if (subscriptions.incrementAndGet() == 1) flow { throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage) }
+                else flow { emit(Unit); awaitCancellation() }
+            })
         try {
             withTimeout(5000) { while (vm.state.value.loading) delay(10) }
             vm.setUpdatesActive(true)
             withTimeout(5000) { while (vm.state.value.error == null) delay(10) }
             assertEquals(FailureKind.VERIFICATION, (vm.state.value.error as ApiFailure).kind)
+            vm.setUpdatesActive(true)
+            withTimeout(5000) { while (subscriptions.get() < 2) delay(10) }
         } finally {
             vm.viewModelScope.cancel()
             vm.viewModelScope.coroutineContext.job.join()
