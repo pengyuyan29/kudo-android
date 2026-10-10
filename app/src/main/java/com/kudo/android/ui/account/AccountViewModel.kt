@@ -95,7 +95,10 @@ class AccountViewModel(
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: ApiFailure) {
-                    if (epoch == sessionEpoch && e.kind == FailureKind.VERIFICATION) messages.trySend(e.message)
+                    if (epoch == sessionEpoch && e.kind == FailureKind.VERIFICATION) {
+                        messages.trySend(e.message)
+                        notificationJob = null
+                    }
                 }
             }
         }
