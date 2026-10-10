@@ -3,10 +3,15 @@ package com.kudo.android
 import android.graphics.Bitmap
 import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kudo.android.data.*
 import com.kudo.android.ui.theme.KudoTheme
@@ -27,6 +32,81 @@ class TopicBoostsUiTest {
     private val root = first.copy(id = 2, number = 2, cooked = "<p>评论正文</p>", boosts = emptyList())
     private val child = first.copy(id = 3, number = 3, replyTo = 2, cooked = "<p>楼中楼正文</p>", boosts = listOf(PostBoost(101, author, "<p>回复也可以 Boost</p>")))
     private val detail = TopicDetail(5, "帖子与 Boost", 1, listOf(first, root, child), listOf(1, 2, 3), false)
+
+    private val manyBoosts = (0 until 12).map { index ->
+        PostBoost(200 + index, author, "<p>${listOf("赞同", "这个想法值得支持", "继续加油😀", "好")[index % 4]}</p>")
+    }
+    private fun visibleBoosts(number: Int) = compose.onAllNodes(
+        SemanticsMatcher("Boost 短条") {
+            it.config.getOrElse(androidx.compose.ui.semantics.SemanticsProperties.TestTag) { "" }.matches(Regex("boost-\\d+"))
+        } and hasAnyAncestor(hasTestTag("post-boosts-$number")))
+
+    private fun assertTwoBoostRows(number: Int) {
+        val chips = visibleBoosts(number).fetchSemanticsNodes()
+        assertTrue("默认应隐藏溢出短条", chips.size in 2 until manyBoosts.size)
+        assertEquals("按实际排版限制为两行", 2, chips.map { it.boundsInRoot.top.toInt() }.distinct().size)
+    }
+
+    private fun checkBoostFolding(settings: DisplaySettings, width: Int, boosts: List<PostBoost> = manyBoosts) {
+        compose.setContent { KudoTheme(settings) {
+            Column(Modifier.width(width.dp).verticalScroll(rememberScrollState())) {
+                PostBoosts(first.copy(boosts = boosts), true, {}, {})
+            }
+        } }
+        assertTwoBoostRows(1)
+        val expand = compose.onNodeWithContentDescription("展开全部 Boost")
+        val parent = compose.onNodeWithTag("post-boosts-1").fetchSemanticsNode().boundsInRoot
+        assertEquals("箭头位于右侧", parent.right, expand.fetchSemanticsNode().boundsInRoot.right, 2f)
+        val image = compose.onRoot().captureToImage().asAndroidBitmap()
+        File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "boost-fold-${width}.png")
+            .outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        expand.performClick()
+        visibleBoosts(1).assertCountEquals(manyBoosts.size)
+        assertTrue(visibleBoosts(1).fetchSemanticsNodes().map { it.boundsInRoot.top.toInt() }.distinct().size > 2)
+        compose.onNodeWithContentDescription("收起 Boost").performScrollTo().performClick()
+        assertTwoBoostRows(1)
+    }
+
+    @Test fun boostPillsFoldByActualRowsAndToggleAll() = checkBoostFolding(DisplaySettings(), 320)
+
+    @Test fun boostPillsFoldOnNarrowDarkLargeText() =
+        checkBoostFolding(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f), 260)
+
+    @Test fun longBoostPillsKeepTwoRowsAndLeaveSpaceForArrow() =
+        checkBoostFolding(DisplaySettings(fontScale = 1.3f), 260, manyBoosts.map { it.copy(cooked = "<p>${"字".repeat(16)}</p>") })
+
+    @Test fun expandedBoostsSurviveRestorationAndWindowResize() {
+        var width by mutableStateOf(320)
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { KudoTheme(DisplaySettings()) {
+            Column(Modifier.width(width.dp).verticalScroll(rememberScrollState())) {
+                PostBoosts(first.copy(boosts = manyBoosts), true, {}, {})
+            }
+        } }
+        compose.onNodeWithContentDescription("展开全部 Boost").performClick()
+        restoration.emulateSavedInstanceStateRestore()
+        visibleBoosts(1).assertCountEquals(manyBoosts.size)
+        compose.runOnIdle { width = 260 }
+        visibleBoosts(1).assertCountEquals(manyBoosts.size)
+        compose.onNodeWithContentDescription("收起 Boost").performScrollTo().performClick()
+        assertTwoBoostRows(1)
+    }
+
+    @Test fun shortBoostsHaveNoArrowAndPostsExpandIndependently() {
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            Column(Modifier.width(300.dp).verticalScroll(rememberScrollState())) {
+                PostBoosts(first, true, {}, {})
+                PostBoosts(root.copy(boosts = manyBoosts), true, {}, {})
+                PostBoosts(child.copy(boosts = manyBoosts.map { it.copy(id = it.id + 100) }), true, {}, {})
+            }
+        } }
+        compose.onAllNodes(hasContentDescription("展开全部 Boost") and hasAnyAncestor(hasTestTag("post-boosts-1"))).assertCountEquals(0)
+        compose.onNode(hasContentDescription("展开全部 Boost") and hasAnyAncestor(hasTestTag("post-boosts-2"))).performClick()
+        visibleBoosts(2).assertCountEquals(manyBoosts.size)
+        assertTwoBoostRows(3)
+        compose.onNode(hasContentDescription("收起 Boost") and hasAnyAncestor(hasTestTag("post-boosts-2"))).performScrollTo().performClick()
+        assertTwoBoostRows(2)
+    }
 
     @Test fun boostRocketIsCompactAndGrayInPostAndBottomActions() {
         var density = 1f
