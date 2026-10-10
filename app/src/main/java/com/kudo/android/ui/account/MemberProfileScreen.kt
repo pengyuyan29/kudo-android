@@ -146,8 +146,8 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
                 }
                 item(key = "settings") {
                     Column(Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface)) {
-                        CompactAccountRow(Icons.Rounded.Palette, Color(0xFF78828E), "界面与显示", settings)
-                        CompactAccountRow(Icons.Rounded.Info, Color(0xFF78828E), "关于酷DO", about, BuildConfig.VERSION_NAME)
+                        CompactAccountRow(Icons.Rounded.Palette, Color(0xFF9B6FE6), "界面与显示", settings)
+                        CompactAccountRow(Icons.Rounded.Info, Color(0xFF328AE5), "关于酷DO", about, BuildConfig.VERSION_NAME)
                     }
                 }
                 item { Text("真诚 · 友善 · 团结 · 专业", Modifier.fillMaxWidth().padding(20.dp), textAlign = TextAlign.Center,
@@ -172,14 +172,14 @@ internal fun CompactAccountRow(icon: ImageVector, color: Color, title: String, c
 }
 
 private fun destinationIcon(entry: AccountDestination): Pair<ImageVector, Color> = when (entry) {
-    AccountDestination.TOPICS -> Icons.Rounded.Article to Color(0xFF4D97DE)
-    AccountDestination.BOOKMARKS -> Icons.Rounded.BookmarkBorder to Color(0xFFEC9B35)
-    AccountDestination.DRAFTS -> Icons.Rounded.EditNote to Color(0xFF42A894)
-    AccountDestination.HISTORY -> Icons.Rounded.History to Color(0xFF9479CB)
-    AccountDestination.MESSAGES -> Icons.Rounded.MailOutline to Color(0xFF6C83CA)
-    AccountDestination.CHAT -> Icons.Rounded.Forum to Color(0xFF42A894)
-    AccountDestination.PENDING -> Icons.Rounded.PendingActions to Color(0xFFD7A12D)
-    AccountDestination.BADGES -> Icons.Rounded.WorkspacePremium to Color(0xFFDC9C32)
-    AccountDestination.TRUST -> Icons.Rounded.VerifiedUser to Color(0xFF57A16D)
-    AccountDestination.INVITES -> Icons.Rounded.Link to Color(0xFF419FB8)
+    AccountDestination.TOPICS -> Icons.Rounded.Article to Color(0xFF2196F3)
+    AccountDestination.BOOKMARKS -> Icons.Rounded.BookmarkBorder to Color(0xFFFF9800)
+    AccountDestination.DRAFTS -> Icons.Rounded.EditNote to Color(0xFF26A69A)
+    AccountDestination.HISTORY -> Icons.Rounded.History to Color(0xFFA374EF)
+    AccountDestination.MESSAGES -> Icons.Rounded.MailOutline to Color(0xFF5B83E8)
+    AccountDestination.CHAT -> Icons.Rounded.Forum to Color(0xFF00A68E)
+    AccountDestination.PENDING -> Icons.Rounded.PendingActions to Color(0xFFF2A000)
+    AccountDestination.BADGES -> Icons.Rounded.WorkspacePremium to Color(0xFFFF9819)
+    AccountDestination.TRUST -> Icons.Rounded.VerifiedUser to Color(0xFF43A047)
+    AccountDestination.INVITES -> Icons.Rounded.Link to Color(0xFF139FCE)
 }

@@ -46,7 +46,8 @@ internal fun MemberHeader(member: Member, summary: UserSummary?, loading: Boolea
             .then(if (fraction >= .5f) Modifier.clearAndSetSemantics {} else Modifier)
             .statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 26.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp, Alignment.Bottom)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = profile).testTag("member-identity"),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Avatar(member, avatarSize,
                     Modifier.testTag("member-avatar"), presentation = AvatarPresentation.ACCOUNT, onClick = profile)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -56,7 +57,8 @@ internal fun MemberHeader(member: Member, summary: UserSummary?, loading: Boolea
                 }
                 ProfileArrow(ink, profile)
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(Modifier.fillMaxWidth().padding(top = if (maxHeight < 320.dp) 12.dp else 40.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf("访问天数" to summary?.daysVisited, "已读帖子" to summary?.postsRead,
                     "获赞" to summary?.likesReceived, "发帖数" to summary?.posts).forEach { (label, value) ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -75,7 +77,8 @@ internal fun MemberHeader(member: Member, summary: UserSummary?, loading: Boolea
 @Composable
 internal fun MemberCompactHeader(member: Member, loaded: Boolean, profile: () -> Unit, trust: () -> Unit, modifier: Modifier) {
     val ink = if (loaded) Color.White else Ink
-    Row(modifier.fillMaxWidth().statusBarsPadding().height(48.dp).padding(horizontal = 16.dp).testTag("member-compact-header"),
+    Row(modifier.fillMaxWidth().statusBarsPadding().height(48.dp).clickable(role = Role.Button, onClick = profile)
+        .padding(horizontal = 16.dp).testTag("member-compact-header"),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Avatar(member, 30.dp, presentation = AvatarPresentation.ACCOUNT, onClick = profile)
         Box(Modifier.weight(1f)) { MemberName(member, ink, trust, compact = true) }

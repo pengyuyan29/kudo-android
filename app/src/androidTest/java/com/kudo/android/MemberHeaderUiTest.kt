@@ -78,7 +78,7 @@ class MemberHeaderUiTest {
         } }
         val header = compose.onNodeWithTag("member-header-viewport").fetchSemanticsNode().boundsInRoot
         assertEquals(header.width, header.height, 2f)
-        val nickname = compose.onNodeWithText("方形顶部").fetchSemanticsNode().boundsInRoot
+        val nickname = compose.onNodeWithText("方形顶部", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         val level = compose.onNodeWithText("Lv.3").fetchSemanticsNode().boundsInRoot
         assertTrue(level.left >= nickname.right)
         assertEquals(nickname.center.y, level.center.y, 3f)
@@ -92,6 +92,26 @@ class MemberHeaderUiTest {
         compose.onNodeWithTag("member-profile").performTouchInput { swipeDown(); swipeDown() }
         compose.waitForIdle()
         assertTrue(compose.onNodeWithTag("member-header-viewport").fetchSemanticsNode().boundsInRoot.height > header.width * .9f)
+    }
+    @Test fun wholeIdentityOpensProfileButLevelRemainsIndependent() {
+        var profiles = 0
+        var levels = 0
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            Box(Modifier.width(360.dp).height(700.dp)) {
+                ProfileScreen(Member(42, "fixture", "身份整排", "", trustLevel = 3), {}, {}, {}, { profiles++ },
+                    destination = { if (it == AccountDestination.TRUST) levels++ })
+            }
+        } }
+        val header = compose.onNodeWithTag("member-header").fetchSemanticsNode().boundsInRoot
+        val identity = compose.onNodeWithTag("member-identity").fetchSemanticsNode().boundsInRoot
+        assertTrue("身份行应高于底部统计", header.bottom - identity.bottom > identity.height * 1.5f)
+        compose.onNodeWithTag("member-identity").performClick()
+        compose.onNodeWithText("Lv.3").performClick()
+        compose.runOnIdle { assertEquals(1, profiles); assertEquals(1, levels) }
+        compose.onNodeWithTag("member-profile").performTouchInput { swipeUp() }
+        compose.onNodeWithTag("member-compact-header").performClick()
+        compose.onNodeWithText("Lv.3").performClick()
+        compose.runOnIdle { assertEquals(2, profiles); assertEquals(2, levels) }
     }
     @Test fun collapseKeepsOriginalImageBottomWithOnlySlightlyDarkerMask() {
         var loaded = false
