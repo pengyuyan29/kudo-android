@@ -28,7 +28,7 @@ internal fun parsePublicProfile(json: JSONObject): PublicProfile {
     val user = json.optJSONObject("user") ?: throw ApiFailure(FailureKind.SERVER, "服务器未返回用户资料")
     return PublicProfile(DiscourseParser.member(user, avatarDetailsLoaded = true), user.profileCount("total_followers"),
         user.profileCount("total_following"), user.stringField("last_seen_at"), user.stringField("created_at"),
-        user.stringField("location"), user.stringField("website"), user.stringField("title"), user.optBoolean("can_send_private_message"))
+        user.stringField("location"), user.stringField("website"), user.stringField("title"), user.optBoolean("can_send_private_message_to_user"))
 }
 
 internal fun parseProfileSummary(json: JSONObject): ProfileSummary {
@@ -44,7 +44,10 @@ internal fun parseProfileSummary(json: JSONObject): ProfileSummary {
             plainText(item.stringField("excerpt")), item.stringField("created_at"), count = item.profileCount("like_count"))
     }
     val topIds = summary.optJSONArray("topics").objects()
-    val topTopics = if (summary.has("topics")) topIds.mapNotNull { item ->
+    val references = summary.optJSONArray("topic_ids")
+    val topTopics = if (references != null) (0 until references.length()).mapNotNull { index ->
+        references.optInt(index).takeIf { it > 0 }?.let(topics::get)?.let { entry(it, false) }
+    } else if (summary.has("topics")) topIds.mapNotNull { item ->
         val id = item.positiveInt("id") ?: item.positiveInt("topic_id")
         id?.let { entry(topics[it] ?: item, false) }
     } else topics.values.mapNotNull { entry(it, false) }

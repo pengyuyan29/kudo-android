@@ -9,6 +9,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class UserProfileDataTest {
+    @Test fun actualSummaryTopicIdsExcludeSideloadedReplyOriginsFromPopularTopics() {
+        val result = parseProfileSummary(JSONObject("""{"user_summary":{"topic_ids":[10],"replies":[{"topic_id":9,"post_number":8}]},"topics":[{"id":9,"title":"回复来源"},{"id":10,"title":"热门话题"}]}"""))
+        assertEquals(listOf(10), result.topics.map { it.topicId })
+        assertEquals("回复来源", result.replies.single().title)
+    }
+    @Test fun messagePermissionUsesTargetUserPermissionRatherThanInventedSingularField() {
+        val profile = parsePublicProfile(JSONObject("""{"user":{"id":1,"username":"a","can_send_private_messages":true,"can_send_private_message_to_user":true}}"""))
+        assertTrue(profile.canMessage)
+        assertFalse(parsePublicProfile(JSONObject("""{"user":{"id":1,"username":"a","can_send_private_messages":true,"can_send_private_message_to_user":false}}""")).canMessage)
+    }
     @Test fun summaryKeepsUnknownCountsAndJoinsRepliesToSideloadedTopics() {
         val result = parseProfileSummary(JSONObject("""{"user_summary":{"likes_received":107,"topic_count":12,"post_count":58,"days_visited":null,"replies":[{"topic_id":9,"post_number":8,"like_count":4}],"topics":[{"id":10}],"most_liked_users":[{"id":2,"username":"other","count":7}]},"topics":[{"id":9,"title":"回复来源"},{"id":10,"title":"热门主题"}]}"""))
         assertEquals(107, result.counts["likes_received"])

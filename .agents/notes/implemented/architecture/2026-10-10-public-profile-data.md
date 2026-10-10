@@ -10,6 +10,10 @@ Status: implemented
 
 PublicProfile 包装 Member 及关注数、粉丝数、活跃、注册、地点、网址、头衔与私信权限，不改变原 Member 的账号语义。公开卡片独立读取 /u/{username}/card.json，背景缺失和读取失败保持区别。ProfileSummary 解析未知统计为 null，并按侧载主题连接回复原楼层，不把回复来源主题误列为热门主题。
 
+对目标用户的私信入口使用 can_send_private_message_to_user，不把当前账号全局 can_send_private_messages 当作该目标的授权，也不发明单数 can_send_private_message 字段。UserProfileDataTest 先复现错误字段隐藏入口（artifacts/profile-permission-repro.txt）。
+
+真实用户摘要提供 topic_ids；热门话题必须按该ID顺序筛选顶层侧载topics，其余侧载话题仅供回复关联。UserProfileDataTest 先复现将回复来源混入热门列表（artifacts/profile-summary-ids-repro.txt），随后修复。只读协议证据为 profile-live-contract.json，真实 mqq 热门话题与回复各6条、回复分页30条且下一 offset 为30。关联46项JVM测试、Debug和测试APK构建及Lint通过（artifacts/profile-contract-final-build.txt）。
+
 ProfileTab 定义九个标签。动态/话题/回复/赞为 user_actions 的 4,5 / 4 / 5 / 1 过滤，offset 按原始行数推进，不能按去重后行数推进。回应支持顶层数组及包装对象，20条一页，使用 before_reaction_user_id；Boost 使用 before_boost_id，并从嵌套帖子 url 提取楼层；已解决读取 user_solved_posts，30条 offset 分页。投票遵守网站 more_topics_url，所有 URL 都经过同源验证，用户名按路径段编码。
 
 数据契约核对 FluxDO e1bd839 的 _users.dart、user.dart、user_action.dart，代码独立实现。检索历史：[个人中心](../feature/2026-10-10-member-account-dashboard.md)、[用户装饰](../feature/2026-10-10-user-decoration.md)部分重叠，保留其“我的”摘要和背景规则；无同主题旧数据协议或需否决提案。
