@@ -2,6 +2,8 @@
 
 酷DO 是独立的 Linux.do 第三方客户端，与 Linux.do、酷安及下列项目不存在官方关联。各依赖的版权和许可归其权利人所有。
 
+项目主体代码由 Bang Liu 及贡献者以 [Apache License 2.0](LICENSE) 授权。该协议只适用于本项目自行创作的代码和文件；下表依赖、图标、参考实现及其随包附带的资源仍受各自许可证约束。
+
 | 项目 | 许可 | 用途 |
 | --- | --- | --- |
 | [AndroidX / Jetpack Compose](https://android.googlesource.com/platform/frameworks/support/) | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) | 原生界面、生命周期、导航与测试 |
