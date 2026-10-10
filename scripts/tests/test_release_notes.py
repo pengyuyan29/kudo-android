@@ -98,6 +98,7 @@ class ReleaseNotesTest(unittest.TestCase):
             ("fix: 修复运行问题", ("app/src/main/res/values/strings.xml",)),
             ("perf: 优化渲染", ("app/src/main/java/com/kudo/android/Feature.kt",)),
             ("docs: 更新说明", ("app/src/main/java/com/kudo/android/Feature.kt",)),
+            ("doc: 更新说明", ("app/src/main/java/com/kudo/android/Feature.kt",)),
             ("feat: 补测试", ("app/src/test/java/com/kudo/android/FeatureTest.kt",)),
             ("fix: 更新许可证", ("app/src/main/assets/licenses/libavif.txt",)),
             ("ci: 调整工作流", (".github/workflows/release.yml",)),

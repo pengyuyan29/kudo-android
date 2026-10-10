@@ -91,7 +91,7 @@ git tag -a v0.1.0 -m '发布 0.1.0'
 git push origin v0.1.0
 ```
 
-示例产物为 `Kudo-0.1.0-release.apk` 和 `Kudo-0.1.0-release.apk.sha256`。发布说明从上一个祖先正式版本到当前 Tag 的 commit 整理为“新增、修复、调整、维护”，去除合并提交与重复标题；首次版本包含完整历史。请使用能说明具体功能的中文提交标题，发布前查看生成的日志。工作流把同一份 `release-notes.md` 写入 GitHub Release，App 的“关于酷DO → 检查更新”显示该正文。工作流先准备草稿、上传完整产物后再公开；上传失败留下的草稿可以重跑恢复，已经公开的同名 Release 不会被覆盖，应使用新版本 Tag。
+示例产物为 `Kudo-0.1.0-release.apk` 和 `Kudo-0.1.0-release.apk.sha256`。发布说明从上一个祖先正式版本到当前 Tag 的 commit 中筛选 App 运行时变化，整理为“新增、修复、调整”，去除文档、测试、工具链、CI、合并提交与重复标题；首次版本包含完整历史。新提交请使用 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:`、`chore:` 等前缀，冒号后写中文说明；只有 `feat:`、`fix:`、`perf:` 且实际修改 `app/src/main/` 的提交会进入更新日志。发布前请查看生成的日志。工作流把同一份 `release-notes.md` 写入 GitHub Release，App 的“关于酷DO → 检查更新”显示该正文。工作流先准备草稿、上传完整产物后再公开；上传失败留下的草稿可以重跑恢复，已经公开的同名 Release 不会被覆盖，应使用新版本 Tag。
 
 已创建本地版本 Tag 后，可预览和人工整理日志：
 

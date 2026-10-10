@@ -1,4 +1,4 @@
-"""Group stable-tag commit subjects into a reproducible Chinese GitHub Release body."""
+"""Group App runtime commits into a reproducible Chinese GitHub Release body."""
 
 import argparse
 from dataclasses import dataclass
