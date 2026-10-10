@@ -26,12 +26,12 @@ class TopicContinuationUiTest {
         var requests = 0
         compose.setContent { Screen(state, more = { requests++; state = state.copy(loadingMore = true) }) }
         compose.runOnIdle { assertEquals(0, requests) }
-        compose.onNodeWithTag("topic-posts").performScrollToNode(hasText("上拉继续加载楼层"))
+        compose.onNodeWithTag("topic-posts").performScrollToIndex(posts.size + 1)
         compose.waitUntil { requests == 1 }
         compose.runOnIdle { state = state.copy(loadingMore = false, moreError = IllegalStateException("分页失败")) }
         compose.onNodeWithText("分页失败").assertExists()
         compose.runOnIdle { assertEquals(1, requests) }
-        compose.onNodeWithText("重新加载").performClick()
+        compose.onNodeWithText("重新加载").performScrollTo().assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(2, requests); state = state.copy(loadingMore = false, moreError = null, detail = detail.copy(stream = posts.map(Post::id))) }
         compose.onNodeWithText("上拉继续加载楼层").assertDoesNotExist()
     }
@@ -49,6 +49,16 @@ class TopicContinuationUiTest {
         compose.runOnIdle { assertEquals(2, requests) }
     }
 
+    @Test fun aNewPageThatMovesTheFooterOffscreenDoesNotImmediatelyRequestAnother() {
+        var state by mutableStateOf(TopicState(detail.copy(posts = listOf(first)), false))
+        var requests = 0
+        compose.setContent { Screen(state, more = { requests++; state = state.copy(loadingMore = true) }) }
+        compose.waitUntil { requests == 1 }
+        compose.runOnIdle { state = state.copy(loadingMore = false, detail = detail) }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(1, requests) }
+    }
+
     @Test fun openThreadLoadsAtBottomAndClosingStopsContinuation() {
         val root = first.copy(id = 2, number = 2, replyCount = 30)
         val children = (3..12).map { first.copy(id = it, number = it, replyTo = 2) }
@@ -62,7 +72,7 @@ class TopicContinuationUiTest {
         compose.waitUntil { requests == 1 }
         compose.runOnIdle { state = state.copy(replyLoads = mapOf(2 to ReplyLoad(mapOf(2 to ReplyCursor(12))))) }
         compose.runOnIdle { assertEquals(1, requests) }
-        compose.onNodeWithTag("thread-posts").performScrollToNode(hasText("上拉继续加载回复"))
+        compose.onNodeWithTag("thread-posts").performScrollToIndex(children.size + 1)
         compose.waitUntil { requests == 2 }
         compose.onNodeWithText("关闭").performClick()
         compose.runOnIdle { state = state.copy(replyLoads = mapOf(2 to ReplyLoad(mapOf(2 to ReplyCursor(20))))) }

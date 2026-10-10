@@ -25,7 +25,9 @@ Post.read 保留 nullable 三态，仅登录且服务器明确 false 的楼层�
 
 TopicReadingProgressTest 与 TopicViewModelTest 验证三态解析、1秒门槛、一次反馈与批量上传独立，以及晚到分页、刷新和跳过楼层。相关6类共34项 JVM 通过（artifacts/topic-flow-regression.txt）。首轮复现 TopicViewModelTest 未等待后台任务取消便 resetMain 的测试收尾竞争，改为 cancelAndJoin 后通过，失败证据 artifacts/topic-flow-checks.txt。
 
-TopicReadingUiTest 验证服务器三态、访客隐藏、1800ms渐隐、真实曝光回调和摘要不计读；真机结果集中补齐。既有 TopicReadingSyncTest 继续验证后台表单、换号隔离与失败不重试。
+TopicReadingUiTest 的7项真机用例全部通过（artifacts/topic-flow-device.txt），验证服务器三态、访客隐藏、1800ms渐隐、真实曝光回调和摘要不计读，以及原有长文末尾、遮挡和账号销毁规则。渐隐用例补录正常/中间态截图后再次通过（artifacts/topic-flow-final-device.txt）；已查看 post-unread-blue.png 与 post-unread-fading.png。既有 TopicReadingSyncTest 继续验证后台表单、换号隔离与失败不重试。
+
+本轮共29个不同真机用例通过：分页4、菜单10、阅读7、楼中楼3、详情5，分批日志不能将重复用例再次累加。Debug 构建与 Lint 通过（artifacts/topic-flow-final-build.txt），0错误、30既有警告和1hint。测试使用离线回调及 MockWebServer，未验证真实账号写入端到端。
 
 ## Consequences
 

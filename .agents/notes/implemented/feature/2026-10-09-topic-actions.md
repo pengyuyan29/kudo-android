@@ -34,6 +34,8 @@ Status: implemented
 
 ## Testing
 
+回复扩展的 TopicActionsViewModelTest 验证打开回复不额外读取主帖、历史和举报使用实际 Post ID、收藏发送对应 bookmarkable_id，以及主题/回复链接范围。与分页和阅读相关6类共34项 JVM 通过（artifacts/topic-flow-regression.txt）。TopicActionsUiTest 全10项真机通过（artifacts/topic-flow-device.txt），含新增两项：主题/回复复制链接、回复收藏同步，以及外层/楼中楼三点目标与作者点击隔离。暗色大字菜单和历史权限沿用原用例；已检查 reply-actions-light.png，截图只含离线夹具。
+
 最终123项JVM测试通过，RMX2202 / Android13 的34项界面回归通过（56.426秒），覆盖新增8项主题操作、顶部4项、详情5项、列表样式3项、元信息7项、设置7项。初次返回键测试在弹窗渲染前发出系统返回导致Activity结束，补上弹窗已显示的同步断言后通过。构建、Lint通过（0错误/30警告/1提示），笔记门禁通过。日志为 artifacts/topic-actions-final-jvm.txt、topic-actions-verified-device.txt 与 topic-actions-final-package.txt。
 
 已检查 artifacts/topic-actions-ui-final 的复制菜单、暗色大字菜单、举报字数/非法确认、历史差异和期限截图；真实首页与列表/详情液态菜单截图为 topic-actions-real-home.png、topic-actions-real-list-sheet.png、topic-actions-real-detail-sheet.png。真实菜单按主帖字段省略不存在的历史。网站读取验证动态原因与3字下限；报告及忽略写入仅在MockWebServer验证，没有对真实作者提交。

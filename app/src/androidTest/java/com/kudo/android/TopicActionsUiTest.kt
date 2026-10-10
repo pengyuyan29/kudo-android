@@ -47,6 +47,11 @@ class TopicActionsUiTest {
                 }
             }
         } }
+        compose.onNodeWithText("回复菜单").performClick()
+        compose.onNodeWithText("编辑历史").assertDoesNotExist()
+        compose.onNodeWithText("屏蔽").assertDoesNotExist()
+        capture("reply-actions-light.png")
+        compose.onNodeWithText("取消").performClick()
         fun assertClipboard(expected: String) = compose.runOnIdle {
             val context = InstrumentationRegistry.getInstrumentation().targetContext
             assertEquals(expected, (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).primaryClip!!.getItemAt(0).text.toString())
@@ -55,9 +60,6 @@ class TopicActionsUiTest {
         compose.onNodeWithText("复制链接").performClick()
         assertClipboard("https://linux.do/t/topic/5")
         compose.onNodeWithText("回复菜单").performClick()
-        compose.onNodeWithText("编辑历史").assertDoesNotExist()
-        compose.onNodeWithText("屏蔽").assertDoesNotExist()
-        capture("reply-actions-light.png")
         compose.onNodeWithText("复制链接").performClick()
         assertClipboard("https://linux.do/t/topic/5/8")
         compose.onNodeWithText("回复菜单").performClick()

@@ -21,7 +21,9 @@ Status: implemented
 
 ## Testing
 
-TopicContinuationUiTest 覆盖主列表未到底不请求、到底只请求一次、错误停止并手动重试、空页继续推进和关闭讨论停止续载。与本轮其他功能集中运行，结果随后同步。
+TopicContinuationUiTest 的4项真机用例通过（artifacts/topic-continuation-verified-device.txt）：主列表未到底不请求、到底只请求一次、错误停止并手动重试、空页继续推进、新页将尾部推出视口后不继续获取、关闭讨论停止续载。深链与原操作另由 TopicDetailUiTest、NestedReplyUiTest 回归。
+
+首轮 performScrollToNode 在自动加载已移除提示后继续查找提示，两个用例失败（artifacts/topic-flow-device.txt）；改用末尾索引并检查请求次数。下一轮错误卡片重排使重试按钮离开可视区域，点击前补上滚动到按钮（artifacts/topic-flow-final-device.txt）。这两类失败来自测试目标变化，不修改产品分页逻辑。
 
 ## Consequences
 
