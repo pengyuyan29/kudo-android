@@ -55,11 +55,11 @@ private fun iconColor(value: String): Color = runCatching {
 }.getOrDefault(MaterialTheme.colorScheme.onSurfaceVariant)
 
 @Composable
-internal fun CategoryInline(category: Category) {
+internal fun CategoryInline(category: Category, modifier: Modifier = Modifier) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.testTag("category-inline-${category.id}")) {
+        modifier = modifier.testTag("category-inline-${category.id}")) {
         Icon(CategoryIcons.get(category.icon), "分类图标：${category.name}", Modifier.size(12.dp), iconColor(category.color))
-        Text(category.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Text(category.name, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
@@ -67,18 +67,19 @@ internal fun CategoryInline(category: Category) {
 @Composable
 internal fun TopicAuthorMetadata(time: String, category: Category?, edited: Boolean = false) {
     val timestamp = relativeTime(time)
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(2.dp),
-        itemVerticalAlignment = Alignment.CenterVertically) {
-        if (timestamp.isNotBlank()) Text(timestamp, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (timestamp.isNotBlank()) Text(timestamp, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, overflow = TextOverflow.Ellipsis)
         category?.let {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (timestamp.isNotBlank()) MetadataSeparator()
                 CategoryInline(it)
             }
         }
         if (edited) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             if (timestamp.isNotBlank() || category != null) MetadataSeparator()
-            Text("已编辑", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("已编辑", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }

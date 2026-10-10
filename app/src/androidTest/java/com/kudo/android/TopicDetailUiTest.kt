@@ -40,7 +40,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 @OptIn(coil3.annotation.DelicateCoilApi::class)
 class TopicDetailUiTest {
     @get:Rule val compose = createComposeRule()
-    private val author = Member(2, "author", "测试楼主", "", avatarDetailsLoaded = true, canFollow = true)
+    private val author = Member(2, "author", "测试楼主", "", flair = AvatarFlair("测试资质", "battery-quarter"),
+        status = UserStatus("smile", "测试状态"), avatarDetailsLoaded = true, canFollow = true)
     private val first = Post(10, 1, author,
         """<p>正文表情 <img class="emoji" src="https://emoji.test/distorted_face.png" alt=":distorted_face:"> 继续阅读</p>""" +
             (1..12).joinToString("") { "<p>用于检查固定作者标题栏的正文第${it}段。</p>" },
@@ -117,6 +118,13 @@ class TopicDetailUiTest {
         val after = compose.onNodeWithTag("topic-author").fetchSemanticsNode().boundsInRoot
         assertEquals(before.top, after.top, 0.5f)
         compose.onNodeWithText(author.displayName).assertIsDisplayed()
+    }
+
+    @Test fun authorDecorationsAppearAfterTheNickname() {
+        compose.setContent { Screen(initial) }
+        compose.onNodeWithTag("member-name-decorations-${author.id}").assertIsDisplayed()
+        compose.onNodeWithContentDescription("${author.displayName}的资质：测试资质", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithContentDescription("${author.displayName}的状态：测试状态", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun shortTapCancelsHeartOrEmojiAndLongPressOnlyOpensTheResponsePicker() {

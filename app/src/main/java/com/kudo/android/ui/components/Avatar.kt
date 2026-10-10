@@ -23,6 +23,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -112,6 +113,25 @@ fun Avatar(
             AvatarBadge(shown.displayName, decoration, (size * 0.44f).coerceIn(14.dp, 30.dp), active,
                 Modifier.align(Alignment.BottomEnd).offset(x = size * 0.06f, y = size * 0.06f))
         }
+    }
+}
+
+@Composable
+internal fun MemberNameDecorations(member: Member, modifier: Modifier = Modifier) {
+    if (member.flair == null && member.status == null) return
+    var now by remember(member.status) { mutableStateOf(Instant.now()) }
+    LaunchedEffect(member.status) {
+        now = Instant.now()
+        val expiry = member.status?.endsAt
+        if (expiry != null && expiry.isAfter(now)) {
+            delay((expiry.toEpochMilli() - now.toEpochMilli()).coerceAtLeast(1))
+            now = Instant.now()
+        }
+    }
+    Row(modifier.testTag("member-name-decorations-${member.id}"), horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        member.flair?.let { AvatarBadge(member.displayName, AvatarDecoration.Flair(it), 16.dp, true, Modifier) }
+        member.status?.takeIf { it.isActive(now) }?.let { AvatarBadge(member.displayName, AvatarDecoration.Status(it), 16.dp, true, Modifier) }
     }
 }
 

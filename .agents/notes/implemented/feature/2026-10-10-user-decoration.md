@@ -40,6 +40,8 @@ Post 读取 user_signature（图片 URL 或 cooked HTML），Member 读取 profi
 
 ## Consequences
 
+Topic author rows now render the returned flair and active status icons inline after the display name. The avatar badge remains as a separate visual cue, while both author rows keep their metadata to one line with ellipsis.
+
 正文解析的[引用分组](../bug-fix/2026-10-10-discourse-quotes.md)也可用于签名；签名递归渲染其内容，遵循独立满宽尺寸、默认关闭和SVG生命周期规则。
 
 沉浸式标题滚动时，以标题底部是否覆盖状态栏高度决定图标前景，不能只检查第一个可见列表项。组合阶段读取派生的覆盖状态和图片载入状态，随后由 SideEffect 写出，避免只在副作用读取状态导致滚动不触发重组。真机用例先复现标题剩余半个状态栏高度仍保留覆盖颜色（artifacts/member-statusbar-repro.txt），随后使用实际标题偏移、尺寸与状态栏 inset 修复。
