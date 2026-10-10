@@ -137,6 +137,49 @@ class PublicProfileUiTest {
         assertTrue("吸顶标签应位于屏幕上方", tabs.top < 300f)
         screenshot("public-profile-collapsed.png")
     }
+    @Test fun shortPageDownwardSwipeExpandsTheHeader() {
+        show()
+        val expandedTop = compose.onNodeWithTag("profile-tabs").fetchSemanticsNode().boundsInRoot.top
+        repeat(2) { compose.onNodeWithTag("public-profile-header").performTouchInput { swipeUp() } }
+        compose.onNodeWithTag("profile-tab-REPLIES").performClick()
+        repeat(2) { compose.onNodeWithTag("profile-list-REPLIES").performTouchInput { swipeDown(durationMillis = 600) } }
+        val restoredTop = compose.onNodeWithTag("profile-tabs").fetchSemanticsNode().boundsInRoot.top
+        assertEquals("短列表下拉的剩余距离必须交给顶部", expandedTop, restoredTop, 2f)
+    }
+    @Test fun upwardFlingFromPagerContinuesCollapsingTheHeader() {
+        show()
+        compose.onNodeWithTag("profile-list-SUMMARY").performTouchInput {
+            swipe(center.copy(y = height * .85f), center.copy(y = height * .6f), durationMillis = 80)
+        }
+        val tabs = compose.onNodeWithTag("profile-tabs").fetchSemanticsNode().boundsInRoot
+        assertTrue("抬手后的惯性仍需先收起顶部，实际标签顶部 ${tabs.top}", tabs.top < 300f)
+    }
+    @Test fun longListConsumesScrollOnlyAfterHeaderAndReturnsBeforeExpanding() {
+        val entries = (1..40).map { ProfileEntry("row-$it", it, null, "列表记录 $it") }
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            PublicProfilePage(PublicProfileState(profile, loading = false, cardLoading = false,
+                summary = summary, summaryLoading = false,
+                feeds = feeds + (ProfileTab.REPLIES to ProfileFeedState(entries, loaded = true))), 2, {}, {}, {}, {}, {}, {})
+        } }
+        compose.onNodeWithTag("profile-tab-REPLIES").performClick()
+        val initialTop = compose.onNodeWithTag("profile-tabs").fetchSemanticsNode().boundsInRoot.top
+        compose.onNodeWithTag("profile-list-REPLIES").performTouchInput {
+            swipe(center, center.copy(y = center.y - 90f), durationMillis = 1000)
+        }
+        val partialTop = compose.onNodeWithTag("profile-tabs").fetchSemanticsNode().boundsInRoot.top
+        assertTrue("先收顶部", partialTop < initialTop - 50f)
+        compose.onNodeWithTag("profile-entry-row-1").assertIsDisplayed()
+        repeat(4) { compose.onNodeWithTag("profile-list-REPLIES").performTouchInput { swipeUp(durationMillis = 600) } }
+        val pinnedTop = compose.onNodeWithTag("profile-tabs").fetchSemanticsNode().boundsInRoot.top
+        compose.onNodeWithTag("profile-entry-row-1").assertIsNotDisplayed()
+        compose.onNodeWithTag("profile-list-REPLIES").performTouchInput {
+            swipe(center, center.copy(y = center.y + 90f), durationMillis = 1000)
+        }
+        assertEquals("列表未回顶时不能展开顶部", pinnedTop,
+            compose.onNodeWithTag("profile-tabs").fetchSemanticsNode().boundsInRoot.top, 2f)
+        repeat(10) { compose.onNodeWithTag("profile-list-REPLIES").performTouchInput { swipeDown(durationMillis = 600) } }
+        assertEquals(initialTop, compose.onNodeWithTag("profile-tabs").fetchSemanticsNode().boundsInRoot.top, 2f)
+    }
     @Test fun darkLargeTextAndDraggableMoreSheetRemainUsable() {
         show(dark = true, scale = 1.3f)
         compose.onNodeWithContentDescription("个人主页更多操作").performClick()

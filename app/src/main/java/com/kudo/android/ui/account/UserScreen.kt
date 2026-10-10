@@ -73,15 +73,16 @@ internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: 
     val maximum = (headerHeight - minimum).coerceAtLeast(0f)
     val collapsed = collapse >= maximum - 1 && maximum > 0
     val latestMaximum by rememberUpdatedState(maximum)
-    val nested = remember { object : NestedScrollConnection {
+    LaunchedEffect(maximum) { collapse = collapse.coerceIn(0f, maximum) }
+    val nested = remember(profile?.member?.id) { object : NestedScrollConnection {
         override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-            if (source != NestedScrollSource.UserInput || available.y >= 0) return Offset.Zero
+            if (available.y >= 0) return Offset.Zero
             val previous = collapse
             collapse = (collapse - available.y).coerceIn(0f, latestMaximum)
             return Offset(0f, previous - collapse)
         }
         override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-            if (source != NestedScrollSource.UserInput || available.y <= 0) return Offset.Zero
+            if (available.y <= 0) return Offset.Zero
             val previous = collapse
             collapse = (collapse - available.y).coerceIn(0f, latestMaximum)
             return Offset(0f, previous - collapse)
