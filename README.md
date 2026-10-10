@@ -1,5 +1,7 @@
 # 酷DO
 
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-yellow.svg)](LICENSE)
+
 Linux.do 社区的 Android 原生第三方客户端。Kotlin + Jetpack Compose，包名 `com.kudo.android`，最低 Android 8.0。以 Linux.do Logo 的 `#FFB003` 为主色，参考酷安的悬浮胶囊导航和帖子操作栏，使用 Backdrop 实时采样内容，呈现模糊、折射和高光。
 
 ## 功能
@@ -137,6 +139,10 @@ adb -s <真机序列号> shell am instrument -w -r -e class 'com.kudo.android.Ca
 - 网络结果不明的写请求不会自动重试；请先刷新社区确认是否成功，避免重复提交。
 - Cookie 与草稿存放在应用私有目录，禁用备份与设备迁移，退出会清除本机账号数据。外部图片向其来源站点直接发起请求。
 - Android 12 专用模糊分支、平板和折叠屏尚未实测；玻璃流畅度未做正式帧率基准。
+
+## 许可证
+
+项目主体代码由 Bang Liu 及贡献者以 [Apache License 2.0](LICENSE) 授权。第三方依赖、图标和改编示例继续遵循各自的许可证，详见 [第三方组件与参考](THIRD_PARTY_NOTICES.md)。
 
 ## 结构与参考
 
