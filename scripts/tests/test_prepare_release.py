@@ -15,7 +15,7 @@ from release_version import parse_tag
 class ReleasePackageTest(unittest.TestCase):
     def setUp(self):
         self.version = parse_tag("v1.2.3")
-        self.manifest = "package: name='com.kudo.android' versionCode='1002004' versionName='1.2.3'\nsdkVersion:'26'\n"
+        self.manifest = "package: name='com.kudo.android' versionCode='1002004' versionName='1.2.3'\nsdkVersion:'26'\nnative-code: 'arm64-v8a'\n"
         self.certificate = b"test-only public certificate"
         self.fingerprint = hashlib.sha256(self.certificate).hexdigest()
         self.signer = f"Signer #1 certificate SHA-256 digest: {self.fingerprint}\n"
@@ -30,6 +30,12 @@ class ReleasePackageTest(unittest.TestCase):
             self.manifest.replace("1002004", "1"), self.manifest.replace("1.2.3", "1.2.4"),
         ):
             with self.subTest(report=report), self.assertRaises(ValueError):
+                validate_manifest(report, self.version)
+
+    def test_manifest_rejects_missing_or_non_arm64_native_code(self):
+        for native_code in ("", "native-code: 'armeabi-v7a'", "native-code: 'arm64-v8a' 'x86_64'"):
+            report = self.manifest.replace("native-code: 'arm64-v8a'", native_code)
+            with self.subTest(native_code=native_code), self.assertRaises(ValueError):
                 validate_manifest(report, self.version)
 
     def test_signer_must_be_exactly_the_expected_certificate(self):

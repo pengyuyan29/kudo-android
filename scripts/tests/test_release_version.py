@@ -13,13 +13,14 @@ class ReleaseVersionTest(unittest.TestCase):
         for tag, name, code in (
             ("v0.0.0", "0.0.0", 1),
             ("v0.1.0", "0.1.0", 1001),
+            ("v0.1.6", "0.1.6", 1007),
             ("v1.2.3", "1.2.3", 1_002_004),
             ("v2099.999.999", "2099.999.999", 2_100_000_000),
         ):
             with self.subTest(tag=tag):
                 version = parse_tag(tag)
                 self.assertEqual((name, code), (version.name, version.code))
-                self.assertEqual(f"Kudo-{name}-release.apk", version.apk_name)
+                self.assertEqual(f"kodo_{name}_release_arm64-v8a.apk", version.apk_name)
 
     def test_component_rollovers_preserve_upgrade_order(self):
         tags = ("v0.0.999", "v0.1.0", "v0.999.999", "v1.0.0", "v1.999.999", "v2.0.0")
@@ -44,7 +45,7 @@ class ReleaseVersionTest(unittest.TestCase):
             result = subprocess.run(command, capture_output=True)
             self.assertEqual(0, result.returncode)
             self.assertEqual(
-                "version_name=1.2.3\nversion_code=1002004\napk_name=Kudo-1.2.3-release.apk\n",
+                "version_name=1.2.3\nversion_code=1002004\napk_name=kodo_1.2.3_release_arm64-v8a.apk\n",
                 output.read_text(encoding="ascii"),
             )
             before = output.read_bytes()
