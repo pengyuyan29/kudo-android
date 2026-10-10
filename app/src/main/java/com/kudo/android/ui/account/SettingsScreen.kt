@@ -102,7 +102,8 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                 }
                 if (user != null) item {
                     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)
-                        .clickable(enabled = !showing) { show("logout") }.padding(16.dp), contentAlignment = Alignment.Center) { Text("退出登录", color = MaterialTheme.colorScheme.error) }
+                        .clickable(enabled = !showing) { show("logout") }.heightIn(min = 48.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp), contentAlignment = Alignment.Center) { Text("退出登录", color = MaterialTheme.colorScheme.error) }
                 }
             }
         }

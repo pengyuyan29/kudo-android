@@ -8,7 +8,7 @@ Status: implemented
 
 ## Decision
 
-设置页普通行最小52dp，分组间隔10dp，白色组内细分隔线；长文字和大字自动撑高。CommunitySwitch的视觉轨道为42×26dp，48dp触控区保留，关闭滑块14dp、开启22dp，以同一200ms进度同步位置、大小与轨道颜色，遵循系统动画时长。开启用LogoYellow，关闭中性灰，禁用降低整体不透明度；不引入Material默认开关外观。
+设置页普通行最小52dp，分组间隔10dp，白色组内细分隔线；长文字和大字自动撑高。退出登录按钮最小48dp，垂直内边距8dp，正常字号从64dp缩至48dp，大字体按内容撑高，保留红字及退出确认。CommunitySwitch的视觉轨道为42×26dp，48dp触控区保留，关闭滑块14dp、开启22dp，以同一200ms进度同步位置、大小与轨道颜色，遵循系统动画时长。开启用LogoYellow，关闭中性灰，禁用降低整体不透明度；不引入Material默认开关外观。
 
 Foundation 输入和自绘单选、开关、扁平按钮形成统一控件。举报使用独立整页，分组原因行、无描边说明与底部提交，继续消费网站动态原因、字数、违法确认和写入锁。发帖用分类选择行、较大标题、开放正文与底部工具条；分类通过新底部选择面板。回复在话题上方以 CommunitySheet 展示，进入聚焦并显示键盘，保留实际楼层作为发送目标，关闭保存草稿。
 
@@ -26,6 +26,8 @@ Foundation 输入和自绘单选、开关、扁平按钮形成统一控件。举
 - 将回复做成独立导航 Dialog 能复用导航生命周期，但独立窗口会增加话题背景、键盘和已有同窗口模态协调；采用话题条目内的面板，ViewModel 仍按账号和楼层隔离。
 
 ## Testing
+
+2026-10-11：退出登录按钮由64dp缩至最小48dp，仅缩减内边距。SettingsModalUiTest的退出确认与防重复调用用例真机通过（artifacts/logout-height-device.txt）。实际设置页正常字号按钮144px高（48dp），130%字号自动增至170px，文字完整；artifacts/logout-height-live-default.png与logout-height-live-large.png均已查看，字体已恢复“跟随系统”，底栏搜索偏好及账号保留，未执行真实退出。
 
 2026-10-11：SettingsDensityUiTest两项通过（artifacts/switch-final-device.txt），验证52dp单行、48dp触控区、开关增长/缩小中间帧和禁用态。冻结Compose动画时按压indication会压暗白色滑块，像素检测按明亮中性色识别并允许6%抗锯齿偏差；禁用状态改变后推进一帧再断言，避免测试时钟暂停导致未重组。实际设置截图artifacts/interface-settings-live.png已查看，组内细分隔线和紧凑行高清晰。
 
