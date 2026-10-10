@@ -37,6 +37,30 @@ class CommunityFormsUiTest {
         }
     }
 
+    @Test fun replyHintUsesTargetNicknameAndUsernameFallbackWithoutChangingDraft() {
+        val topicAuthor = Member(1, "topic_user", "主题昵称", "")
+        val floorAuthor = Member(2, "floor_user", "楼层昵称", "")
+        var target by mutableStateOf<Member?>(topicAuthor)
+        var draft by mutableStateOf(Draft())
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            EditorForm(draft, emptyList(), { draft = it }, {}, {}, {}, reply = true,
+                replyRules = ReplyRules(16, 64000), replyAuthor = target)
+        } }
+        compose.onNodeWithText("回复 主题昵称").assertIsDisplayed()
+        compose.onNodeWithText("回复 topic_user").assertDoesNotExist()
+        compose.runOnIdle { target = floorAuthor }
+        compose.onNodeWithText("回复 楼层昵称").assertIsDisplayed()
+        compose.onNodeWithTag("editor-body").performTextInput("继续写草稿")
+        compose.onNodeWithText("回复 楼层昵称").assertDoesNotExist()
+        compose.runOnIdle { target = topicAuthor; assertEquals("继续写草稿", draft.raw) }
+        compose.onNodeWithTag("editor-body").assertTextEquals("继续写草稿")
+        compose.onNodeWithTag("editor-body").performTextClearance()
+        compose.runOnIdle { target = floorAuthor.copy(name = "") }
+        compose.onNodeWithText("回复 floor_user").assertIsDisplayed()
+        compose.runOnIdle { target = null }
+        compose.onNodeWithText("回复", substring = false).assertIsDisplayed()
+    }
+
     @Test fun newTopicUsesCategorySheetAndOpenInputsAndPreservesToolCallbacks() {
         var draft by mutableStateOf(Draft())
         var published = 0; var images = 0

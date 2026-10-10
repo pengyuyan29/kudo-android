@@ -30,7 +30,7 @@ class TopicBoostsUiTest {
     private val first = Post(1, 1, author, "<p>主帖正文</p>", "", 0, false, null, null, true,
         boosts = listOf(PostBoost(100, author, "<p>支持一下😀</p>")), canBoost = true)
     private val root = first.copy(id = 2, number = 2, cooked = "<p>评论正文</p>", boosts = emptyList())
-    private val child = first.copy(id = 3, number = 3, replyTo = 2, cooked = "<p>楼中楼正文</p>", boosts = listOf(PostBoost(101, author, "<p>回复也可以 Boost</p>")))
+    private val child = first.copy(id = 3, number = 3, author = author.copy(id = 7, username = "floor_user", name = "楼层昵称"), replyTo = 2, cooked = "<p>楼中楼正文</p>", boosts = listOf(PostBoost(101, author, "<p>回复也可以 Boost</p>")))
     private val detail = TopicDetail(5, "帖子与 Boost", 1, listOf(first, root, child), listOf(1, 2, 3), false)
 
     private val manyBoosts = (0 until 12).map { index ->
@@ -197,7 +197,9 @@ class TopicBoostsUiTest {
         } }
         compose.onNodeWithTag("boost-100").assertExists()
         compose.onNodeWithContentDescription("Boost 主帖").performClick()
+        compose.onNodeWithText("boost author").assertIsDisplayed()
         compose.onNodeWithTag("boost-input").assertIsFocused().performTextInput("😀".repeat(6))
+        compose.onNodeWithText("boost author").assertDoesNotExist()
         compose.onNodeWithText("发送").assertIsNotEnabled()
         compose.onNodeWithTag("boost-input").performTextReplacement("字".repeat(17))
         compose.onNodeWithText("发送").assertIsNotEnabled()
@@ -221,6 +223,8 @@ class TopicBoostsUiTest {
         compose.onNodeWithTag("boost-101").performScrollTo().assertIsDisplayed()
         compose.onNode(hasContentDescription("Boost 此帖子") and hasAnyAncestor(hasTestTag("post-3")))
             .performScrollTo().performClick()
+        compose.onNodeWithText("boost floor_user").assertIsDisplayed()
+        compose.onNodeWithText("boost 楼层昵称").assertDoesNotExist()
         compose.onNodeWithTag("boost-input").performTextInput("可以继续加油😀")
         compose.onNodeWithText("发送").assertIsEnabled()
         val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()

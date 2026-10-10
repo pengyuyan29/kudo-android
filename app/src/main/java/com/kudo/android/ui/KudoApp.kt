@@ -294,7 +294,10 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                 snackbar.showSnackbar(if (result.queued) "内容已提交，等待社区审核" else "发布成功")
                             } }
                             ReplyEditorSheet(replyVisibility, editorVm.sending, { replyVisibility.targetState = false }) {
-                                EditorScreen(editorVm, account.categories, account.categoryError, account::loadCategories, { keyboard?.hide(); replyVisibility.targetState = false })
+                                val replyAuthor = if (target > 0) state.allPosts.firstOrNull { it.number == target }?.author
+                                    else state.authorProfile ?: state.detail?.author
+                                EditorScreen(editorVm, account.categories, account.categoryError, account::loadCategories,
+                                    { keyboard?.hide(); replyVisibility.targetState = false }, replyAuthor = replyAuthor)
                             }
                         }
                         }

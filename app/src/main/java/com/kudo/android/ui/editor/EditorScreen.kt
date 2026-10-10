@@ -26,14 +26,15 @@ import com.kudo.android.ui.components.liquid.LiquidModalAction
 import com.kudo.android.ui.theme.LogoYellow
 
 @Composable
-fun EditorScreen(vm: EditorViewModel, categories: List<Category>, categoryError: Throwable?, reloadCategories: () -> Unit, back: () -> Unit) {
+fun EditorScreen(vm: EditorViewModel, categories: List<Category>, categoryError: Throwable?, reloadCategories: () -> Unit, back: () -> Unit,
+    replyAuthor: Member? = null) {
     val context = LocalContext.current
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let { vm.upload(context, it) } }
     BackHandler(vm.sending) { /* Keep the active request attached to its editor. */ }
     EditorForm(vm.draft, categories, vm::edit, vm::publish, { picker.launch("image/*") }, back,
         reply = vm.topicId != null, categoryError = categoryError, reloadCategories = reloadCategories,
         sending = vm.sending, uploading = vm.uploading, error = vm.error,
-        replyRules = vm.replyRules, rulesError = vm.rulesError, reloadRules = vm::reloadReplyRules)
+        replyRules = vm.replyRules, rulesError = vm.rulesError, reloadRules = vm::reloadReplyRules, replyAuthor = replyAuthor)
 }
 
 @Composable
@@ -47,7 +48,7 @@ internal fun ReplyEditorSheet(visibility: MutableTransitionState<Boolean>, sendi
 internal fun EditorForm(draft: Draft, categories: List<Category>, edit: (Draft) -> Unit, publish: () -> Unit,
     pickImage: () -> Unit, back: () -> Unit, reply: Boolean = false, categoryError: Throwable? = null,
     reloadCategories: () -> Unit = {}, sending: Boolean = false, uploading: Boolean = false, error: String? = null,
-    replyRules: ReplyRules? = null, rulesError: String? = null, reloadRules: () -> Unit = {}) {
+    replyRules: ReplyRules? = null, rulesError: String? = null, reloadRules: () -> Unit = {}, replyAuthor: Member? = null) {
     val categorySheet = remember { MutableTransitionState(false) }
     val categoryShowing = categorySheet.currentState || categorySheet.targetState
     val bodyFocus = remember { FocusRequester() }
@@ -89,7 +90,8 @@ internal fun EditorForm(draft: Draft, categories: List<Category>, edit: (Draft) 
                 }
                 CommunityTextField(draft.raw, { edit(draft.copy(raw = it)) }, Modifier.fillMaxWidth()
                     .then(if (reply) Modifier.heightIn(min = 80.dp, max = 180.dp) else Modifier.heightIn(min = 280.dp))
-                    .padding(vertical = 14.dp).focusRequester(bodyFocus).testTag("editor-body"), placeholder = if (reply) "写下你的回复…" else "正文",
+                    .padding(vertical = 14.dp).focusRequester(bodyFocus).testTag("editor-body"),
+                    placeholder = if (reply) replyAuthor?.displayName?.takeIf(String::isNotBlank)?.let { "回复 $it" } ?: "回复" else "正文",
                     enabled = enabled, minLines = if (reply) 3 else 8)
             }
             error?.let { Text(it, Modifier.padding(horizontal = 20.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }

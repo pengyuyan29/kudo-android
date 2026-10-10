@@ -33,7 +33,7 @@ import com.kudo.android.ui.components.*
 
 @Composable
 internal fun BoostForm(raw: String, change: (String) -> Unit, state: TopicState, sending: Boolean,
-    send: () -> Unit, close: () -> Unit, retry: () -> Unit) {
+    send: () -> Unit, close: () -> Unit, retry: () -> Unit, username: String) {
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val names = state.boostEmojis
@@ -46,7 +46,7 @@ internal fun BoostForm(raw: String, change: (String) -> Unit, state: TopicState,
             CommunityIconButton(Icons.Rounded.Close, "关闭 Boost", close, enabled = !sending)
         }
         CommunityTextField(raw, change, Modifier.fillMaxWidth().heightIn(min = 80.dp).focusRequester(focus).testTag("boost-input"),
-            placeholder = "用一句话为帖子加油", enabled = !sending, maxLines = 4,
+            placeholder = if (username.isBlank()) "boost" else "boost $username", enabled = !sending, maxLines = 4,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { if (ready) send() }))
         if (state.boostRulesError != null) {

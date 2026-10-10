@@ -197,7 +197,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             dismissEnabled = !boosting, scrollContent = false, showActions = false) {
             BoostForm(boostRaw, { boostRaw = it }, state, boosting,
                 send = { boostPost?.let { post -> boost(post, boostRaw) { boostRaw = ""; closeBoost() } } },
-                close = ::closeBoost, retry = loadBoostRules)
+                close = ::closeBoost, retry = loadBoostRules, username = boostPost?.author?.username.orEmpty())
         }
         CommunitySheet(floorVisibility, "楼层跳转", { if (!state.jumping) { keyboard?.hide(); floorVisibility.targetState = false } },
             dismissEnabled = !state.jumping, showActions = false) {
