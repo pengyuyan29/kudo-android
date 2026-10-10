@@ -6,6 +6,7 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,7 @@ import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
 import com.kudo.android.ui.components.liquid.LiquidModal
 import com.kudo.android.ui.components.liquid.LiquidModalAction
+import kotlinx.coroutines.flow.first
 
 @Composable
 fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}) {
@@ -60,6 +62,11 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             }
         }
     }
+    val hasMore = detail?.stream?.any { id -> state.allPosts.none { it.id == id } } == true
+    val covered = LocalReadingBlocked.current
+    AutomaticPostLoading(listState, "more-posts", detail?.stream to state.allPosts.map(Post::id),
+        hasMore && !showing && !covered && !state.loading && !state.loadingMore && !state.contextLoading &&
+            state.error == null && state.moreError == null && (state.targetNumber == null || located), more)
     TopicReadingEnvironment(detail?.id ?: 0, state.viewerId, readingEnabled && detail != null && !state.loading, onReadingBatch) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Box(Modifier.fillMaxSize().layerBackdrop(modalBackdrop)
@@ -98,7 +105,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                         if (state.contextError != null) item { TextButton(onClick = resolveContext) { Text("部分原评论暂不可访问，点击重试") } }
                         if (state.loadingMore) item { LoadingRow() }
                         else if (state.moreError != null) item { ErrorState(state.moreError, more, login) }
-                        else if (detail.stream.any { id -> state.allPosts.none { it.id == id } }) item { TextButton(onClick = more, modifier = Modifier.fillMaxWidth()) { Text("加载更多楼层（已显示 ${state.allPosts.size.coerceAtMost(detail.stream.size)} / ${detail.stream.size}）") } }
+                        else if (hasMore) item("more-posts") { Text("上拉继续加载楼层", Modifier.fillMaxWidth().padding(20.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
                         else item { Text("已读完全部回复", Modifier.fillMaxWidth().padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
                     }
                 }
@@ -119,6 +126,11 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                 if (index >= 0) { threadList.scrollToItem(index + 1); threadLocated = true }
             }
         }
+        val threadLoad = thread?.let { state.replyLoads[it.root.id] }
+        AutomaticPostLoading(threadList, "more-replies", threadRootId to threadLoad?.cursors,
+            threadVisibility.targetState && !reactionShowing && !covered && thread != null && state.hasMoreReplies(thread.root) &&
+                !state.loading && !state.contextLoading && threadLoad?.loading != true && threadLoad?.error == null &&
+                (threadTarget == null || threadLocated)) { thread?.let { loadReplies(it.root, false) } }
         Box(Modifier.fillMaxSize().then(if (reactionShowing) Modifier.clearAndSetSemantics {} else Modifier)
             .focusProperties { onEnter = { if (reactionShowing) cancelFocusChange() } }.focusGroup()) {
             LiquidModal(threadVisibility, "评论回复", true, modalBackdrop, glass, { threadVisibility.targetState = false },
@@ -134,7 +146,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                         val load = state.replyLoads[thread.root.id]
                         if (load?.loading == true) item { LoadingRow() }
                         else if (load?.error != null) item { ErrorState(load.error, { loadReplies(thread.root, false) }, login) }
-                        else if (state.hasMoreReplies(thread.root)) item { TextButton({ loadReplies(thread.root, false) }, Modifier.fillMaxWidth()) { Text("加载更多回复") } }
+                        else if (state.hasMoreReplies(thread.root)) item("more-replies") { Text("上拉继续加载回复", Modifier.fillMaxWidth().padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         else item { Text("已显示全部回复", Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                     }
@@ -152,5 +164,18 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             }
         }
     }
+    }
+}
+
+@Composable
+private fun AutomaticPostLoading(list: LazyListState, footer: String, progress: Any?, enabled: Boolean, load: () -> Unit) {
+    val latestLoad by rememberUpdatedState(load)
+    LaunchedEffect(list, footer, progress, enabled) {
+        if (!enabled) return@LaunchedEffect
+        snapshotFlow {
+            val layout = list.layoutInfo
+            layout.visibleItemsInfo.any { it.key == footer && it.offset < layout.viewportEndOffset && it.offset + it.size > layout.viewportStartOffset }
+        }.first { it }
+        latestLoad()
     }
 }
