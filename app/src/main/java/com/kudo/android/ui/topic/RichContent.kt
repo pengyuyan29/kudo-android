@@ -9,12 +9,17 @@ import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Mood
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -27,11 +32,13 @@ import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.em
@@ -50,6 +57,7 @@ import java.util.UUID
 
 sealed interface ArticleBlock {
     data class TextBlock(val html: String, val quote: Boolean = false, val heading: Boolean = false) : ArticleBlock
+    data class Quote(val blocks: List<ArticleBlock>, val author: String = "", val avatar: String? = null, val source: String? = null) : ArticleBlock
     data class Code(val text: String) : ArticleBlock
     data class Image(
         val url: String, val alt: String, val ratio: Float? = null,
@@ -119,7 +127,24 @@ fun parseArticle(html: String): List<ArticleBlock> {
                 if (element.hasClass("onebox")) {
                     val link = element.selectFirst("a[href]")
                     link?.let { a -> LinuxDoLink.webUrl(a.attr("href"))?.let { result.add(ArticleBlock.Embed(it, a.text().ifBlank { "打开链接" })) } }
-                } else element.children().forEach { walk(it, true) }
+                } else {
+                    val siteQuote = element.normalName() == "aside" && element.hasClass("quote")
+                    val title = if (siteQuote) element.children().firstOrNull { it.hasClass("title") } else null
+                    val author = if (siteQuote) element.attr("data-display-name").ifBlank {
+                        title?.clone()?.apply { select("img, .quote-controls").remove() }?.text()?.trim()?.removeSuffix(":").orEmpty()
+                    }.ifBlank { element.attr("data-username") } else ""
+                    val topic = element.attr("data-topic").toIntOrNull()?.takeIf { it > 0 }
+                    val post = element.attr("data-post").toIntOrNull()?.takeIf { it > 0 }
+                    val source = if (siteQuote && topic != null) "https://linux.do/t/topic/$topic" + (post?.let { "/$it" } ?: "") else null
+                    val body = element.clone().apply {
+                        if (title != null) children().firstOrNull { it.hasClass("title") }?.remove()
+                        // The direct blockquote is the site's body wrapper, not a second nested quote.
+                        if (siteQuote) children().filter { it.normalName() == "blockquote" }.forEach { it.unwrap() }
+                    }
+                    val content = parseArticle(body.html()).map { if (it is ArticleBlock.TextBlock) it.copy(quote = true) else it }
+                    if (content.isNotEmpty() || author.isNotBlank()) result.add(ArticleBlock.Quote(content, author,
+                        title?.selectFirst("img.avatar")?.attr("src")?.let(::mediaUrl), source))
+                }
             }
             "p", "h1", "h2", "h3", "h4", "li", "summary" -> {
                 val images = element.select("img:not(.emoji)")
@@ -139,6 +164,24 @@ fun parseArticle(html: String): List<ArticleBlock> {
     walk(Jsoup.parseBodyFragment(html).body())
     return result
 }
+
+private data class ArticleImageLocation(val image: ArticleBlock.Image, val path: String, val quotes: List<String>)
+
+private fun articleImageLocations(blocks: List<ArticleBlock>): List<ArticleImageLocation> = buildList {
+    fun visit(items: List<ArticleBlock>, parent: String, quotes: List<String>) {
+        items.forEachIndexed { index, block ->
+            val path = "$parent-$index"
+            when (block) {
+                is ArticleBlock.Image -> add(ArticleImageLocation(block, path, quotes))
+                is ArticleBlock.Quote -> visit(block.blocks, path, quotes + path)
+                else -> Unit
+            }
+        }
+    }
+    visit(blocks, "root", emptyList())
+}
+
+internal fun List<ArticleBlock>.articleImages(): List<ArticleBlock.Image> = articleImageLocations(this).map { it.image }
 
 internal data class InlineEmoji(val url: String, val name: String)
 internal data class InlineArticle(val text: AnnotatedString, val emojis: Map<String, InlineEmoji>)
@@ -203,21 +246,71 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
     val linkHandler = remember(onLink) { object : UriHandler {
         override fun openUri(uri: String) = onLink(uri)
     } }
-    val images = remember(blocks) { blocks.filterIsInstance<ArticleBlock.Image>() }
+    val locations = remember(blocks) { articleImageLocations(blocks) }
+    val imageIndices = remember(locations) { locations.mapIndexed { index, location -> location.path to index }.toMap() }
+    val images = remember(locations) { locations.map { it.image } }
     val anchors = remember(blocks) { List(images.size) { GalleryThumbnailAnchor() } }
+    var collapsed by rememberSaveable(html, stateSaver = listSaver<List<String>, String>(save = { it }, restore = { it })) {
+        mutableStateOf<List<String>>(emptyList())
+    }
     val gallery = LocalImageGallery.current
     val origin = rememberSaveable { UUID.randomUUID().toString() }
     val bottomInset = with(LocalDensity.current) { galleryBottomInset.toPx() }
     RegisterGalleryOrigin(origin) { image, index ->
         anchors.getOrNull(index)?.takeIf { images.getOrNull(index)?.let { sameGalleryImage(it, image) } == true }?.also {
+            val ancestors = locations[index].quotes
+            if (ancestors.any { path -> path in collapsed }) {
+                collapsed = collapsed.filterNot { path -> path in ancestors }
+                withFrameNanos { }
+                while (it.coordinates?.isAttached != true) withFrameNanos { }
+            }
             val size = it.coordinates?.takeIf { layout -> layout.isAttached }?.size
             it.requester.bringIntoView(size?.let { bounds -> Rect(0f, 0f, bounds.width.toFloat(), bounds.height + bottomInset) })
             withFrameNanos { }
         }
     }
+    ArticleBlocks(blocks, "root", collapsed, { path ->
+        collapsed = if (path in collapsed) collapsed - path else collapsed + path
+    }, onLink, linkHandler) { block, path ->
+        val index = imageIndices.getValue(path)
+        ArticleImage(block, anchors[index], "article-image-$galleryKey-$index") {
+            if (gallery == null) onImage(block.originalUrl)
+            else gallery.open(images, index, origin, anchors[index])
+        }
+    }
+}
+
+@Composable
+private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed: List<String>, toggle: (String) -> Unit,
+    onLink: (String) -> Unit, linkHandler: UriHandler, image: @Composable (ArticleBlock.Image, String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        var imageIndex = 0
-        blocks.forEach { block -> when (block) {
+        blocks.forEachIndexed { index, block ->
+            val path = "$parent-$index"
+            key(path) { when (block) {
+            is ArticleBlock.Quote -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp).testTag("article-quote-$path"),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (block.author.isNotBlank() || block.source != null) {
+                    val hidden = path in collapsed
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.weight(1f).heightIn(min = 36.dp).clickable(role = Role.Button) { toggle(path) }
+                            .semantics { contentDescription = if (hidden) "展开引用" else "收起引用" },
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            block.avatar?.let { url -> AsyncImage(url, "引用作者头像", Modifier.size(20.dp)
+                                .clip(RoundedCornerShape(50)).testTag("quote-avatar-$path"), contentScale = ContentScale.Crop) }
+                            Text(block.author.ifBlank { "引用" }, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Icon(if (hidden) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess, null,
+                                Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        block.source?.let { source -> Box(Modifier.size(36.dp).clickable(role = Role.Button) { onLink(source) }
+                            .semantics { contentDescription = "跳转引用原帖" }, contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.NorthEast, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } }
+                    }
+                }
+                if (path !in collapsed) ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, image)
+            }
             is ArticleBlock.TextBlock -> {
                 val color = MaterialTheme.colorScheme.primary
                 val article = remember(block.html, color) { parseInlineArticle(block.html, color) }
@@ -230,23 +323,17 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
                 }
                 CompositionLocalProvider(LocalUriHandler provides linkHandler) {
                     SelectionContainer {
-                        Text(article.text, Modifier.fillMaxWidth().then(if (block.quote) Modifier.background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(9.dp)).padding(12.dp) else Modifier), inlineContent = inline, style = if (block.heading) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge, color = if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                        Text(article.text, Modifier.fillMaxWidth(), inlineContent = inline, style = if (block.heading) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge, color = if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
                     }
                 }
             }
             is ArticleBlock.Code -> SelectionContainer {
                 Text(block.text, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).horizontalScroll(rememberScrollState()).padding(13.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
             }
-            is ArticleBlock.Image -> {
-                val index = imageIndex++
-                ArticleImage(block, anchors[index], "article-image-$galleryKey-$index") {
-                    if (gallery == null) onImage(block.originalUrl)
-                    else gallery.open(images, index, origin, anchors[index])
-                }
-            }
+            is ArticleBlock.Image -> image(block, path)
             is ArticleBlock.Embed -> Text("↗ ${block.title}", Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onLink(block.url) }.padding(14.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
             ArticleBlock.Rule -> Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
-        } }
+        } } }
     }
 }
 

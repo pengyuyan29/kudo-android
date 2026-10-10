@@ -40,7 +40,18 @@ internal fun UserSignature(post: Post, openLink: (String) -> Unit,
     if (blocks.isEmpty()) return
     Column(Modifier.fillMaxWidth().testTag("user-signature-${post.id}"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        blocks.forEach { block -> when (block) {
+        SignatureContent(blocks, openLink, svgWebViewFactory)
+    }
+}
+
+@Composable
+private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> Unit, svgWebViewFactory: (Context) -> WebView) {
+    blocks.forEach { block -> when (block) {
+            is ArticleBlock.Quote -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (block.author.isNotBlank()) Text(block.author, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SignatureContent(block.blocks, openLink, svgWebViewFactory)
+            }
             is ArticleBlock.Image -> BoxWithConstraints(Modifier.fillMaxWidth().heightIn(max = 120.dp)
                 .aspectRatio(block.ratio ?: 3.8f).clip(RoundedCornerShape(6.dp))
                 .semantics { contentDescription = "用户签名图片" }) {
@@ -61,5 +72,4 @@ internal fun UserSignature(post: Post, openLink: (String) -> Unit,
             is ArticleBlock.Code -> Text(block.text, style = MaterialTheme.typography.bodySmall)
             ArticleBlock.Rule -> Unit
         } }
-    }
 }

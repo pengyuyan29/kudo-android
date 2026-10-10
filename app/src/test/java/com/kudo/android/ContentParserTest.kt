@@ -37,7 +37,7 @@ class ContentParserTest {
         val blocks = parseArticle("""<p>正文 <strong>加粗</strong></p><blockquote><p>引用</p></blockquote><pre><code>val x = 1
 println(x)</code></pre><p><img src="/uploads/image.png" width="800" height="600" alt="图"></p><script>alert(1)</script><iframe src="javascript:alert(1)"></iframe>""")
         assertEquals(4, blocks.size)
-        assertTrue((blocks[1] as ArticleBlock.TextBlock).quote)
+        assertTrue(((blocks[1] as ArticleBlock.Quote).blocks.single() as ArticleBlock.TextBlock).quote)
         assertTrue((blocks[2] as ArticleBlock.Code).text.contains("\n"))
         assertEquals("https://linux.do/uploads/image.png", (blocks[3] as ArticleBlock.Image).url)
     }
@@ -60,7 +60,7 @@ println(x)</code></pre><p><img src="/uploads/image.png" width="800" height="600"
     }
 
     @Test fun repeatedAndQuotedEmojisStayInlineWhileOrdinaryImagesStayBlocks() {
-        val blocks = parseArticle("""<blockquote><p>A<img class="emoji" src="/one.png" alt=":one:"><img class="emoji" src="/one.png" alt=":one:">B<img src="/photo.png"></p></blockquote>""")
+        val blocks = (parseArticle("""<blockquote><p>A<img class="emoji" src="/one.png" alt=":one:"><img class="emoji" src="/one.png" alt=":one:">B<img src="/photo.png"></p></blockquote>""").single() as ArticleBlock.Quote).blocks
         val text = blocks[0] as ArticleBlock.TextBlock
         assertTrue(text.quote)
         val inline = parseInlineArticle(text.html, Color.Blue)

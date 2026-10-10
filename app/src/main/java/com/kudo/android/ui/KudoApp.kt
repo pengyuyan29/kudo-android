@@ -122,7 +122,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                 val first = detail.originalPost ?: detail.stream.firstOrNull()?.let { firstId ->
                     app.repository.posts(id, listOf(firstId)).firstOrNull { it.number == 1 }
                 }
-                parseArticle(first?.cooked ?: error("暂时无法读取主帖图片")).filterIsInstance<ArticleBlock.Image>()
+                parseArticle(first?.cooked ?: error("暂时无法读取主帖图片")).articleImages()
             }, openLink = ::openLink, accountKey = account.user?.id) {
             TopicActionsHost(app.repository, account.user, display.glass, ::login,
                 ignored = { id, username -> account.recordIgnore(id, username, true); refreshEpoch++ },
