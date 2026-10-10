@@ -14,7 +14,9 @@ Status: implemented
 
 Post 读取 user_signature（图片 URL 或 cooked HTML），Member 读取 profile_background_upload_url 和 card_background_upload_url。签名使用本机 show_signatures 偏好，默认 false，设置界面立即更新；关闭时不创建图片请求。主帖和完整回复正文下显示签名，楼中楼短预览不放签名。原生解析文字、链接和图片，不执行网页脚本；复用 GIF/WebP/APNG 解码及前台生命周期，尺寸遵循独立满宽规则。
 
-已登录“我的”使用 profile_background_upload_url 作为沉浸式资料标题，覆盖状态栏并加遮罩，空值或失败使用 LogoYellow；公开个人主页标题也使用该字段。card_background_upload_url 保留为用户卡片的独立字段。会话接口不保证背景字段，个人中心按账号补齐公开资料，较早账号的响应不得覆盖新账号。头像进入个人主页，无独立“查看个人主页”行或顶部标题、设置按钮。
+已登录“我的”使用 profile_background_upload_url 作为沉浸式资料标题，覆盖状态栏并加遮罩，空值或失败使用 LogoYellow。card_background_upload_url 是用户卡片的独立字段。会话接口不保证背景字段，个人中心按账号补齐公开资料，较早账号的响应不得覆盖新账号。头像进入个人主页，无独立“查看个人主页”行或顶部标题、设置按钮。
+
+公开主页的背景选择由[完整公开主页](2026-10-10-public-user-profile.md)部分取代：使用独立卡片接口的 card_background_upload_url，未设置或失败回退头像加遮罩。本篇“我的”使用资料标题图、失败为黄色的约定继续有效，两处不能再次混用。
 
 个人摘要使用 /u/{username}/summary.json，默认显示访问天数、已读帖子、获赞、发帖数。未知值显示破折号，辅助读取失败可以重试，不能把失败显示成零。主题统一接收状态栏前景覆盖，离开资料页恢复系统主题前景。原生目的页与消息分组见[个人中心功能](2026-10-10-member-account-dashboard.md)。
 

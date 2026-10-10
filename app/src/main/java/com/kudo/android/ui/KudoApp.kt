@@ -312,7 +312,21 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             ErrorState(ApiFailure(FailureKind.NOT_FOUND, "内容不存在或暂无权限"), {}, ::login, { nav.popBackStack() })
                         }
                     }
-                    composable("user/{username}") { entry -> UserScreen(entry.arguments!!.getString("username")!!, app.repository, { nav.popBackStack() }, ::login, ::openWebPage) }
+                    composable("user-search/{username}") { entry ->
+                        val username = entry.arguments!!.getString("username")!!
+                        val vm = model("user-search-$username") { SearchViewModel(app.repository).also { it.search("@${username}") } }
+                        val state by vm.state.collectAsStateWithLifecycle()
+                        SearchScreen(state, vm::search, { nav.popBackStack() }, { topic(it) }, ::user, ::login, listStyle = display.topicListStyle)
+                    }
+                    composable("user/{username}") { entry ->
+                        val username = entry.arguments!!.getString("username")!!
+                        key(username, account.user?.id) {
+                            UserScreen(username, app.repository, { nav.popBackStack() }, ::login, ::openLink,
+                                viewerId = account.user?.id, statusBarStyle = { darkStatusIcons = it },
+                                search = { nav.navigate("user-search/${Uri.encode(username)}") },
+                                message = { authenticated { nav.navigate("new-message?recipient=${Uri.encode(username)}") } }, openWeb = ::openWebPage)
+                        }
+                    }
                     composable("compose?topic={topic}&reply={reply}", arguments = listOf(navArgument("topic") { type = NavType.IntType; defaultValue = 0 }, navArgument("reply") { type = NavType.IntType; defaultValue = 0 })) { entry ->
                         val topicId = entry.arguments!!.getInt("topic").takeIf { it > 0 }
                         val replyTo = entry.arguments!!.getInt("reply").takeIf { it > 0 }

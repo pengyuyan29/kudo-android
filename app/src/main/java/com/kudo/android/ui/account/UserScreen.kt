@@ -1,48 +1,218 @@
 package com.kudo.android.ui.account
 
-import androidx.compose.foundation.background
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.pager.*
+import androidx.compose.foundation.relocation.*
+import androidx.compose.foundation.selection.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.input.nestedscroll.*
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.*
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.kudo.android.ui.theme.LogoYellow
+import com.kudo.android.ui.topic.RichContent
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 @Composable
-fun UserScreen(username: String, repository: CommunityRepository, back: () -> Unit, login: () -> Unit, openLink: (String) -> Unit) {
-    var user by remember(username) { mutableStateOf<Member?>(null) }
-    var error by remember(username) { mutableStateOf<Throwable?>(null) }
-    var attempt by remember { mutableIntStateOf(0) }
-    LaunchedEffect(username, attempt) {
-        error = null
-        try { user = withContext(Dispatchers.IO) { repository.user(username) } }
-        catch (e: CancellationException) { throw e } catch (e: Exception) { error = e }
+fun UserScreen(username: String, repository: CommunityRepository, back: () -> Unit, login: () -> Unit,
+    openLink: (String) -> Unit, viewerId: Int? = null, statusBarStyle: (Boolean?) -> Unit = {},
+    search: () -> Unit = {}, message: () -> Unit = {}, openWeb: (String) -> Unit = openLink) {
+    val vm = viewModel<UserProfileViewModel>(key = "user-$username-$viewerId", factory = viewModelFactory {
+        initializer { UserProfileViewModel(repository, username, viewerId) }
+    })
+    val state by vm.state.collectAsStateWithLifecycle()
+    DisposableEffect(vm) { vm.resume(); onDispose { vm.stop() } }
+    val snackbar = remember { SnackbarHostState() }
+    LaunchedEffect(vm) { vm.events.collect { snackbar.showSnackbar(it) } }
+    Box(Modifier.fillMaxSize()) {
+        PublicProfilePage(state, viewerId, back, login, openLink, search, message, openWeb, statusBarStyle,
+            vm::refresh, vm::retrySummary, vm::retryCard, vm::load, vm::follow, vm::showFollows, vm::closeFollows)
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
     }
-    Column(Modifier.fillMaxSize()) {
-        PageTopBar("个人主页", back)
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(22.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(15.dp)) {
-            if (user == null && error == null) LoadingRow()
-            error?.let { ErrorState(it, { attempt++ }, login) }
-            user?.let {
-                UserBackground(it.profileBackground, MaterialTheme.colorScheme.background,
-                    Modifier.fillMaxWidth()) { hasBackground ->
-                Column(Modifier.fillMaxWidth().padding(vertical = 30.dp, horizontal = 12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(15.dp)) {
-                Avatar(it, 84.dp)
-                Text(it.displayName, style = MaterialTheme.typography.headlineSmall, color = if (hasBackground) Color.White else MaterialTheme.colorScheme.onSurface)
-                Text("@${it.username}  ·  Lv.${it.trustLevel}", color = if (hasBackground) Color.White.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+}
+
+@Composable
+internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: () -> Unit, login: () -> Unit,
+    openLink: (String) -> Unit, search: () -> Unit, message: () -> Unit, openWeb: (String) -> Unit,
+    statusBarStyle: (Boolean?) -> Unit = {}, refresh: () -> Unit = {}, retrySummary: () -> Unit = {}, retryCard: () -> Unit = {},
+    load: (ProfileTab, Boolean, Boolean) -> Unit = { _, _, _ -> }, follow: () -> Unit = {},
+    showFollows: (Boolean) -> Unit = {}, closeFollows: () -> Unit = {}) {
+    val profile = state.profile
+    val pager = rememberPagerState(pageCount = { ProfileTab.entries.size })
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val minimum = WindowInsets.statusBars.getTop(density) + with(density) { 48.dp.toPx() }
+    var headerHeight by remember(profile?.member?.id) { mutableFloatStateOf(with(density) { 400.dp.toPx() }) }
+    var collapse by remember(profile?.member?.id) { mutableFloatStateOf(0f) }
+    val maximum = (headerHeight - minimum).coerceAtLeast(0f)
+    val collapsed = collapse >= maximum - 1 && maximum > 0
+    val latestMaximum by rememberUpdatedState(maximum)
+    val nested = remember { object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            if (source != NestedScrollSource.UserInput || available.y >= 0) return Offset.Zero
+            val previous = collapse
+            collapse = (collapse - available.y).coerceIn(0f, latestMaximum)
+            return Offset(0f, previous - collapse)
+        }
+        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+            if (source != NestedScrollSource.UserInput || available.y <= 0) return Offset.Zero
+            val previous = collapse
+            collapse = (collapse - available.y).coerceIn(0f, latestMaximum)
+            return Offset(0f, previous - collapse)
+        }
+    } }
+    val latestLoad by rememberUpdatedState(load)
+    val activeTab = ProfileTab.entries[pager.settledPage]
+    val activeFeed = state.feeds[activeTab]
+    LaunchedEffect(activeTab, activeFeed?.loaded, activeFeed?.loading, activeFeed?.error) {
+        if (activeTab != ProfileTab.SUMMARY && activeFeed?.loaded != true && activeFeed?.loading != true && activeFeed?.error == null)
+            latestLoad(activeTab, false, false)
+    }
+    SideEffect { statusBarStyle(if (profile != null && !collapsed) false else null) }
+    DisposableEffect(Unit) { onDispose { statusBarStyle(null) } }
+    val moreVisibility = remember { MutableTransitionState(false) }
+    val followsVisibility = remember { MutableTransitionState(false) }
+    LaunchedEffect(state.showingFollowers) { followsVisibility.targetState = state.showingFollowers != null }
+    var selectedBadge by remember { mutableStateOf<UserBadge?>(null) }
+    val badgeVisibility = remember { MutableTransitionState(false) }
+    val context = LocalContext.current
+    val pageUrl = profile?.member?.username?.let { "https://linux.do/u/${android.net.Uri.encode(it)}" }.orEmpty()
+    BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).testTag("public-user-page")) {
+        val headerLimit = with(density) { (maxHeight - 120.dp).toPx().coerceAtLeast(minimum) }
+        if (profile == null) Column(Modifier.fillMaxSize()) {
+            PageTopBar("个人主页", back)
+            if (state.loading) LoadingRow() else state.error?.let { ErrorState(it, refresh, login) }
+        } else {
+            Column(Modifier.fillMaxSize().nestedScroll(nested)) {
+                Box(Modifier.fillMaxWidth().height(with(density) { (headerHeight - collapse.coerceAtMost(maximum)).coerceAtMost(headerLimit).toDp() }).clipToBounds()
+                    .scrollable(rememberScrollableState { delta ->
+                        val previous = collapse
+                        collapse = (collapse - delta).coerceIn(0f, maximum)
+                        previous - collapse
+                    }, Orientation.Vertical)) {
+                    PublicProfileHeader(profile, state.summary, state.cardBackground, viewerId, state.followBusy,
+                        { if (viewerId == null) login() else follow() }, { if (viewerId == null) login() else message() }, showFollows,
+                        Modifier.offset { IntOffset(0, -collapse.toInt()) }.wrapContentHeight(unbounded = true)
+                            .onSizeChanged { headerHeight = it.height.toFloat() }, openLink)
                 }
+                ProfileTabs(pager.currentPage) { index -> scope.launch { pager.animateScrollToPage(index) } }
+                HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth().testTag("profile-pager"), key = { ProfileTab.entries[it].name }) { index ->
+                    val tab = ProfileTab.entries[index]
+                    val scroll = rememberLazyListState()
+                    val feed = state.feeds[tab] ?: ProfileFeedState()
+                    val currentNext by rememberUpdatedState(feed.next)
+                    LaunchedEffect(scroll, feed.next, feed.loading, feed.error, pager.settledPage) {
+                        if (tab != ProfileTab.SUMMARY && index == pager.settledPage && feed.next != null && !feed.loading && feed.error == null) {
+                            snapshotFlow { scroll.layoutInfo.visibleItemsInfo.any { it.key == "profile-more" } }.distinctUntilChanged().collect { visible ->
+                                if (visible && currentNext != null) latestLoad(tab, true, false)
+                            }
+                        }
+                    }
+                    LazyColumn(Modifier.fillMaxSize().testTag("profile-list-${tab.name}"), state = scroll,
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        if (tab == ProfileTab.SUMMARY) {
+                            if (state.error != null) item { ErrorState(state.error, refresh, login, back) }
+                            if (state.summaryLoading && state.summary == null) item { LoadingRow() }
+                            if (state.summaryError != null) item { ErrorState(state.summaryError, retrySummary, login) }
+                            if (state.cardError != null) item { Text("背景暂未读取 · 点击重试", Modifier.padding(horizontal = 18.dp).clickable(onClick = retryCard),
+                                fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                            state.summary?.let { publicSummary(it, openLink) { value -> selectedBadge = value; badgeVisibility.targetState = true } }
+                            if (profile.joined.isNotBlank()) item { Text("注册于 ${profile.joined.take(10)}", Modifier.padding(18.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline) }
+                            item { Text("刷新资料", Modifier.fillMaxWidth().clickable(onClick = refresh).padding(18.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        } else {
+                            items(feed.entries, key = ProfileEntry::key) { ProfileEntryRow(it, openLink) }
+                            if (feed.loading || (!feed.loaded && feed.error == null)) item { LoadingRow() }
+                            if (feed.error != null) item { ErrorState(feed.error, { load(tab, feed.entries.isNotEmpty() && feed.next != null, true) }, login) }
+                            if (feed.loaded && feed.entries.isEmpty() && feed.error == null) item { EmptyState("暂无${tab.label}", "这里会显示用户公开的${tab.label}记录。") }
+                            if (feed.next != null && !feed.loading && feed.error == null) item("profile-more") {
+                                Text("继续加载", Modifier.fillMaxWidth().clickable { load(tab, true, false) }.padding(18.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (feed.loaded && feed.entries.isNotEmpty() && feed.next == null) item { Text("已显示全部", Modifier.padding(18.dp), fontSize = 11.sp, color = MaterialTheme.colorScheme.outline) }
+                        }
+                    }
                 }
-                if (it.bio.isNotBlank()) Text(it.bio, Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(18.dp), style = MaterialTheme.typography.bodyLarge)
-                OutlinedButton(onClick = { openLink("https://linux.do/u/${android.net.Uri.encode(username)}") }) { Text("在社区查看完整资料") }
+            }
+            ProfileToolbar(profile.member.displayName, collapsed, back, search, { moreVisibility.targetState = true }, Modifier.align(Alignment.TopCenter))
+        }
+        CommunitySheet(moreVisibility, "个人主页", { moreVisibility.targetState = false }, showActions = false) {
+            ProfileMenuRow("复制主页链接") {
+                (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("个人主页", pageUrl))
+                moreVisibility.targetState = false
+            }
+            ProfileMenuRow("分享个人主页") {
+                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, pageUrl), "分享个人主页"))
+                moreVisibility.targetState = false
+            }
+            ProfileMenuRow("在应用内网页查看") { moreVisibility.targetState = false; openWeb(pageUrl) }
+            ProfileMenuRow("刷新资料") { moreVisibility.targetState = false; refresh() }
+        }
+        CommunitySheet(followsVisibility, if (state.showingFollowers == true) "粉丝" else "关注", closeFollows, showActions = false, scrollContent = false) {
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+            if (state.followsLoading) item { LoadingRow() }
+            state.followsError?.let { error -> item { ErrorState(error, { showFollows(state.showingFollowers == true) }, login) } }
+            if (state.follows?.isEmpty() == true) item { Text("暂无公开用户", Modifier.padding(16.dp), fontSize = 14.sp) }
+            items(state.follows.orEmpty(), key = Member::username) { member ->
+                Row(Modifier.fillMaxWidth().clickable { closeFollows(); openLink("https://linux.do/u/${android.net.Uri.encode(member.username)}") }.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Avatar(member, 40.dp)
+                    Column { Text(member.displayName, fontSize = 14.sp); Text("@${member.username}", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
             }
         }
+        CommunitySheet(badgeVisibility, selectedBadge?.name.orEmpty(), { badgeVisibility.targetState = false }, showActions = false) {
+            selectedBadge?.let { badge -> RichContent(badge.longDescription.ifBlank { badge.description }, openLink, {}) }
+        }
+    }
+}
+
+@Composable
+private fun ProfileMenuRow(title: String, action: () -> Unit) {
+    Text(title, Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = action).padding(horizontal = 12.dp, vertical = 16.dp), fontSize = 14.sp)
+}
+
+@Composable
+private fun ProfileTabs(selected: Int, select: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).horizontalScroll(rememberScrollState()).selectableGroup()
+        .padding(horizontal = 5.dp).testTag("profile-tabs"), verticalAlignment = Alignment.CenterVertically) {
+        ProfileTab.entries.forEachIndexed { index, tab -> key(tab) {
+            val active = selected == index
+            val bring = remember { BringIntoViewRequester() }
+            LaunchedEffect(active) { if (active) bring.bringIntoView() }
+            Box(Modifier.bringIntoViewRequester(bring).selectable(active, role = Role.Tab, onClick = { select(index) })
+                .heightIn(min = 40.dp).padding(horizontal = 12.dp).testTag("profile-tab-${tab.name}"), contentAlignment = Alignment.Center) {
+                Text(tab.label, Modifier.padding(vertical = 7.dp).drawBehind {
+                    if (active) drawRoundRect(Brush.horizontalGradient(listOf(LogoYellow.copy(alpha = .22f), LogoYellow.copy(alpha = .95f), LogoYellow.copy(alpha = .35f))),
+                        Offset(0f, size.height * .57f), Size(size.width, size.height * .34f), CornerRadius(3.dp.toPx()))
+                }, fontSize = if (active) 16.sp else 14.sp, lineHeight = 23.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+                    color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } }
     }
 }
