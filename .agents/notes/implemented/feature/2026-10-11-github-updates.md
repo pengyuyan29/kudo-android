@@ -23,8 +23,10 @@ Status: implemented
 
 离线夹具验证数字排序、同版旧版、草稿预发布、404、限流、网络失败、空日志、重试以及源码外部回调。
 
-GitHubUpdatesTest的4项JVM测试通过。RMX2202 / Android13上UpdateUiTest的4项通过，验证外部源码回调、新版日志和下载回调、错误重试与同版空日志、退出取消请求以及360dp窗口130%字号长日志可滚动。AboutPageUiTest的4项同时通过，日志artifacts/update-device-tests.txt；同批独立开关像素测试失败另行修正，不归为更新功能失败。没有向私有仓库注入凭据或创建真实Release。
+GitHubUpdatesTest的5项JVM测试通过，末项断网用例记录于artifacts/github-network-test.txt。RMX2202 / Android13上UpdateUiTest的4项通过，验证外部源码回调、新版日志和下载回调、错误重试与同版空日志、退出取消请求以及360dp窗口130%字号长日志可滚动。AboutPageUiTest的4项同时通过，日志artifacts/update-device-tests.txt；同批独立开关像素测试失败另行修正，不归为更新功能失败。没有向私有仓库注入凭据或创建真实Release。
+
+实际账号About页截图artifacts/interface-about-live.png已查看。真机从“检查更新”匿名请求当前仓库，展示“暂无公开版本，仓库可能尚未公开或尚未发布正式版本”、重试和仓库入口，记录artifacts/interface-update-live.json；未误报已是最新。
 
 ## Consequences
 
-私有仓库公开前匿名API为404；GitHub网络不可达时检查失败。当前本地Debug签名不能直接被正式签名APK覆盖。
+App与GitHub Release共用一份日志，避免维护两套版本说明；代价是检查依赖GitHub网络和公开正式版本。私有仓库公开前匿名API为404；GitHub网络不可达时检查失败。当前本地Debug签名不能直接被正式签名APK覆盖。

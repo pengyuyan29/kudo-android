@@ -27,6 +27,8 @@ Foundation 输入和自绘单选、开关、扁平按钮形成统一控件。举
 
 ## Testing
 
+2026-10-11：SettingsDensityUiTest两项通过（artifacts/switch-final-device.txt），验证52dp单行、48dp触控区、开关增长/缩小中间帧和禁用态。冻结Compose动画时按压indication会压暗白色滑块，像素检测按明亮中性色识别并允许6%抗锯齿偏差；禁用状态改变后推进一帧再断言，避免测试时钟暂停导致未重组。实际设置截图artifacts/interface-settings-live.png已查看，组内细分隔线和紧凑行高清晰。
+
 EditorLifecycleUiTest 先复现成功后内存草稿仍保留，日志 artifacts/editor-reuse-repro-device.txt，再修复；不同回复目标隔离、失败保留与成功清理三项全部通过。CommunityFormsUiTest 三项覆盖发帖分类和工具、回复聚焦/键盘避让/拖关重开、深色130%字号整页举报及违法确认校验，全部通过。
 
 键盘验证要求测试 Activity 与 MainActivity 一样使用 edge-to-edge 和 adjustResize。空白测试 Activity 原先使用 adjustPan，系统键盘可见但 Compose 不接收预期的 IME Insets，导致超时；修正测试窗口后通过，不保留无证据的产品延时调整。测试机存在实体键盘，临时通过系统设置打开“使用屏幕键盘”完成测试，结束恢复 show_ime_with_hard_keyboard=0。单项通过日志 artifacts/reply-production-window-device.txt；整批36项全部通过日志 artifacts/coolapk-forms-final-device.txt。129项 JVM 测试、Debug/测试 APK 构建通过，Lint 为0错误、30条现有警告和1条提示。

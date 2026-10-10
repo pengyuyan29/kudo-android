@@ -17,11 +17,14 @@ CommunitySheet默认隐藏可见标题及动作区，保留paneTitle语义。Liq
 ## Alternatives considered
 
 - 每个调用都显式隐藏标题和取消，可避免默认值变化，但容易漏掉新增面板，采用精简默认及更多菜单显式例外。
+- 根据“取消/关闭”文字在共享按钮中过滤可少改调用点，但无法判断更多菜单例外且会留下空动作区，采用面板配置和业务动作显式保留。
 
 ## Verification
 
 普通设置面板无可见标题和取消，拖动、遮罩、返回关闭仍有效；更多菜单保留取消；确认、删除与提交仍可达。
 
+2026-10-11相关71项真机用例最终通过，分别记录于artifacts/interface-device-tests.txt、update-device-tests.txt、sheet-migration-tests.txt、interface-final-recheck.txt和switch-final-device.txt；前几轮失败的开关像素与楼中楼测试已在最后复跑修正。楼中楼采用现有预览→跳到帖子→更多操作路径，旧用例曾查找被面板隔离的后台按钮，修正测试后验证实际可操作入口。实际设置选项面板截图artifacts/interface-sheet-live.png已查看，无标题和取消区。构建及Lint通过，0错误、37条现有警告及1条提示。
+
 ## Consequences
 
-旧UI测试依赖取消和标题，需迁移为手势和paneTitle验证；不能直接批量删除居中确认的取消按钮。
+普通面板减少重复关闭控件，更多菜单和居中确认保留明确取消路径。旧UI测试迁移为手势和paneTitle验证；新增面板若需业务动作区必须显式开启，不能直接批量删除居中确认的取消按钮。

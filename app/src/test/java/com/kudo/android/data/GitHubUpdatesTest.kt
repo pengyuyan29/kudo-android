@@ -47,6 +47,15 @@ class GitHubUpdatesTest {
         }
     }
 
+    @Test fun unavailableNetworkReportsConnectionFailure() = runBlocking {
+        val server = MockWebServer()
+        server.start()
+        val endpoint = server.url("/latest")
+        server.shutdown()
+        try { GitHubUpdates(endpoint = endpoint).latest(); fail("断网不能显示检查成功") }
+        catch (e: UpdateFailure) { assertTrue(e.message.contains("无法连接 GitHub")) }
+    }
+
     @Test fun nullBodyIsAnEmptyChangelogAndCancellationIsPreserved() = runBlocking {
         assertEquals("", parseRelease(JSONObject("""{"tag_name":"v1.2.3","body":null}""")).notes)
         MockWebServer().use { server ->

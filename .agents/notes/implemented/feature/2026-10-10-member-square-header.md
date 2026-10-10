@@ -23,6 +23,8 @@ Status: implemented
 
 ## Testing
 
+2026-10-11：MemberHeaderUiTest新增整排点击与等级独立分流，5项真机通过；MemberHeaderStatusUiTest和MemberAccountUiTest共5项回归通过。实际账号截图artifacts/interface-member-live.png已查看，头像行上移、完整角标及鲜明菜单图标符合本次要求。上移测试按身份区与统计区距离验证，不更改1:1视口和原图底部规则。
+
 MemberHeaderUiTest、MemberHeaderStatusUiTest和MemberAccountUiTest共7项真机通过，角标先在旧版复现0个外侧像素，修复后完整显示；方形、昵称同行等级、吸顶身份及主页箭头、长昵称短窗口验证通过。日志artifacts/member-header-badge-repro.txt与member-navigation-fixed-ui.txt；访客4项已有回归通过。最终增加上下两色图片验证吸顶保留底部、遮罩只增加0.08、无图白底及退出恢复状态栏；个人中心5项真机通过，日志artifacts/runtime-header-chat-device.txt。真实展开与吸顶截图artifacts/runtime-member-square.png和runtime-member-compact.png已人工检查。
 
 ## Consequences

@@ -72,7 +72,7 @@ class TopicActionsUiTest {
         compose.onNodeWithText("取消收藏").assertIsDisplayed()
     }
 
-    @Test fun replyMoreButtonDoesNotOpenTheAuthorAndWorksInsideThreads() {
+    @Test fun replyMoreButtonDoesNotOpenAuthorAndThreadJumpRestoresActions() {
         var target = 0; var authorOpens = 0
         val root = post.copy(id = 82, number = 2)
         val child = post.copy(id = 83, number = 3, replyTo = 2)
@@ -85,6 +85,7 @@ class TopicActionsUiTest {
         compose.onNode(hasContentDescription("更多操作") and hasAnyAncestor(hasTestTag("post-2"))).performScrollTo().performClick()
         compose.runOnIdle { assertEquals(2, target); assertEquals(0, authorOpens) }
         compose.onNodeWithText("查看 1 条回复").performScrollTo().performClick()
+        compose.onNodeWithTag("thread-jump-3").performScrollTo().performClick()
         compose.onNode(hasContentDescription("更多操作") and hasAnyAncestor(hasTestTag("post-3"))).performScrollTo().performClick()
         compose.runOnIdle { assertEquals(3, target); assertEquals(0, authorOpens) }
     }
