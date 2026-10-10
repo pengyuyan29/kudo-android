@@ -103,6 +103,16 @@ python scripts/release_notes.py --tag v0.1.0 --output artifacts/release-notes.md
 
 手动发布时用 `gh release create <Tag> --notes-file artifacts/release-notes.md` 写入整理后的文件；自动 Tag 流程使用脚本生成的内容。检查更新只读取公开正式 Release，不使用私有仓库凭据；仓库私有或未发布时显示暂无公开版本。下载和查看源码使用外部浏览器。
 
+### 提交信息
+
+提交标题使用 Conventional Commits 前缀，例如 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:` 或 `chore:`，冒号后写一句中文说明。新克隆仓库后启用本地校验钩子：
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+钩子会拒绝没有受支持前缀的提交；`scripts/check_commit_history.py` 还会在 CI 中检查本次推送或 Pull Request 的提交范围。历史提交不会被自动改写，发布日志仍只提取实际修改 `app/src/main/` 的 `feat:`、`fix:` 和 `perf:` 提交。
+
 版本名为 Tag 去掉 `v`；`versionCode = major × 1000000 + minor × 1000 + patch + 1`。例如 `v1.2.3` 对应 `1.2.3` / `1002004`，`v0.1.0` 对应 `0.1.0` / `1001`。minor、patch 限制为 0–999，总值不超过 2100000000；前导零、`-rc`、`-beta` 等格式会失败。每次升级请使用更大的版本号。
 
 普通本地构建保留 `0.1.0` / `1` 默认值，也可按 Tag 值构建相同版本：
