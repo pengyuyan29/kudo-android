@@ -69,7 +69,8 @@ class CommunityFormsUiTest {
             Box(Modifier.fillMaxSize()) {
                 Text("讨论背景")
                 ReplyEditorSheet(visibility, false, { visibility.targetState = false }) {
-                    EditorForm(draft, emptyList(), { draft = it }, {}, {}, {}, reply = true)
+                    EditorForm(draft, emptyList(), { draft = it }, {}, {}, {}, reply = true,
+                        replyRules = ReplyRules(16, 64000))
                 }
             }
         } }
@@ -81,14 +82,16 @@ class CommunityFormsUiTest {
             throw failure
         }
         compose.onNodeWithTag("editor-body").performTextInput("关闭后继续写")
+        compose.onNodeWithText("发布", substring = false).assertIsNotEnabled()
+        compose.onNodeWithTag("editor-body").performTextInput("，这是一段满足回帖字数的草稿")
         compose.onNodeWithText("发布", substring = false).assertIsEnabled().assertIsDisplayed()
         val rootBottom = compose.onRoot().fetchSemanticsNode().boundsInRoot.bottom
         assertTrue(compose.onNodeWithTag("liquid-action-sheet").fetchSemanticsNode().boundsInRoot.bottom <= minOf(rootBottom, expandedBottom - imeBottom) + 2f)
         capture("coolapk-reply-keyboard.png")
         compose.onNodeWithTag("sheet-drag-handle").performTouchInput { swipe(center, center + Offset(0f, 650f), 600) }
         compose.onNodeWithTag("editor-body").assertDoesNotExist()
-        compose.runOnIdle { assertEquals("关闭后继续写", draft.raw); visibility.targetState = true }
-        compose.onNodeWithTag("editor-body").assertTextEquals("关闭后继续写")
+        compose.runOnIdle { assertEquals("关闭后继续写，这是一段满足回帖字数的草稿", draft.raw); visibility.targetState = true }
+        compose.onNodeWithTag("editor-body").assertTextEquals("关闭后继续写，这是一段满足回帖字数的草稿")
     }
 
     @Test fun reportIsFullPageAndRetainsWebsiteValidationInDarkLargeText() {

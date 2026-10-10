@@ -26,6 +26,8 @@ AccountViewModel 通过 /session/current.json 确认用户，LoginScreen 提供 
 
 EditorViewModel 按用户 id、话题和回复楼层隔离持久草稿。上传限制 10 MB 和明确图片 MIME 类型，成功后插入 Markdown。发送期间禁止再次发送；未知网络结果不重试，草稿保留，返回待审核则明确提示。只有服务端确认接收才删除草稿。
 
+普通回复发送前读取并校验[网站和分类字数规则](../bug-fix/2026-10-10-reply-length.md)，规则未就绪或不足时不能提交，重试保留草稿。
+
 草稿页合并按用户 ID 过滤的本机草稿和 /drafts.json 云端分页；本机回复保留目标楼层。云端编辑使用 /drafts/{key}.json，编辑同步保存本机恢复副本，显式保存携带 sequence，冲突或未知结果保留副本。修改正文保留原 JSON 的 tags、recipients 和插件字段，发布传 draft_key 由服务器清理对应草稿；未确认接收不清除本机副本。云端副本在本机列表可达，退出账号按既有策略清除。删除使用确认面板和原 sequence，写操作不重试。
 
 本机恢复副本单独保存 backupKey：它的编辑目标仍是云端草稿，但删除只能清理本机副本，不能发送 DELETE 云端请求。DraftBackupUiTest 先复现恢复副本误用云端删除路径（artifacts/draft-backup-repro.txt），随后验证零写请求与本机清理。

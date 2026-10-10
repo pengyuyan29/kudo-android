@@ -281,7 +281,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val currentUser = account.user
                         val target = replyTarget
                         if (currentUser != null && target != null) {
-                            val editorVm = model("reply-${currentUser.id}-$id-$target") { EditorViewModel(app, currentUser.id, id, target.takeIf { it > 0 }) }
+                            val editorVm = model("reply-${currentUser.id}-$id-$target") { EditorViewModel(app, currentUser.id, id, target.takeIf { it > 0 }, categoryId = state.detail?.categoryId) }
                             LaunchedEffect(editorVm) { editorVm.published.collect { result ->
                                 keyboard?.hide(); replyVisibility.targetState = false
                                 vm.refresh(); refreshEpoch++

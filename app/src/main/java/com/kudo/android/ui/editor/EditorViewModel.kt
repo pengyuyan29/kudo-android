@@ -12,12 +12,28 @@ import kotlinx.coroutines.flow.receiveAsFlow
 
 class EditorViewModel(private val app: AppContainer, userId: Int, val topicId: Int?, val replyTo: Int?,
     private val publishRequest: suspend (Draft) -> PublishResult = { draft -> app.repository.publish(draft.raw, draft.title, draft.categoryId.takeIf { it > 0 }, topicId, replyTo) },
+    categoryId: Int? = null,
+    private val rulesRequest: suspend () -> ReplyRules = { app.repository.replyRules(requireNotNull(topicId), categoryId) },
 ) : ViewModel() {
     private val draftKey = "${userId}_${topicId ?: "new"}_${replyTo ?: 0}"
     var draft by mutableStateOf(app.settings.draft(draftKey)); private set
     var sending by mutableStateOf(false); private set
     var uploading by mutableStateOf(false); private set
     var error by mutableStateOf<String?>(null); private set
+    var replyRules by mutableStateOf<ReplyRules?>(null); private set
+    var rulesLoading by mutableStateOf(false); private set
+    var rulesError by mutableStateOf<String?>(null); private set
+    init { if (topicId != null) reloadReplyRules() }
+    fun reloadReplyRules() {
+        if (topicId == null || rulesLoading || sending) return
+        rulesLoading = true; rulesError = null
+        viewModelScope.launch {
+            try { replyRules = withContext(Dispatchers.IO) { rulesRequest() } }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { rulesError = e.message ?: "读取回帖字数规则失败" }
+            finally { rulesLoading = false }
+        }
+    }
     private val results = Channel<PublishResult>(Channel.BUFFERED)
     val published = results.receiveAsFlow()
 
@@ -25,6 +41,11 @@ class EditorViewModel(private val app: AppContainer, userId: Int, val topicId: I
     fun publish() {
         if (sending || uploading) return
         if (draft.raw.isBlank()) { error = "先写点内容吧"; return }
+        if (topicId != null) {
+            val rules = replyRules
+            if (rules == null) { error = rulesError ?: "正在读取回帖字数规则，请稍候"; return }
+            rules.problem(draft.raw)?.let { error = it; return }
+        }
         if (topicId == null && (draft.title.isBlank() || draft.categoryId == 0)) { error = "请填写标题并选择分类"; return }
         sending = true; error = null
         val snapshot = draft

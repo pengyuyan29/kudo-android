@@ -32,7 +32,8 @@ fun EditorScreen(vm: EditorViewModel, categories: List<Category>, categoryError:
     BackHandler(vm.sending) { /* Keep the active request attached to its editor. */ }
     EditorForm(vm.draft, categories, vm::edit, vm::publish, { picker.launch("image/*") }, back,
         reply = vm.topicId != null, categoryError = categoryError, reloadCategories = reloadCategories,
-        sending = vm.sending, uploading = vm.uploading, error = vm.error)
+        sending = vm.sending, uploading = vm.uploading, error = vm.error,
+        replyRules = vm.replyRules, rulesError = vm.rulesError, reloadRules = vm::reloadReplyRules)
 }
 
 @Composable
@@ -45,13 +46,15 @@ internal fun ReplyEditorSheet(visibility: MutableTransitionState<Boolean>, sendi
 @Composable
 internal fun EditorForm(draft: Draft, categories: List<Category>, edit: (Draft) -> Unit, publish: () -> Unit,
     pickImage: () -> Unit, back: () -> Unit, reply: Boolean = false, categoryError: Throwable? = null,
-    reloadCategories: () -> Unit = {}, sending: Boolean = false, uploading: Boolean = false, error: String? = null) {
+    reloadCategories: () -> Unit = {}, sending: Boolean = false, uploading: Boolean = false, error: String? = null,
+    replyRules: ReplyRules? = null, rulesError: String? = null, reloadRules: () -> Unit = {}) {
     val categorySheet = remember { MutableTransitionState(false) }
     val categoryShowing = categorySheet.currentState || categorySheet.targetState
     val bodyFocus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val enabled = !sending && !categoryShowing
-    val canPublish = enabled && !uploading && draft.raw.isNotBlank() && (reply || (draft.title.isNotBlank() && draft.categoryId > 0))
+    val canPublish = enabled && !uploading && draft.raw.isNotBlank() &&
+        (if (reply) replyRules != null && replyRules.problem(draft.raw) == null else draft.title.isNotBlank() && draft.categoryId > 0)
     LaunchedEffect(reply) {
         if (reply) { withFrameNanos { }; bodyFocus.requestFocus(); keyboard?.show() }
     }
@@ -90,7 +93,14 @@ internal fun EditorForm(draft: Draft, categories: List<Category>, edit: (Draft) 
                     enabled = enabled, minLines = if (reply) 3 else 8)
             }
             error?.let { Text(it, Modifier.padding(horizontal = 20.dp, vertical = 6.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
-            Text(if (uploading) "正在上传图片…" else if (sending) "正在发布…" else "草稿已自动保存 · ${draft.raw.length} 字",
+            if (reply && rulesError != null) Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(rulesError, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                CommunityButton("重试", reloadRules, enabled = enabled, compact = true)
+            }
+            Text(if (uploading) "正在上传图片…" else if (sending) "正在发布…" else if (reply) {
+                if (replyRules == null) "正在读取回帖字数规则…"
+                else "${replyLength(draft.raw)} / ${replyRules.minimum} 字 · ${replyRules.problem(draft.raw) ?: "草稿已自动保存"}"
+            } else "草稿已自动保存 · ${draft.raw.length} 字",
                 Modifier.padding(horizontal = 20.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth().then(if (reply) Modifier else Modifier.navigationBarsPadding()).padding(start = 8.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 CommunityIconButton(Icons.Rounded.AddPhotoAlternate, "上传图片", pickImage, enabled = enabled && !uploading)
