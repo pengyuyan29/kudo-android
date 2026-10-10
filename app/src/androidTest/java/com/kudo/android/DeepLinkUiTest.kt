@@ -28,6 +28,7 @@ class DeepLinkUiTest {
             IncomingLinuxDoLink(nav, incoming, sequence, { selected = 0 }) { incoming = null; consumed++ }
             NavHost(nav, "root") {
                 composable("root") { Text("首页") }
+                composable("unavailable") { Text("内容不存在或暂无权限") }
                 composable("user/{username}") { Text("用户：${it.arguments!!.getString("username")}") }
                 composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) {
                     Text("分类：${it.arguments!!.getInt("id")}")
@@ -44,6 +45,16 @@ class DeepLinkUiTest {
     }
 
     private fun open(url: String) { compose.runOnIdle { sequence++; incoming = url } }
+
+    @Test fun direct404AndContent404UseNativeUnavailablePageAndCanReturn() {
+        show()
+        open("https://linux.do/404")
+        compose.onNodeWithText("内容不存在或暂无权限").assertIsDisplayed()
+        compose.runOnIdle { nav.popBackStack() }
+        compose.onNodeWithText("首页").assertIsDisplayed()
+        compose.runOnIdle { nav.openContentLink("/404", { selected = 0 }) }
+        compose.onNodeWithText("内容不存在或暂无权限").assertIsDisplayed()
+    }
 
     @Test fun initialAndRepeatedLinkAfterBackAreConsumedSeparately() {
         val url = "https://linux.do/t/topic/3001000/8"

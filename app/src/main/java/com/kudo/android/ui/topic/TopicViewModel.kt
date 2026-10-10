@@ -81,7 +81,11 @@ class TopicViewModel(
                 loadOriginal()
                 resolveContext()
             } catch (e: CancellationException) { throw e }
-            catch (e: Exception) { _state.update { it.copy(error = e, loading = false) } }
+            catch (e: Exception) { _state.update {
+                if ((e as? ApiFailure)?.kind in setOf(FailureKind.NOT_FOUND, FailureKind.FORBIDDEN))
+                    TopicState(loading = false, error = e, viewerId = it.viewerId, targetNumber = it.targetNumber)
+                else it.copy(error = e, loading = false)
+            } }
         }
     }
 

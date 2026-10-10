@@ -115,7 +115,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                 PostReadingViewport(110.dp) { viewport ->
                 LazyColumn(state = listState, modifier = Modifier.testTag("topic-posts").then(viewport), contentPadding = PaddingValues(bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (state.loading && detail == null) item { LoadingRow() }
-                    if (state.error != null) item { ErrorState(state.error, retry, login) }
+                    if (state.error != null) item { ErrorState(state.error, retry, login, back) }
                     if (detail != null) {
                         if (!originalIgnored || revealOriginal) item("title") {
                             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

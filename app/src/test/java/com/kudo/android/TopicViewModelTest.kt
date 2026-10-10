@@ -16,6 +16,22 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TopicViewModelTest {
+    @Test fun refreshAfterDeletionRemovesCachedBodyAndPostActions() = runTest {
+        var unavailable = false
+        withTopic(response = { request ->
+            if (unavailable && request.path == "/t/5.json") MockResponse().setResponseCode(404).setBody("{}") else null
+        }) { vm, _ ->
+            vm.awaitState { !it.loading && it.authorProfile != null }
+            assertNotNull(vm.state.value.detail)
+            unavailable = true
+            vm.refresh()
+            val state = vm.awaitState { !it.loading && it.error != null }
+            assertEquals(FailureKind.NOT_FOUND, (state.error as ApiFailure).kind)
+            assertNull(state.detail)
+            assertNull(state.authorProfile)
+            assertTrue(state.allPosts.isEmpty())
+        }
+    }
     private val original = postJson(2, false)
     private fun postJson(count: Int, active: Boolean) = """{"id":10,"post_number":1,"user_id":2,"username":"author","cooked":"<p>正文</p>","actions_summary":[{"id":2,"count":$count,"can_act":${!active},"can_undo":$active}],"reactions":[{"id":"heart","type":"emoji","count":$count}],"reaction_users_count":$count,"current_user_reaction":${if (active) """{"id":"heart","type":"emoji","can_undo":true}""" else "null"}}"""
     private val topic get() = """{"id":5,"title":"测试话题","valid_reactions":["heart","distorted_face"],"post_stream":{"stream":[10,11],"posts":[$original]}}"""

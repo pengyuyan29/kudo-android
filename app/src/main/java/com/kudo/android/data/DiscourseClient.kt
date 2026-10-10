@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-enum class FailureKind { SIGN_IN, VERIFICATION, FORBIDDEN, RATE_LIMIT, NETWORK, SERVER }
+enum class FailureKind { SIGN_IN, VERIFICATION, FORBIDDEN, NOT_FOUND, RATE_LIMIT, NETWORK, SERVER }
 class ApiFailure(val kind: FailureKind, override val message: String, val retryAfter: Int? = null) : IOException(message)
 
 interface SessionCookies {
@@ -82,6 +82,7 @@ class DiscourseClient(
                 val target = it.header("Location")?.let(url::resolve)
                 if (target != null) {
                     resolve(target.toString())
+                    if (target.encodedPath.trimEnd('/') == "/404") throw ApiFailure(FailureKind.NOT_FOUND, "内容不存在或暂无权限")
                     it.close()
                     return request("GET", target.toString(), redirects = redirects + 1, arrayResponse = arrayResponse, htmlResponse = htmlResponse, collectionResponse = collectionResponse)
                 }
@@ -90,10 +91,13 @@ class DiscourseClient(
             val json = runCatching { JSONObject(text) }.getOrNull()
             val reason = json?.optJSONArray("errors")?.strings()?.joinToString("\n")?.take(500)
                 ?: json?.text("error")?.takeIf(String::isNotBlank)?.take(500)
+            val notFound = it.code == 404 || url.encodedPath.trimEnd('/') == "/404" || json?.stringField("error_type") == "not_found"
             when {
                 it.code == 401 || (it.code == 403 && json?.text("error_type") == "not_logged_in") -> throw ApiFailure(FailureKind.SIGN_IN, "请先登录 Linux.do")
                 it.code == 429 -> throw ApiFailure(FailureKind.RATE_LIMIT, reason ?: "请求较频繁，请稍后再试", it.header("Retry-After")?.toIntOrNull())
-                it.header("cf-mitigated") == "challenge" || (it.code == 403 && json == null) -> throw ApiFailure(FailureKind.VERIFICATION, "需要完成 Linux.do 的网页验证")
+                it.header("cf-mitigated") == "challenge" -> throw ApiFailure(FailureKind.VERIFICATION, "需要完成 Linux.do 的网页验证")
+                notFound -> throw ApiFailure(FailureKind.NOT_FOUND, "内容不存在或暂无权限")
+                it.code == 403 && json == null -> throw ApiFailure(FailureKind.VERIFICATION, "需要完成 Linux.do 的网页验证")
                 it.code == 403 -> { csrf = null; throw ApiFailure(FailureKind.FORBIDDEN, reason ?: "当前账号没有权限，或登录状态需要刷新") }
                 !it.isSuccessful -> throw ApiFailure(FailureKind.SERVER, reason ?: "社区暂时无法处理请求（${it.code}）")
                 htmlResponse -> return JSONObject().put("html", text)

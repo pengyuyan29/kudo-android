@@ -51,8 +51,22 @@ fun EmptyState(title: String, subtitle: String, icon: ImageVector = Icons.Rounde
 }
 
 @Composable
-fun ErrorState(error: Throwable, retry: () -> Unit, login: () -> Unit) {
+fun ErrorState(error: Throwable, retry: () -> Unit, login: () -> Unit, back: (() -> Unit)? = null) {
     val kind = (error as? ApiFailure)?.kind
+    if (kind == FailureKind.NOT_FOUND || kind == FailureKind.FORBIDDEN) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 28.dp, vertical = 36.dp), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Icon(Icons.Rounded.LinkOff, null, Modifier.size(42.dp), tint = MaterialTheme.colorScheme.outline)
+            Text(if (kind == FailureKind.NOT_FOUND) "内容不存在或暂无权限" else "暂无访问权限", style = MaterialTheme.typography.titleMedium)
+            Text(if (kind == FailureKind.NOT_FOUND) "链接可能已失效，内容已删除，或当前账号没有访问权限。" else error.message.orEmpty(),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            if (back != null) CommunityButton("返回上一页", back, compact = true)
+            Text("刷新登录状态", Modifier.clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = login).padding(10.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        return
+    }
     val auth = kind == FailureKind.SIGN_IN || kind == FailureKind.VERIFICATION
     EmptyState(if (kind == FailureKind.VERIFICATION) "和社区连接，只差一步" else if (kind == FailureKind.SIGN_IN) "登录后继续" else "暂时没能加载",
         error.message ?: "请稍后重试", if (auth) Icons.Rounded.VerifiedUser else Icons.Rounded.CloudOff,

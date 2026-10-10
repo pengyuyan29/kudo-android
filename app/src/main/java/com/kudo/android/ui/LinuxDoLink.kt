@@ -7,6 +7,7 @@ sealed interface LinuxDoDestination {
     data class User(val username: String) : LinuxDoDestination
     data class Category(val id: Int) : LinuxDoDestination
     data object Home : LinuxDoDestination
+    data object Unavailable : LinuxDoDestination
 }
 
 object LinuxDoLink {
@@ -27,6 +28,7 @@ object LinuxDoLink {
             url.port != if (url.isHttps) 443 else 80) return null
         val path = url.pathSegments.dropLastWhile { it.isEmpty() }
         return when (path.firstOrNull()) {
+            "404" -> if (path.size == 1) LinuxDoDestination.Unavailable else LinuxDoDestination.Home
             "t" -> {
                 val offset = if (path.getOrNull(1)?.toIntOrNull() != null) 1 else 2
                 val id = path.getOrNull(offset)?.toIntOrNull()?.takeIf { it > 0 }

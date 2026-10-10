@@ -306,6 +306,12 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         } }
                     }
                     composable("bookmarks") { LaunchedEffect(account.user?.id) { account.loadSaved() }; BookmarksScreen(account, { nav.popBackStack() }, ::login, ::topic) }
+                    composable("unavailable") {
+                        Column(Modifier.fillMaxSize()) {
+                            PageTopBar("内容不可访问", { nav.popBackStack() })
+                            ErrorState(ApiFailure(FailureKind.NOT_FOUND, "内容不存在或暂无权限"), {}, ::login, { nav.popBackStack() })
+                        }
+                    }
                     composable("user/{username}") { entry -> UserScreen(entry.arguments!!.getString("username")!!, app.repository, { nav.popBackStack() }, ::login, ::openWebPage) }
                     composable("compose?topic={topic}&reply={reply}", arguments = listOf(navArgument("topic") { type = NavType.IntType; defaultValue = 0 }, navArgument("reply") { type = NavType.IntType; defaultValue = 0 })) { entry ->
                         val topicId = entry.arguments!!.getInt("topic").takeIf { it > 0 }
