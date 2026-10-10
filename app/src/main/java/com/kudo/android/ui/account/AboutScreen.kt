@@ -21,7 +21,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.kudo.android.BuildConfig
 import com.kudo.android.R
 import com.kudo.android.ui.components.PageTopBar
 import com.kudo.android.ui.components.liquid.LiquidModal
@@ -37,7 +36,7 @@ fun AboutScreen(openLink: (String) -> Unit = {}, back: () -> Unit) {
     val settings = LocalDisplaySettings.current
     val backdrop = rememberLayerBackdrop()
     val visibility = remember { MutableTransitionState(false) }
-    var dialog by rememberSaveable { mutableStateOf("version") }
+    var dialog by rememberSaveable { mutableStateOf("licenses") }
     val showing = visibility.currentState || visibility.targetState
     fun show(value: String) { dialog = value; visibility.targetState = true }
     fun dismiss() { visibility.targetState = false }
@@ -49,13 +48,10 @@ fun AboutScreen(openLink: (String) -> Unit = {}, back: () -> Unit) {
             LazyColumn(Modifier.testTag("about-content"), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 item {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.Top) {
-                            Brand(R.drawable.ic_kudo, "酷DO", Modifier.weight(1f))
-                            Icon(Icons.Rounded.Favorite, "热爱", Modifier.padding(top = 18.dp).size(28.dp), tint = Color(0xFFFF5B66))
-                            Brand(R.drawable.ic_linux_do, "LINUX DO", Modifier.weight(1f))
-                        }
-                        Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.Top) {
+                        Brand(R.drawable.ic_kudo, "酷DO", Modifier.weight(1f))
+                        Icon(Icons.Rounded.Favorite, "热爱", Modifier.padding(top = 18.dp).size(28.dp), tint = Color(0xFFFF5B66))
+                        Brand(R.drawable.ic_linux_do, "LINUX DO", Modifier.weight(1f))
                     }
                 }
                 item {
@@ -65,23 +61,21 @@ fun AboutScreen(openLink: (String) -> Unit = {}, back: () -> Unit) {
                 }
                 item {
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface)) {
-                        SettingRow("酷DO", "${BuildConfig.VERSION_NAME} · LINUX DO 第三方客户端", !showing) { show("version") }
-                        SettingRow("开源致谢", "技术与设计参考", !showing) { show("licenses") }
+                        SettingRow("开源致谢", "", !showing) { show("licenses") }
                         SettingRow("社区指南", "真诚 · 友善 · 团结 · 专业", !showing) { openLink("https://linux.do/guidelines") }
-                        SettingRow("隐私说明", "账号与草稿仅保存在本机", !showing) { show("privacy") }
+                        SettingRow("隐私说明", "", !showing) { show("privacy") }
                     }
                 }
                 item { Text("真诚 · 友善 · 团结 · 专业", Modifier.testTag("about-slogan"), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
             }
         }
-        LiquidModal(visibility, when (dialog) { "privacy" -> "隐私说明"; "licenses" -> "开源致谢"; else -> "酷DO" },
+        LiquidModal(visibility, if (dialog == "privacy") "隐私说明" else "开源致谢",
             false, backdrop, settings.glass, ::dismiss, sheetBackground = MaterialTheme.colorScheme.background,
             actions = { LiquidModalAction("知道了", ::dismiss, Modifier.fillMaxWidth(), primary = true) }) {
             Text(when (dialog) {
                 "privacy" -> "酷DO 直接连接 Linux.do。登录在官网页面完成；应用不收集密码，不接入统计或广告服务。Cookie 与草稿保存在应用私有目录，禁用系统备份，退出登录后清除。帖子中的外部图片会向其来源站点发起请求。"
-                "licenses" -> "Jetpack Compose、Backdrop（含官方玻璃示例）、Shapes、OkHttp、Coil、APNG4Android：Apache License 2.0。Jsoup：MIT。分类、标签、徽章与资质图标采用 Font Awesome Free 6.7.2，© 2024 Fonticons, Inc.，CC BY 4.0；原始矢量路径不变，适配原生尺寸与颜色。底部导航与详情操作栏改编自 Backdrop catalog 的 LiquidBottomTabs / Surface Liquid Button，弹窗材质改编自官方 Dialog；接口行为参考 FluxDO，页面布局参考酷安。"
-                else -> "酷DO ${BuildConfig.VERSION_NAME}\n\n$KudoAboutText"
+                else -> "Jetpack Compose、Backdrop（含官方玻璃示例）、Shapes、OkHttp、Coil、APNG4Android：Apache License 2.0。Jsoup：MIT。分类、标签、徽章与资质图标采用 Font Awesome Free 6.7.2，© 2024 Fonticons, Inc.，CC BY 4.0；原始矢量路径不变，适配原生尺寸与颜色。底部导航与详情操作栏改编自 Backdrop catalog 的 LiquidBottomTabs / Surface Liquid Button，弹窗材质改编自官方 Dialog；接口行为参考 FluxDO，页面布局参考酷安。"
             }, style = MaterialTheme.typography.bodyMedium, color = LocalContentColor.current.copy(alpha = 0.8f))
             if (dialog == "licenses") {
                 ModalLink("Backdrop 项目与许可") { openLink("https://github.com/Kyant0/AndroidLiquidGlass") }

@@ -42,7 +42,11 @@ class AboutPageUiTest {
         assertTrue(left.right < heart.left && heart.right < right.left)
         assertEquals(left.center.y, right.center.y, 1f)
         compose.onNodeWithText("酷DO是独立 LINUX DO 第三方安卓原生客户端").assertIsDisplayed()
-        compose.onNodeWithText(BuildConfig.VERSION_NAME).assertIsDisplayed()
+        compose.onNodeWithText(BuildConfig.VERSION_NAME).assertDoesNotExist()
+        compose.onNode(hasText("酷DO") and hasClickAction()).assertDoesNotExist()
+        compose.onNodeWithText("${BuildConfig.VERSION_NAME} · LINUX DO 第三方客户端").assertDoesNotExist()
+        compose.onNodeWithText("技术与设计参考").assertDoesNotExist()
+        compose.onNodeWithText("账号与草稿仅保存在本机").assertDoesNotExist()
         capture("about-two-brands.png")
         compose.onNodeWithText("社区指南").performScrollTo().performClick()
         compose.runOnIdle { assertEquals("https://linux.do/guidelines", link) }
@@ -53,8 +57,8 @@ class AboutPageUiTest {
         compose.onNodeWithText("隐私说明").performScrollTo().performClick()
         compose.onNodeWithText("酷DO 直接连接 Linux.do。", substring = true).assertIsDisplayed()
         compose.onNodeWithText("知道了").performClick()
-        compose.onNodeWithText("${BuildConfig.VERSION_NAME} · LINUX DO 第三方客户端").performScrollTo().performClick()
-        compose.onNodeWithText("酷DO ${BuildConfig.VERSION_NAME}", substring = true).assertIsDisplayed()
+        compose.onNodeWithTag("about-content").performScrollToNode(hasTestTag("about-slogan"))
+        compose.onNodeWithTag("about-slogan").assertIsDisplayed()
     }
 
     @Test fun darkNarrowLargeTextRemainsReadableAndScrollableInEveryMaterial() {
@@ -90,11 +94,13 @@ class AboutPageUiTest {
                 Box(Modifier.width(280.dp).height(420.dp)) { AboutScreen {} }
             }
         } }
-        compose.onNodeWithText("${BuildConfig.VERSION_NAME} · LINUX DO 第三方客户端").performScrollTo()
-        val layouts = mutableListOf<TextLayoutResult>()
-        compose.onNode(hasText("酷DO") and hasAnyAncestor(hasClickAction()), useUnmergedTree = true)
-            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-        assertEquals("短标题应有完整单行宽度", 1, layouts.single().lineCount)
+        for (label in listOf("开源致谢", "社区指南", "隐私说明")) {
+            compose.onNodeWithTag("about-content").performScrollToNode(hasText(label))
+            val layouts = mutableListOf<TextLayoutResult>()
+            compose.onNode(hasText(label) and hasAnyAncestor(hasClickAction()), useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            assertEquals("短标题应有完整单行宽度：$label", 1, layouts.single().lineCount)
+        }
     }
 
     private fun capture(name: String, tag: String? = null) {

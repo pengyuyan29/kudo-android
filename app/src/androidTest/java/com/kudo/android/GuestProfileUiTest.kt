@@ -102,7 +102,7 @@ class GuestProfileUiTest {
         compose.onNodeWithText("点击登录").performScrollTo().assertIsDisplayed()
     }
 
-    @Test fun aboutShowsRealVersionAndBackReturnsToGuest() {
+    @Test fun aboutKeepsVersionOnGuestEntryAndBackReturnsToGuest() {
         var showingAbout by mutableStateOf(true)
         compose.setContent {
             KudoTheme(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f)) {
@@ -110,10 +110,11 @@ class GuestProfileUiTest {
                 else ProfileScreen(null, {}, {}, {}, {})
             }
         }
-        compose.onNodeWithText(BuildConfig.VERSION_NAME).assertIsDisplayed()
+        compose.onNodeWithText(BuildConfig.VERSION_NAME).assertDoesNotExist()
         compose.onNodeWithText("酷DO是独立 LINUX DO 第三方安卓原生客户端").assertIsDisplayed()
         compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithText("点击登录").assertIsDisplayed()
+        compose.onNodeWithText(BuildConfig.VERSION_NAME).assertIsDisplayed()
     }
 
     private fun capture(name: String, tag: String) {
