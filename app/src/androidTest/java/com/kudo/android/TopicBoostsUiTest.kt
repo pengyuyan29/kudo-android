@@ -16,6 +16,7 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.toPixelMap
 
 class TopicBoostsUiTest {
     @get:Rule val compose = createComposeRule()
@@ -25,6 +26,40 @@ class TopicBoostsUiTest {
     private val root = first.copy(id = 2, number = 2, cooked = "<p>评论正文</p>", boosts = emptyList())
     private val child = first.copy(id = 3, number = 3, replyTo = 2, cooked = "<p>楼中楼正文</p>", boosts = listOf(PostBoost(101, author, "<p>回复也可以 Boost</p>")))
     private val detail = TopicDetail(5, "帖子与 Boost", 1, listOf(first, root, child), listOf(1, 2, 3), false)
+
+    @Test fun selectedHeartUsesRedInPostAndBottomActions() {
+        val liked = first.copy(liked = true, currentReaction = UserReaction("heart", true))
+        compose.setContent { KudoTheme(DisplaySettings()) { Column {
+            TopicReactionButton(liked, true, null, {})
+            TopicReactionButton(liked, true, null, {}, bottom = true)
+        } } }
+        for (label in listOf("回应此楼层", "赞主帖")) {
+            val pixels = compose.onNodeWithContentDescription(label).captureToImage().toPixelMap()
+            var redPixels = 0
+            for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
+                val color = pixels[x, y]
+                if (color.red > .7f && color.red > color.green * 1.5f && color.red > color.blue * 1.5f) redPixels++
+            }
+            assertTrue("$label 选中爱心应呈红色", redPixels > 20)
+        }
+    }
+
+    @Test fun postActionsOnlyShowUsefulControlsAndReplyStillTargetsItsFloor() {
+        var replied: Int? = null
+        var boosted: Int? = null
+        compose.setContent { KudoTheme(DisplaySettings()) { Column {
+            for (post in listOf(first, root)) TopicPost(post, detail, TopicState(detail, loading = false), true,
+                {}, {}, { replied = it?.number }, {}, {}, {}, {}, boost = { boosted = it.number })
+        } } }
+        compose.onNodeWithText("正文").assertDoesNotExist()
+        compose.onAllNodesWithText("回复").assertCountEquals(2)
+        compose.onAllNodesWithText("回复").onLast().performClick()
+        compose.onAllNodesWithContentDescription("Boost 此帖子").onLast().performClick()
+        compose.runOnIdle { assertEquals(2, replied); assertEquals(2, boosted) }
+        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "post-actions-rocket.png")
+            .outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
 
     @Test fun boostAvatarsHideDecorationsWithoutChangingOtherAvatarScenes() {
         val flaired = author.copy(flair = AvatarFlair("测试资质", "battery-quarter"))

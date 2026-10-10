@@ -108,7 +108,7 @@ fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (S
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Stat(Icons.Rounded.Visibility, compactNumber(topic.views))
             Stat(Icons.Rounded.ChatBubbleOutline, compactNumber(topic.replies))
-            Stat(Icons.Rounded.ThumbUpOffAlt, compactNumber(topic.likes))
+            Stat(Icons.Rounded.FavoriteBorder, compactNumber(topic.likes))
         }
     }
 }

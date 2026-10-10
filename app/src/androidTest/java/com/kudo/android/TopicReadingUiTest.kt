@@ -208,7 +208,7 @@ class TopicReadingUiTest {
         compose.runOnIdle { active = false }
         compose.waitForIdle()
         assertTrue("仅看到长正文开头不能标读", batches.isEmpty())
-        compose.onNodeWithText("正文").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("Boost 此帖子").performScrollTo().assertIsDisplayed()
         compose.runOnIdle { active = true }
         compose.waitForIdle()
         SystemClock.sleep(1600)

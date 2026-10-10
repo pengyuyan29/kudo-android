@@ -31,10 +31,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.Avatar
+import com.kudo.android.ui.components.CategoryIcons
 import com.kudo.android.ui.components.TopicAuthorMetadata
 import com.kudo.android.ui.components.LocalTopicPresentation
 import com.kudo.android.ui.components.liquid.LiquidButton
 import com.kudo.android.ui.theme.LogoYellow
+import com.kudo.android.ui.theme.LikeRed
 import com.kyant.backdrop.Backdrop
 
 @Composable
@@ -107,7 +109,7 @@ internal fun TopicReactionButton(
         val size = if (bottom) 22.dp else 19.dp
         if (reaction != null && reaction != "heart") SiteEmoji(reaction, Modifier.size(size))
         else Icon(if (reaction == "heart") Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null,
-            Modifier.size(size), tint = if (reaction == "heart") LogoYellow else LocalContentColor.current.copy(alpha = if (enabled) 1f else 0.38f))
+            Modifier.size(size), tint = if (reaction == "heart") LikeRed else LocalContentColor.current.copy(alpha = if (enabled) 1f else 0.38f))
         if (!bottom) {
             Spacer(Modifier.width(5.dp))
             Text(post?.reactionCount?.toString().orEmpty(), style = MaterialTheme.typography.labelLarge)
@@ -157,7 +159,7 @@ internal fun TopicBottomBar(
                 choose = if (first?.reactionsAvailable == true && detail.validReactions.isNotEmpty()) ({ choose(first) }) else null,
                 click = { first?.let(like) }, bottom = true)
             IconButton(onClick = { first?.let(boost) }, enabled = available && (state.viewerId == null || first?.canBoost == true)) {
-                Icon(Icons.Rounded.Bolt, "Boost 主帖", Modifier.size(24.dp))
+                Icon(CategoryIcons.get("rocket"), "Boost 主帖", Modifier.size(24.dp))
             }
         }
     }

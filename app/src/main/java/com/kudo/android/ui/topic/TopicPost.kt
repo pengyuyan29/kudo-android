@@ -65,12 +65,12 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
             }
             UserSignature(post, openLink)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (post.number == 1) "正文" else "回复", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.weight(1f))
                 TopicReactionButton(post, enabled && !state.loading && post.id !in state.busy && (state.viewerId == null || post.canReact),
                     choose = if (post.reactionsAvailable && detail.validReactions.isNotEmpty()) ({ choose(post) }) else null,
                     click = { like(post) })
                 IconButton(onClick = { boost(post) }, enabled = enabled && !state.loading && post.id !in state.busy && (state.viewerId == null || post.canBoost)) {
-                    Icon(Icons.Rounded.Bolt, "Boost 此帖子", Modifier.size(22.dp))
+                    Icon(CategoryIcons.get("rocket"), "Boost 此帖子", Modifier.size(22.dp))
                 }
                 TextButton(onClick = { reply(post) }, enabled = enabled && !detail.closed) { Text("回复") }
             }

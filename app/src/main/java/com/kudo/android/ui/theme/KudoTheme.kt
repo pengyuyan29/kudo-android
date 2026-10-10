@@ -21,6 +21,7 @@ import com.kudo.android.data.DisplaySettings
 import com.kudo.android.data.ThemeMode
 
 val LogoYellow = Color(0xFFFFB003)
+val LikeRed = Color(0xFFFA6C8D)
 val Ink = Color(0xFF202124)
 val LocalDisplaySettings = staticCompositionLocalOf { DisplaySettings() }
 private val Light = lightColorScheme(
