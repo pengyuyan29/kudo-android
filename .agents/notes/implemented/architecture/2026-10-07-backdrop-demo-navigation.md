@@ -115,3 +115,5 @@ Surface Liquid Button 的编译、Debug / 测试 APK、Lint 通过，0 errors / 
 ## 点击与松手回归
 
 NavigationTapUiTest 的松手复现先失败：位置春动结束后 velocity 仍为 0.004144829，没有恢复零速不变量。修复持有并取消位置、速度、形态任务，只在真正拖动时采样；release 在调度复位前停止采样，位置动画结束也归零速度。7项真机测试通过（artifacts/navigation-fixed-device.txt），包括真实指针连点、松手复位和5项已有材质回归。此复现证明残留速度路径，不将这次微小残留声称为用户截图形变幅度的完整重现。
+
+同机动静验收：navigation-fixed-taps-resting.png 的黄色图标和文字保持 LogoYellow，中性灰镜片四周留白正常；navigation-fixed-cross-publish.png 的镜片上下凸出且未裁切，发布前景出现放大和真实折射。18秒慢拖加连续点击录屏 navigation-fixed-motion-bt709.mp4 及抽帧 navigation-fixed-motion-contact.png 已检查，取消和点击结束均恢复静止。设备视频编码器带错误色彩元数据，bt709 文件仅修正 H.264 元数据、不改变视频帧；颜色以直接截图和像素测试判断。以上材质观察与62项界面回归结果（artifacts/feed-reading-final-device.txt）分别记录。

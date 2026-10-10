@@ -1,6 +1,9 @@
 package com.kudo.android
 
 import android.os.SystemClock
+import android.graphics.Bitmap
+import androidx.test.platform.app.InstrumentationRegistry
+import java.io.File
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
@@ -61,6 +64,14 @@ class NavigationTapUiTest {
         val navigation = compose.onNodeWithTag("tap-navigation")
         compose.mainClock.autoAdvance = false
         fun frames(count: Int) { repeat(count) { compose.mainClock.advanceTimeByFrame(); SystemClock.sleep(16) } }
+        navigation.performTouchInput { down(Offset(width * .1f, centerY)) }
+        for (step in 1..20) {
+            navigation.performTouchInput { moveTo(Offset(width * (.1f + .04f * step), centerY), delayMillis = 80) }
+            frames(5)
+            if (step == 10) capture("navigation-fixed-cross-publish.png")
+        }
+        navigation.performTouchInput { cancel() }
+        frames(100)
         fun tap(index: Int, hold: Int) {
             navigation.performTouchInput { down(Offset(width * ((index + .5f) / 5f), centerY)) }
             frames(hold)
@@ -79,6 +90,15 @@ class NavigationTapUiTest {
         assertEquals("点击停下后高度不能残留速度压缩", initial.height, lens.height, 1.5f)
         assertEquals("上下留白恢复一致", lens.top - panel.top, panel.bottom - lens.bottom, 1.5f)
         assertEquals("末端留白与上下相同", panel.right - lens.right, lens.top - panel.top, 1.5f)
+        capture("navigation-fixed-taps-resting.png")
         compose.mainClock.autoAdvance = true
+    }
+
+    private fun capture(name: String) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "ui-tests").apply { mkdirs() }
+        val bitmap = instrumentation.uiAutomation.takeScreenshot()
+        File(directory, name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        bitmap.recycle()
     }
 }

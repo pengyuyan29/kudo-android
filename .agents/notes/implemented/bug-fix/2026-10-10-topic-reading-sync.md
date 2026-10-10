@@ -36,6 +36,8 @@ FeedPageCacheTest 验证阅读成功只失效 unread/new/read；已缓存书签�
 
 5项真机阅读用例通过（artifacts/reading-ui-fixed.txt），其中详情页集成验证楼中楼摘要不计读，打开回复弹窗后只由其正文视口计读。ImageGalleryHost 和 TopicActionsHost 向下提供合并的遮挡状态，回复编辑器由导航层暂停，关闭后恢复实际正文曝光。
 
+集中验证：160项 JVM 全部通过，Debug Lint 0错误/30既有警告/1hint（artifacts/feed-reading-final-build.txt）；62项相关真机回归通过，另5项阅读用例通过，共67个不同用例。补跑16项同样通过（artifacts/feed-reading-device-remaining.txt）。Release R8构建和Lint通过（artifacts/feed-reading-release-build.txt），正式包 Kudo-0.1.1-release.apk，versionCode 1002，校验为正式签名且非 debuggable。未覆盖安装正式包，因为手机现有 Debug 签名不同，保留其数据和登录。最后通过首页深链启动的人工复查被自动审批拒绝，仅返回 blocked by policy，没有继续尝试绕过；真实账号的阅读写入端到端仍未验证。
+
 ## Consequences
 
 保守长文判定可能较网页版稍晚更新未读；进程被系统直接结束时最后一小段可能无法送达。服务器使用最高实际读到楼层更新阅读位置，深链跳楼与网页同样可能推进位置，不能据此声称中间楼层逐条已阅读。
