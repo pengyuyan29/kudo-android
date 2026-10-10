@@ -17,6 +17,18 @@ import java.util.concurrent.atomic.AtomicReference
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FeedUpdatesTest {
+    @Test fun existingProbeUpdatesReadingBadgesWithoutReplacingOrReorderingThePage() = runBlocking {
+        Fixture().use { f ->
+            f.ready()
+            f.content.set("""{"topic_list":{"topics":[{"id":2,"unread_posts":50},{"id":1,"unseen":true,"unread_posts":0}]}}""")
+            f.message(); f.until { f.vm.state.value.topics.single().unseen }
+            assertEquals(listOf(1), f.vm.state.value.topics.map(Topic::id))
+            assertEquals("/latest.json?page=1", f.vm.state.value.next)
+            f.content.set("""{"topic_list":{"topics":[{"id":1,"unseen":false,"unread_posts":3}]}}""")
+            f.message(); f.until { f.vm.state.value.topics.single().unreadPosts == 3 }
+            assertFalse(f.vm.state.value.topics.single().unseen)
+        }
+    }
     private class Fixture : AutoCloseable {
         val main = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
         val messages = MutableSharedFlow<Unit>(extraBufferCapacity = 64)

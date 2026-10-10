@@ -30,6 +30,7 @@ data class Topic(
     val tags: List<String>, val replies: Int, val views: Int, val likes: Int, val image: String,
     val bumpedAt: String, val pinned: Boolean = false, val closed: Boolean = false,
     val tagDetails: List<TopicTag> = tags.map { TopicTag(it) },
+    val unseen: Boolean = false, val unreadPosts: Int = 0,
 )
 data class TopicPage(val topics: List<Topic>, val next: String?)
 
@@ -145,7 +146,8 @@ object DiscourseParser {
                 item.optInt("category_id"), item.optJSONArray("tags").tagNames(),
                 (item.optInt("posts_count", 1) - 1).coerceAtLeast(0), item.optInt("views"), item.optInt("like_count"),
                 item.text("image_url"), item.text("bumped_at"), item.optBoolean("pinned"), item.optBoolean("closed"),
-                tagDetails = item.optJSONArray("tags").topicTags())
+                tagDetails = item.optJSONArray("tags").topicTags(), unseen = item.optBoolean("unseen"),
+                unreadPosts = (item.opt("unread_posts") as? Number)?.toInt()?.coerceAtLeast(0) ?: 0)
         }
         return TopicPage(topics, list.text("more_topics_url").takeIf(String::isNotBlank))
     }

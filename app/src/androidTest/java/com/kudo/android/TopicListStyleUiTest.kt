@@ -22,6 +22,23 @@ class TopicListStyleUiTest {
     private val topic = Topic(1, "传统列表的完整帖子标题", "信息流摘要内容", member, 4,
         listOf("纯水"), 23, 99, 8, "", "2026-10-09T00:00:00Z")
 
+    @Test fun bothStylesShowServerBlueDotOrUnreadCountAndHideMissingState() {
+        var state by mutableStateOf(topic.copy(unseen = true))
+        var style by mutableStateOf(TopicListStyle.FEED)
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f)) {
+            FeedScreen(FeedState(topics = listOf(state), loading = false), null, {}, {}, {}, {}, {}, {}, {}, {}, listStyle = style)
+        } }
+        for (value in TopicListStyle.entries) {
+            compose.runOnIdle { style = value; state = topic.copy(unseen = true) }
+            compose.onNodeWithContentDescription("未看过的话题", useUnmergedTree = true).assertIsDisplayed()
+            compose.runOnIdle { state = topic.copy(unseen = true, unreadPosts = 12) }
+            compose.onNodeWithContentDescription("12 条新回复", useUnmergedTree = true).assertTextEquals("12")
+            compose.onNodeWithContentDescription("未看过的话题", useUnmergedTree = true).assertDoesNotExist()
+            compose.runOnIdle { state = topic }
+            compose.onNodeWithTag("topic-unread-1", useUnmergedTree = true).assertDoesNotExist()
+        }
+    }
+
     @Test fun stylesSwitchWithoutLosingTopicAndAvatarActions() {
         var style by mutableStateOf(TopicListStyle.FEED)
         var opened = 0

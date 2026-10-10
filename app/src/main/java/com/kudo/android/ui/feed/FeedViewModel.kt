@@ -138,7 +138,12 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
                             val old = previous[topic.id]
                             old == null || topic.hasNewContentComparedTo(old)
                         }
-                        _state.update { it.copy(hasUpdates = changed || (!acknowledgeOnProbe && it.hasUpdates)) }
+                        val statuses = page.topics.associateBy(Topic::id)
+                        fun updateBadges(state: FeedState) = state.copy(topics = state.topics.map { old ->
+                            statuses[old.id]?.let { old.copy(unseen = it.unseen, unreadPosts = it.unreadPosts) } ?: old
+                        })
+                        _state.update { updateBadges(it).copy(hasUpdates = changed || (!acknowledgeOnProbe && it.hasUpdates)) }
+                        _pages.update { cached -> cached.mapValues { (key, value) -> if (key == filter) updateBadges(value) else value } }
                         acknowledgeOnProbe = false
                     } catch (e: CancellationException) { throw e } catch (e: Exception) {
                         // A failed background check must never erase an existing refresh prompt.

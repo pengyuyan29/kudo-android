@@ -8,6 +8,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class FeedRepositoryTest {
+    @Test fun readingBadgesUseServerFieldsWithoutInferringUnreadFromFloorGaps() {
+        val page = DiscourseParser.topicPage(org.json.JSONObject("""{"topic_list":{"topics":[
+            {"id":1,"unseen":true},{"id":2,"unread_posts":12,"unseen":false},
+            {"id":3,"last_read_post_number":1,"highest_post_number":500,"unread_posts":0},
+            {"id":4},{"id":5,"unread_posts":-2}]}}"""))
+        assertTrue(page.topics[0].unseen)
+        assertEquals(listOf(0, 12, 0, 0, 0), page.topics.map(Topic::unreadPosts))
+        assertFalse(page.topics[3].unseen)
+    }
     @Test fun homeFiltersMatchWebsiteAndKeepServerOrderAndPagination() = runBlocking {
         val server = MockWebServer()
         server.start()

@@ -12,6 +12,8 @@ Status: implemented
 
 信息流昵称下显示 bumped_at 更新时间和带图标分类；列表接口没有主帖编辑版本，遵循用户补充要求完全不显示编辑状态，也不逐帖请求详情。详情楼主和回复昵称下显示各自 updated_at、同一主题分类和版本大于1时的“已编辑”；缺少 updated_at 时回退 created_at，时间变化本身不能判定编辑。深链仍由 pinnedOriginal 提供楼主更新时间和编辑状态。
 
+两种列表共用蓝色状态标记：服务器 unread_posts > 0 显示新回复数字，其次 unseen=true 显示蓝点，其余隐藏。不用 highest_post_number 减 last_read 推算，因为通知级别低的主题即使有楼层差也返回0。缺字段不补逐帖请求。既有后台列表探测只同步当前页已存在主题的两个状态字段，不插入、删除、重排主题或重置滚动与分页；新主题仍走原有更新提示。
+
 标签保留 name、slug 以及可选 icon/color，同时保留原 tags 名称列表的调用契约。列表、搜索和详情共享标签解析。胶囊允许换行，不再截断为前两个标签；无配置标签只显示文字。传统列表的分类与胶囊标签按 FlowRow 每行垂直居中，避免无底面的分类被默认顶部对齐而偏高。分类从 /site.json 获取，沿用原生 Font Awesome 图标。
 
 官网 Tag Icons 主题按标签 slug 优先、name 次之解析。启动及账号切换时，同源读取 /latest HTML 的 data-preloaded.themeSettings，提取各主题 settings.tag_icon_list；只使用名称与颜色，不执行脚本。目录缓存于当前组合生命周期，辅助请求限8秒，失败不阻塞页面。内置2026-10-09核对的60个标签键作为离线回退，读取有效非空配置后使用完整远端目录，跟随目录内的配置增删。新增42个官方 Free 6.7.2 矢量，连同分类共65种；未知名称回退 Tag 图形，保留署名及完整许可。
@@ -31,6 +33,8 @@ Status: implemented
 - 只内置标签图标配置：离线稳定且没有辅助请求，但站点增删和改名无法跟随；内置用于失败回退，正常读取站点主题配置，图形仍使用已核实的本地矢量。
 
 ## Verification
+
+列表状态只读核查 /latest.json、/unseen.json、/new.json 均返回 unseen，已跟踪主题返回 unread_posts；实际普通通知级别主题的楼层差很大但 unread_posts=0，证据 artifacts/topic-list-status-audit.json。FeedRepositoryTest、FeedUpdatesTest、FeedPageCacheTest 通过（list-badge-build.txt），验证缺字段、负数、后台探测状态同步与分页顺序不变；4项列表真机测试通过（list-badge-device.txt），两种样式均在深色130%字号下显示蓝点、数字并在状态消失时隐藏。
 
 TopicPresentationMetadataTest 的6项用例覆盖标签 slug、异常字段、更新与编辑版本、转义 preload、slug 优先匹配、内置纯水/人工智能/公告以及详情和搜索字段。106项 JVM 测试全部通过，Debug及测试包构建成功，Lint为0错误、30警告、1提示，日志 artifacts/presentation-final-build.txt。
 
