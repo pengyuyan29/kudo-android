@@ -25,6 +25,7 @@ internal fun AvatarImage(
     fallbackUrl: String? = null,
     contentScale: ContentScale = ContentScale.Crop,
     onLoaded: (Boolean) -> Unit = {},
+    onAspectRatio: (Float) -> Unit = {},
     placeholder: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -42,6 +43,8 @@ internal fun AvatarImage(
         if (request != null) AsyncImage(request, null, Modifier.fillMaxSize(), contentScale = contentScale,
             onSuccess = {
                 loaded = true
+                val image = it.result.image
+                if (image.width > 0 && image.height > 0) onAspectRatio(image.width.toFloat() / image.height)
                 onLoaded(true)
                 val current = it.result.image.asDrawable(resources) as? Animatable
                 animation = current

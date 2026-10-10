@@ -10,7 +10,9 @@ Status: implemented
 
 签名全部原生渲染的范围由[SVG 签名修复](../bug-fix/2026-10-10-svg-user-signatures.md)部分取代：SVG 图片使用受限、无脚本的网页图片容器保留 CSS 动画；独立签名字段、默认关闭及位图动图契约继续有效。
 
-Post 读取 user_signature（图片 URL 或 cooked HTML），Member 读取 profile_background_upload_url 和 card_background_upload_url。签名使用本机 show_signatures 偏好，默认 false，设置界面立即更新；关闭时不创建图片请求。主帖和完整回复正文下显示签名，楼中楼短预览不放签名。原生解析文字、链接和图片，不执行网页脚本；图片等比限制高度，复用 GIF/WebP/APNG 解码及前台生命周期。
+图片高度上限由[签名真实尺寸](../bug-fix/2026-10-10-signature-natural-size.md)部分取代：签名满正文宽度、按真实比例自适应高度，不裁切。
+
+Post 读取 user_signature（图片 URL 或 cooked HTML），Member 读取 profile_background_upload_url 和 card_background_upload_url。签名使用本机 show_signatures 偏好，默认 false，设置界面立即更新；关闭时不创建图片请求。主帖和完整回复正文下显示签名，楼中楼短预览不放签名。原生解析文字、链接和图片，不执行网页脚本；复用 GIF/WebP/APNG 解码及前台生命周期，尺寸遵循独立满宽规则。
 
 已登录“我的”使用 profile_background_upload_url 作为沉浸式资料标题，覆盖状态栏并加遮罩，空值或失败使用 LogoYellow；公开个人主页标题也使用该字段。card_background_upload_url 保留为用户卡片的独立字段。会话接口不保证背景字段，个人中心按账号补齐公开资料，较早账号的响应不得覆盖新账号。头像进入个人主页，无独立“查看个人主页”行或顶部标题、设置按钮。
 
@@ -36,7 +38,7 @@ Post 读取 user_signature（图片 URL 或 cooked HTML），Member 读取 profi
 
 ## Consequences
 
-正文解析的[引用分组](../bug-fix/2026-10-10-discourse-quotes.md)也可用于签名；签名递归渲染其内容，继续限制图片高度并遵循默认关闭和SVG生命周期规则。
+正文解析的[引用分组](../bug-fix/2026-10-10-discourse-quotes.md)也可用于签名；签名递归渲染其内容，遵循独立满宽尺寸、默认关闭和SVG生命周期规则。
 
 沉浸式标题滚动时，以标题底部是否覆盖状态栏高度决定图标前景，不能只检查第一个可见列表项。组合阶段读取派生的覆盖状态和图片载入状态，随后由 SideEffect 写出，避免只在副作用读取状态导致滚动不触发重组。真机用例先复现标题剩余半个状态栏高度仍保留覆盖颜色（artifacts/member-statusbar-repro.txt），随后使用实际标题偏移、尺寸与状态栏 inset 修复。
 

@@ -32,8 +32,8 @@ internal fun signatureImageDocument(url: String): String {
     return """<!doctype html><html><head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https:; style-src 'unsafe-inline'; script-src 'none'">
-        <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
-        img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}</style>
+        <style>html,body{margin:0;width:100%;overflow:hidden;background:transparent}
+        img{display:block;width:100%;height:auto;pointer-events:none}</style>
         </head><body><img src="$escaped" alt=""></body></html>""".trimIndent()
 }
 
@@ -46,8 +46,10 @@ internal open class SignatureImageWebView(context: Context) : WebView(context) {
 
 @Composable
 internal fun SvgSignatureImage(url: String, modifier: Modifier = Modifier,
-    webViewFactory: (Context) -> WebView = { SignatureImageWebView(it) }, onFailure: () -> Unit = {}) {
+    webViewFactory: (Context) -> WebView = { SignatureImageWebView(it) },
+    onAspectRatio: (Float) -> Unit = {}, onFailure: () -> Unit = {}) {
     val failure by rememberUpdatedState(onFailure)
+    val dimensions by rememberUpdatedState(onAspectRatio)
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val lifecycleState by lifecycle.currentStateFlow.collectAsState()
     var visible by remember(url) { mutableStateOf(false) }
@@ -61,6 +63,24 @@ internal fun SvgSignatureImage(url: String, modifier: Modifier = Modifier,
             var loaded by remember { mutableStateOf(false) }
             var failed by remember { mutableStateOf(false) }
             var webView by remember { mutableStateOf<WebView?>(null) }
+            DisposableEffect(webView, loaded) {
+                val view = webView
+                var previousRatio = 0f
+                val listener = android.view.ViewTreeObserver.OnPreDrawListener {
+                    @Suppress("DEPRECATION")
+                    val height = (view?.contentHeight ?: 0) * (view?.scale ?: 1f)
+                    val ratio = if (height > 0) (view?.width ?: 0) / height else 0f
+                    if (ratio.isFinite() && ratio > 0 && kotlin.math.abs(ratio - previousRatio) > .0001f) {
+                        previousRatio = ratio
+                        view?.post { dimensions(ratio) }
+                    }
+                    true
+                }
+                if (loaded) view?.viewTreeObserver?.addOnPreDrawListener(listener)
+                onDispose {
+                    view?.viewTreeObserver?.takeIf { it.isAlive }?.removeOnPreDrawListener(listener)
+                }
+            }
             DisposableEffect(lifecycle, webView) {
                 val view = webView
                 val observer = LifecycleEventObserver { _, event ->

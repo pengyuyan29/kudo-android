@@ -72,14 +72,21 @@ private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> U
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SignatureContent(block.blocks, openLink, svgWebViewFactory, failed)
             }
-            is ArticleBlock.Image -> BoxWithConstraints(Modifier.fillMaxWidth().heightIn(max = 120.dp)
-                .aspectRatio(block.ratio ?: 3.8f).clip(RoundedCornerShape(6.dp))
-                .semantics { contentDescription = "用户签名图片" }) {
+            is ArticleBlock.Image -> {
+                val svg = isSvgSignature(block.url)
+                var ratio by remember(block.url) { mutableStateOf(if (svg) null else block.ratio) }
+                val sizing = ratio?.let { Modifier.aspectRatio(it) }
+                    ?: if (svg) Modifier.height(1.dp) else Modifier.aspectRatio(3.8f)
+                BoxWithConstraints(Modifier.fillMaxWidth().then(sizing).clip(RoundedCornerShape(6.dp))
+                    .semantics { contentDescription = "用户签名图片" }) {
                 val pixels = with(LocalDensity.current) { maxWidth.roundToPx() }.coerceAtLeast(1)
-                if (isSvgSignature(block.url)) SvgSignatureImage(block.url, Modifier.fillMaxSize(), svgWebViewFactory) { failed(block.url) }
+                if (svg) SvgSignatureImage(block.url, Modifier.fillMaxSize(), svgWebViewFactory,
+                    onAspectRatio = { ratio = it }, onFailure = { failed(block.url) })
                 else AvatarImage(block.url, pixels, true, Modifier.fillMaxSize(), contentScale = ContentScale.Fit,
                     onLoaded = { if (!it) failed(block.url) },
+                    onAspectRatio = { ratio = it },
                     placeholder = { Text("签名图片", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) })
+                }
             }
             is ArticleBlock.TextBlock -> {
                 val color = MaterialTheme.colorScheme.primary

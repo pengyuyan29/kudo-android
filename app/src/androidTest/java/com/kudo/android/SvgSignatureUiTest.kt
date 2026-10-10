@@ -34,10 +34,29 @@ class SvgSignatureUiTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val views = CopyOnWriteArrayList<FixtureWebView>()
     private val requests = CopyOnWriteArrayList<String>()
+    private var fixtureWidth = 380
+    private var fixtureHeight = 100
     private val sample = Post(60, 1, Member(1, "svg", "SVG", "", avatarDetailsLoaded = true), "正文", "", 0, false, null, null, false,
         signature = "https://svg.test/signature.svg?version=1&theme=light")
 
     private fun create(context: Context): WebView = FixtureWebView(context).also { views += it }
+
+    @Test fun svgWithoutHtmlSizeFillsWidthAndUsesItsOwnAspectRatio() {
+        fixtureWidth = 320; fixtureHeight = 240
+        compose.setContent { KudoTheme(DisplaySettings(showSignatures = true)) {
+            Column(Modifier.width(280.dp).testTag("signature-body")) { UserSignature(sample, {}, ::create) }
+        } }
+        compose.waitUntil(10_000) { requests.isNotEmpty() }
+        compose.onNodeWithTag("svg-signature-content").assertIsDisplayed()
+        compose.waitUntil(5000) {
+            val bounds = compose.onNodeWithContentDescription("用户签名图片").fetchSemanticsNode().boundsInRoot
+            kotlin.math.abs(bounds.height - bounds.width * .75f) < 4f
+        }
+        val image = compose.onNodeWithContentDescription("用户签名图片").fetchSemanticsNode().boundsInRoot
+        val body = compose.onNodeWithTag("signature-body").fetchSemanticsNode().boundsInRoot
+        assertEquals(body.width, image.width, 2f)
+        assertEquals("SVG 应保持4:3真实比例", image.width * .75f, image.height, 4f)
+    }
 
     @Test fun failedSvgRemovesTheSignatureAndReleasesItsWebView() {
         compose.setContent { KudoTheme(DisplaySettings(showSignatures = true)) {
@@ -131,9 +150,9 @@ class SvgSignatureUiTest {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                     if (request.url.toString() == sample.signature) {
                         requests += request.url.toString()
-                        return WebResourceResponse("image/svg+xml", "UTF-8", """<svg xmlns="http://www.w3.org/2000/svg" width="380" height="100" viewBox="0 0 380 100">
+                        return WebResourceResponse("image/svg+xml", "UTF-8", """<svg xmlns="http://www.w3.org/2000/svg" width="$fixtureWidth" height="$fixtureHeight" viewBox="0 0 $fixtureWidth $fixtureHeight">
                             <style>@keyframes frames{0%,49%{fill:#e53935}50%,100%{fill:#1e88e5}}rect{animation:frames .6s steps(1,end) infinite}</style>
-                            <rect width="380" height="100"/><script>fetch('https://svg.test/script-ran')</script>
+                            <rect width="$fixtureWidth" height="$fixtureHeight"/><script>fetch('https://svg.test/script-ran')</script>
                             </svg>""".byteInputStream())
                     }
                     return client.shouldInterceptRequest(view, request)

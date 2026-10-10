@@ -14,7 +14,7 @@ Status: implemented
 
 ## Existing note audit
 
-检索 details、折叠、引用及相册。[引用分组](../../implemented/bug-fix/2026-10-10-discourse-quotes.md)部分重叠，复用不可变路径与 Saver；[用户签名](../../implemented/feature/2026-10-10-user-decoration.md)保留受限图片尺寸。没有被完全吸收或过时提案。
+检索 details、折叠、引用及相册。[引用分组](../../implemented/bug-fix/2026-10-10-discourse-quotes.md)部分重叠，复用不可变路径与 Saver；[用户签名](../../implemented/feature/2026-10-10-user-decoration.md)保持独立尺寸，其高度上限后由[签名真实尺寸](2026-10-10-signature-natural-size.md)接管。没有被完全吸收或过时提案。
 
 ## Alternatives considered
 
