@@ -40,6 +40,13 @@ class CommunityRepository(val client: DiscourseClient) {
     }
     suspend fun emojiUrls(): Map<String, String> = DiscourseParser.emojiUrls(client.get("/emojis.json"))
     suspend fun detail(id: Int, number: Int? = null) = DiscourseParser.detail(client.get(if (number == null) "/t/$id.json" else "/t/$id/$number.json"))
+    suspend fun recordReading(batch: TopicReadingBatch) {
+        require(batch.topicId > 0 && batch.topicTime > 0 && batch.timings.isNotEmpty())
+        require(batch.timings.all { (number, time) -> number > 0 && time in 1..60_000 })
+        val fields = mutableMapOf("topic_id" to batch.topicId.toString(), "topic_time" to batch.topicTime.toString())
+        batch.timings.forEach { (number, time) -> fields["timings[$number]"] = time.toString() }
+        client.write("POST", "/topics/timings", fields)
+    }
     suspend fun posts(topicId: Int, ids: List<Int>): List<Post> {
         if (ids.isEmpty()) return emptyList()
         val url = client.resolve("/t/$topicId/posts.json").newBuilder().apply { ids.take(20).forEach { addQueryParameter("post_ids[]", it.toString()) } }.build()
