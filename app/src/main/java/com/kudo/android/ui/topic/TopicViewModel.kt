@@ -285,6 +285,10 @@ class TopicViewModel(
         repository.react(latest, reaction)
     }
     fun bookmark(post: Post) = action(post) { latest -> latest.copy(bookmarkId = repository.bookmark(latest)) }
+    fun vote(post: Post, name: String, options: List<String>) {
+        if (_state.value.viewerId == null || _state.value.detail?.archived != false) return
+        action(post) { repository.vote(it, name, options) }
+    }
 
     fun loadBoostRules() {
         if (_state.value.boostEmojis != null || _state.value.boostRulesLoading) return

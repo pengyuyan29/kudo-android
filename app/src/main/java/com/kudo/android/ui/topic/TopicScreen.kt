@@ -30,7 +30,7 @@ import com.kudo.android.ui.components.liquid.LiquidModalAction
 import kotlinx.coroutines.flow.first
 
 @Composable
-fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}, onPostsRead: (Set<Int>) -> Unit = {}, loadBoostRules: () -> Unit = {}, boost: (Post, String, () -> Unit) -> Unit = { _, _, _ -> }, jumpTo: (Int) -> Unit = {}) {
+fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}, onPostsRead: (Set<Int>) -> Unit = {}, loadBoostRules: () -> Unit = {}, boost: (Post, String, () -> Unit) -> Unit = { _, _, _ -> }, jumpTo: (Int) -> Unit = {}, vote: (Post, String, List<String>) -> Unit = { _, _, _ -> }) {
     val backdrop = rememberLayerBackdrop()
     val modalBackdrop = rememberLayerBackdrop()
     val visibility = remember { MutableTransitionState(false) }
@@ -121,7 +121,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                             }
                             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
                                 TopicPost(thread.root, detail, state, !showing, like, bookmark, ::replyTo, user, image, openLink, ::choose,
-                                    revealOriginal, revealOriginal = { revealOriginal = true }, boost = ::openBoost)
+                                    revealOriginal, revealOriginal = { revealOriginal = true }, boost = ::openBoost, vote = vote, login = login)
                                 if (thread.root.number > 1) ReplyPreview(thread, state.replyLoads[thread.root.id], state.hasMoreReplies(thread.root), !showing) {
                                     openThread(thread.root, it)
                                 }
@@ -173,10 +173,10 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                 if (thread != null && detail != null) {
                     PostReadingViewport { viewport ->
                     LazyColumn(state = threadList, modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("thread-posts").then(viewport)) {
-                        item("root") { TopicPost(thread.root, detail, state, !overlayShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose, boost = ::openBoost) }
+                        item("root") { TopicPost(thread.root, detail, state, !overlayShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose, boost = ::openBoost, vote = vote, login = login) }
                         items(thread.replies, key = { it.id }) { post ->
                             HorizontalDivider()
-                            TopicPost(post, detail, state, !overlayShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose, boost = ::openBoost)
+                            TopicPost(post, detail, state, !overlayShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose, boost = ::openBoost, vote = vote, login = login)
                         }
                         val load = state.replyLoads[thread.root.id]
                         if (load?.loading == true) item { LoadingRow() }

@@ -60,6 +60,7 @@ sealed interface ArticleBlock {
     data class Quote(val blocks: List<ArticleBlock>, val author: String = "", val avatar: String? = null, val source: String? = null) : ArticleBlock
     data class Details(val summary: String, val blocks: List<ArticleBlock>, val open: Boolean = false) : ArticleBlock
     data class Code(val text: String) : ArticleBlock
+    data class Poll(val name: String) : ArticleBlock
     data class Image(
         val url: String, val alt: String, val ratio: Float? = null,
         val originalUrl: String = url, val filename: String = "",
@@ -96,6 +97,9 @@ fun parseArticle(html: String): List<ArticleBlock> {
     val result = mutableListOf<ArticleBlock>()
     fun walk(element: Element, quote: Boolean = false) {
         if (element.hasClass("meta") && element.parents().any { it.hasClass("lightbox") || it.hasClass("lightbox-wrapper") }) return
+        if (element.hasClass("poll") && element.hasAttr("data-poll-name")) {
+            result.add(ArticleBlock.Poll(element.attr("data-poll-name"))); return
+        }
         when (element.normalName()) {
             "script", "style", "noscript" -> Unit
             "pre" -> result.add(ArticleBlock.Code(element.wholeText()))
@@ -259,7 +263,8 @@ internal fun SiteEmoji(name: String, modifier: Modifier = Modifier, source: Stri
 
 @Composable
 fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Unit,
-                galleryKey: String = "article", galleryBottomInset: Dp = 0.dp) {
+                galleryKey: String = "article", galleryBottomInset: Dp = 0.dp,
+                poll: @Composable (String) -> Unit = { Text("投票，请打开原帖查看") }) {
     val blocks = remember(html) { parseArticle(html) }
     val linkHandler = remember(onLink) { object : UriHandler {
         override fun openUri(uri: String) = onLink(uri)
@@ -291,7 +296,7 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
     }
     ArticleBlocks(blocks, "root", collapsed, { path ->
         collapsed = if (path in collapsed) collapsed - path else collapsed + path
-    }, onLink, linkHandler) { block, path ->
+    }, onLink, linkHandler, poll) { block, path ->
         val index = imageIndices.getValue(path)
         ArticleImage(block, anchors[index], "article-image-$galleryKey-$index") {
             if (gallery == null) onImage(block.originalUrl)
@@ -302,7 +307,8 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
 
 @Composable
 private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed: List<String>, toggle: (String) -> Unit,
-    onLink: (String) -> Unit, linkHandler: UriHandler, image: @Composable (ArticleBlock.Image, String) -> Unit) {
+    onLink: (String) -> Unit, linkHandler: UriHandler, poll: @Composable (String) -> Unit,
+    image: @Composable (ArticleBlock.Image, String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         blocks.forEachIndexed { index, block ->
             val path = "$parent-$index"
@@ -320,7 +326,7 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                     Text(summary, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 }
                 if (!hidden) Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
-                    ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, image)
+                    ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, poll, image)
                 }
             }
             is ArticleBlock.Quote -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp))
@@ -345,7 +351,7 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                         } }
                     }
                 }
-                if (path !in collapsed) ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, image)
+                if (path !in collapsed) ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, poll, image)
             }
             is ArticleBlock.TextBlock -> {
                 val color = MaterialTheme.colorScheme.primary
@@ -368,6 +374,7 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
             }
             is ArticleBlock.Image -> image(block, path)
             is ArticleBlock.Embed -> OneboxPreview(block, onLink)
+            is ArticleBlock.Poll -> poll(block.name)
             ArticleBlock.Rule -> Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
         } } }
     }

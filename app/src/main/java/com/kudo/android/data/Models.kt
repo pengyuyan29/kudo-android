@@ -53,6 +53,7 @@ data class Post(
     val canViewEditHistory: Boolean = false, val availableFlags: Set<Int> = emptySet(),
     val signature: String = "", val replyCount: Int = 0, val read: Boolean? = null,
     val boosts: List<PostBoost> = emptyList(), val canBoost: Boolean = false,
+    val polls: List<PostPoll> = emptyList(), val pollVotes: Map<String, List<String>> = emptyMap(),
 ) {
     val activeReaction: String? get() = currentReaction?.id ?: "heart".takeIf { liked }
     val canReact: Boolean get() = if (activeReaction != null) currentReaction?.canUndo ?: canUndoLike else canLike
@@ -68,6 +69,7 @@ data class TopicDetail(
     val validReactions: List<String> = emptyList(), val pinnedOriginal: Post? = null,
     val tags: List<TopicTag> = emptyList(),
     val highestPostNumber: Int = maxOf(posts.maxOfOrNull(Post::number) ?: 1, stream.size),
+    val archived: Boolean = false,
 ) {
     val originalPost: Post? get() = posts.firstOrNull { it.number == 1 } ?: pinnedOriginal
 }
@@ -172,7 +174,9 @@ object DiscourseParser {
             signature = json.stringField("user_signature"), replyCount = json.optInt("reply_count").coerceAtLeast(0),
             read = json.opt("read") as? Boolean,
             boosts = json.optJSONArray("boosts").objects().mapNotNull { runCatching { parseBoost(it) }.getOrNull() },
-            canBoost = json.optBoolean("can_boost"))
+            canBoost = json.optBoolean("can_boost"),
+            polls = json.optJSONArray("polls").objects().map(::parsePoll).filter { it.name.isNotEmpty() },
+            pollVotes = json.optJSONObject("polls_votes")?.let { votes -> votes.keys().asSequence().associateWith { votes.optJSONArray(it).strings() } }.orEmpty())
     }
 
     fun detail(json: JSONObject): TopicDetail {
@@ -187,7 +191,7 @@ object DiscourseParser {
             json.optJSONArray("valid_reactions").strings().filter { it.matches(Regex("[a-zA-Z0-9_+:-]+")) }.distinct(),
             tags = json.optJSONArray("tags").topicTags(),
             highestPostNumber = maxOf(json.optInt("highest_post_number"), posts.maxOfOrNull(Post::number) ?: 1,
-                if (json.positiveInt("highest_post_number") == null) ids?.length() ?: 0 else 0))
+                if (json.positiveInt("highest_post_number") == null) ids?.length() ?: 0 else 0), archived = json.optBoolean("archived"))
     }
 
     fun notices(json: JSONObject): List<Notice> = json.optJSONArray("notifications").objects().map { item ->

@@ -24,7 +24,8 @@ import java.util.Locale
 internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabled: Boolean,
     like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit,
     user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, choose: (Post) -> Unit,
-    originalRevealed: Boolean = false, revealOriginal: () -> Unit = {}, boost: (Post) -> Unit = {}) {
+    originalRevealed: Boolean = false, revealOriginal: () -> Unit = {}, boost: (Post) -> Unit = {},
+    vote: (Post, String, List<String>) -> Unit = { _, _, _ -> }, login: () -> Unit = {}) {
     val ignoredUsers = LocalIgnoredUsers.current
     var revealed by remember(post.id, ignoredUsers) { mutableStateOf(false) }
     val ignored = post.author.username.lowercase(Locale.ROOT) in ignoredUsers
@@ -52,7 +53,15 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
                 }
             }
             PostReadingContent(post.number, enabled && !state.loading) {
-                RichContent(post.cooked, image, openLink, galleryKey = "post-${post.id}", galleryBottomInset = 110.dp)
+                RichContent(post.cooked, image, openLink, galleryKey = "post-${post.id}", galleryBottomInset = 110.dp,
+                    poll = { name ->
+                        val poll = post.polls.firstOrNull { it.name == name }
+                        val web = { openLink("https://linux.do/t/topic/${detail.id}/${post.number}") }
+                        if (poll != null) PostPollView(poll, post.pollVotes[name].orEmpty(), post.author.id == state.viewerId,
+                            detail.archived || !enabled, post.id in state.busy, state.viewerId != null,
+                            { vote(post, name, it) }, login, web)
+                        else Text("打开网页查看投票", Modifier.clickable(onClick = web), color = MaterialTheme.colorScheme.primary)
+                    })
             }
             UserSignature(post, openLink)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

@@ -51,7 +51,7 @@ private fun usableSignatureBlocks(blocks: List<ArticleBlock>, failed: Set<String
         is ArticleBlock.Image -> block.takeUnless { it.url in failed }
         is ArticleBlock.Quote -> usableSignatureBlocks(block.blocks, failed).takeIf { it.isNotEmpty() }?.let { block.copy(blocks = it) }
         is ArticleBlock.Details -> usableSignatureBlocks(block.blocks, failed).takeIf { it.isNotEmpty() }?.let { block.copy(blocks = it) }
-        ArticleBlock.Rule -> null
+        ArticleBlock.Rule, is ArticleBlock.Poll -> null
         else -> block
     }
 }
@@ -98,6 +98,7 @@ private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> U
             }
             is ArticleBlock.Embed -> Text(block.title, Modifier.clickable { openLink(block.url) }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
             is ArticleBlock.Code -> Text(block.text, style = MaterialTheme.typography.bodySmall)
+            is ArticleBlock.Poll -> Unit
             ArticleBlock.Rule -> Unit
         } } }
 }
