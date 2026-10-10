@@ -39,7 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import java.time.Instant
 
-enum class AvatarPresentation { ACCOUNT, PUBLIC }
+enum class AvatarPresentation { ACCOUNT, PUBLIC, PLAIN }
 
 internal sealed interface AvatarDecoration {
     data class Flair(val value: AvatarFlair) : AvatarDecoration
@@ -48,6 +48,7 @@ internal sealed interface AvatarDecoration {
 
 internal fun avatarDecoration(member: Member?, presentation: AvatarPresentation, now: Instant): AvatarDecoration? {
     member ?: return null
+    if (presentation == AvatarPresentation.PLAIN) return null
     if (presentation == AvatarPresentation.PUBLIC) member.flair?.let { return AvatarDecoration.Flair(it) }
     return member.status?.takeIf { it.isActive(now) }?.let(AvatarDecoration::Status)
 }

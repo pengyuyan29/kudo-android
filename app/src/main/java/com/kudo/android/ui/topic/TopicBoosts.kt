@@ -73,7 +73,7 @@ internal fun PostBoosts(post: Post, enabled: Boolean, user: (String) -> Unit, op
                     .clickable(enabled = enabled, role = Role.Button) { user(boost.author.username) }
                     .padding(horizontal = 8.dp, vertical = 7.dp).testTag("boost-${boost.id}"),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Avatar(boost.author, 22.dp)
+                    Avatar(boost.author, 22.dp, presentation = AvatarPresentation.PLAIN)
                     Text(article.text, Modifier.weight(1f, fill = false), inlineContent = emojis,
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

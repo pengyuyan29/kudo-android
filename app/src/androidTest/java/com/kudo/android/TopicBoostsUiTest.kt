@@ -2,11 +2,14 @@ package com.kudo.android
 
 import android.graphics.Bitmap
 import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kudo.android.data.*
 import com.kudo.android.ui.theme.KudoTheme
+import com.kudo.android.ui.components.Avatar
 import com.kudo.android.ui.topic.*
 import org.junit.Assert.*
 import org.junit.Rule
@@ -22,6 +25,29 @@ class TopicBoostsUiTest {
     private val root = first.copy(id = 2, number = 2, cooked = "<p>评论正文</p>", boosts = emptyList())
     private val child = first.copy(id = 3, number = 3, replyTo = 2, cooked = "<p>楼中楼正文</p>", boosts = listOf(PostBoost(101, author, "<p>回复也可以 Boost</p>")))
     private val detail = TopicDetail(5, "帖子与 Boost", 1, listOf(first, root, child), listOf(1, 2, 3), false)
+
+    @Test fun boostAvatarsHideDecorationsWithoutChangingOtherAvatarScenes() {
+        val flaired = author.copy(flair = AvatarFlair("测试资质", "battery-quarter"))
+        val status = author.copy(id = 2, username = "status", status = UserStatus("smile", "测试状态"))
+        var opened = ""
+        compose.setContent { KudoTheme(DisplaySettings()) { Column {
+            PostBoosts(first.copy(boosts = listOf(PostBoost(100, flaired, "<p>加油😀</p>"),
+                PostBoost(102, status, "<p>支持一下</p>"))), true, { opened = it }, {})
+            Avatar(flaired, 40.dp)
+            Avatar(status, 40.dp)
+        } } }
+        val chips = hasAnyAncestor(hasTestTag("post-boosts-1"))
+        compose.onAllNodes(hasContentDescription("的资质", substring = true) and chips, useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodes(hasContentDescription("的状态", substring = true) and chips, useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodesWithContentDescription("的资质", substring = true, useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("的状态", substring = true, useUnmergedTree = true).assertCountEquals(1)
+        compose.onNodeWithText("加油😀").assertIsDisplayed()
+        compose.onNodeWithTag("boost-100").performClick()
+        compose.runOnIdle { assertEquals(author.username, opened) }
+        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "boost-plain-avatars.png")
+            .outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
 
     @Test fun boostInputEnforcesBothLimitsAndOnlyClearsAfterConfirmation() {
         var state by mutableStateOf(TopicState(detail, false, viewerId = 9, boostEmojis = emptySet()))
@@ -49,14 +75,14 @@ class TopicBoostsUiTest {
         compose.onNodeWithTag("boost-input").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.EditableText, androidx.compose.ui.text.AnnotatedString("")))
     }
 
-    @Test fun nestedBoostsAppearAndTheFormWorksInDarkLargeText() {
+    @Test fun replyFloorBoostsAndFormWorkInDarkLargeText() {
         compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f)) {
             TopicScreen(TopicState(detail, false, viewerId = 9, targetNumber = 3, boostEmojis = emptySet()),
                 GlassMode.LIQUID, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
         } }
-        compose.onNodeWithTag("thread-posts").performScrollToNode(hasTestTag("boost-101"))
-        compose.onNodeWithTag("boost-101").assertIsDisplayed()
-        compose.onAllNodesWithContentDescription("Boost 此帖子").onLast().performClick()
+        compose.onNodeWithTag("boost-101").performScrollTo().assertIsDisplayed()
+        compose.onNode(hasContentDescription("Boost 此帖子") and hasAnyAncestor(hasTestTag("post-3")))
+            .performScrollTo().performClick()
         compose.onNodeWithTag("boost-input").performTextInput("可以继续加油😀")
         compose.onNodeWithText("发送").assertIsEnabled()
         val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
@@ -66,6 +92,6 @@ class TopicBoostsUiTest {
             swipe(center, center + androidx.compose.ui.geometry.Offset(0f, 650f), 600)
         }
         compose.onNodeWithTag("boost-input").assertDoesNotExist()
-        compose.onNodeWithTag("thread-posts").assertExists()
+        compose.onNodeWithTag("post-3").assertIsDisplayed()
     }
 }
