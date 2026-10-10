@@ -113,7 +113,7 @@ internal fun ProfileToolbar(member: Member, collapsed: Boolean, viewerId: Int?, 
     back: () -> Unit, search: () -> Unit, more: () -> Unit, modifier: Modifier = Modifier,
     collapseFraction: Float = if (collapsed) 1f else 0f) {
     val color = Color.White
-    val identityAlpha = collapseFraction.coerceIn(0f, 1f)
+    val identityAlpha = profileToolbarIdentityAlpha(collapseFraction)
     Row(modifier.fillMaxWidth().testTag("profile-toolbar")
         .statusBarsPadding().height(48.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(40.dp).clickable(role = Role.Button, onClick = back), contentAlignment = Alignment.Center) {
@@ -135,6 +135,9 @@ internal fun ProfileToolbar(member: Member, collapsed: Boolean, viewerId: Int?, 
         }
     }
 }
+
+internal fun profileToolbarIdentityAlpha(collapseFraction: Float): Float =
+    ((collapseFraction - .5f) * 2f).coerceIn(0f, 1f)
 
 @Composable
 private fun ProfileFollowButton(member: Member, viewerId: Int?, busy: Boolean, follow: () -> Unit,

@@ -36,6 +36,10 @@ UserProfileViewModel 的资料、卡片、摘要、各标签和关注列表独�
 
 最终46项关联JVM、Debug及测试APK构建和Lint通过（profile-contract-final-build.txt）。非总结页刷新先由新增真机用例复现失败（profile-refresh-repro.txt）；修复后重新构建和Lint通过，PublicProfileUiTest 8项全部通过（12.917秒，profile-refresh-fixed-device.txt），原有无关回归不重复运行。只读真实主页与 /404 页面验证通过（8.939秒，profile-live-final.txt）；public-profile-live.png 已确认头像铺底、渐变遮罩和白色状态栏，public-profile-live-404.png 已确认原生不可访问状态。头像异步加载完成后采集真实截图，未把早期加载占位当作头像回退结果。通过同签名 install -r 安装Debug，保留手机登录和数据。
 
+## Toolbar reveal timing
+
+The expanded header content fades out by the halfway point of the collapse range. The pinned avatar, name, and follow control therefore stay transparent until that point, then reveal linearly through the remaining collapse range so the two identity presentations do not overlap abruptly.
+
 ## Consequences
 
 插件权限与隐私会令部分内容不可用，必须显示局部错误而非空列表。头像铺底可能模糊，遮罩需保证文字可读。页内背景不能改变“我的”的标题图来源。
