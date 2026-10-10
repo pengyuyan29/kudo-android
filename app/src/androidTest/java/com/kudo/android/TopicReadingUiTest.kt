@@ -21,6 +21,28 @@ class TopicReadingUiTest {
     private val author = Member(2, "test", "离线作者", "")
     private fun post(number: Int, html: String = "<p>实际可见的正文</p>") = Post(number + 100, number, author, html, "", 0, false, null, null, false)
 
+    @Test fun detailAndThreadSheetUseSeparateViewportsAndOnlyFullRepliesCount() {
+        var active by mutableStateOf(true)
+        val batches = mutableListOf<TopicReadingBatch>()
+        val root = post(8)
+        val child = post(9).copy(replyTo = 8)
+        val detail = TopicDetail(12, "离线详情", 1, listOf(root, child), listOf(root.id, child.id), false)
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicScreen(TopicState(detail, loading = false, viewerId = 7), GlassMode.TRANSLUCENT,
+                {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, readingEnabled = active, onReadingBatch = { batches += it })
+        } }
+        compose.waitForIdle(); SystemClock.sleep(1300)
+        compose.runOnIdle { active = false }
+        compose.waitUntil(3000) { batches.isNotEmpty() }
+        assertEquals(setOf(8), batches.flatMap { it.timings.keys }.toSet())
+        compose.onNodeWithText("查看 1 条回复").performClick()
+        compose.waitForIdle()
+        compose.runOnIdle { active = true }
+        compose.waitForIdle(); SystemClock.sleep(1300)
+        compose.runOnIdle { active = false }
+        compose.waitUntil(3000) { batches.any { 9 in it.timings } }
+    }
+
     @Test fun disposingAnOldViewerKeepsItsOriginalSubmissionIdentity() {
         var viewer by mutableIntStateOf(7)
         val batches = mutableListOf<Pair<Int, TopicReadingBatch>>()

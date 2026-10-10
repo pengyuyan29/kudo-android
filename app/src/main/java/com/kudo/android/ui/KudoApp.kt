@@ -82,6 +82,12 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
         var refreshEpoch by rememberSaveable { mutableIntStateOf(0) }
+        var readingEpoch by rememberSaveable { mutableIntStateOf(0) }
+        val readingSync = remember(app.repository, scope) {
+            TopicReadingSync(scope, app.repository) { readingEpoch++ }
+        }
+        SideEffect { readingSync.setAccount(account.user?.id) }
+        DisposableEffect(readingSync) { onDispose { readingSync.close() } }
         var selected by rememberSaveable { mutableIntStateOf(0) }
         fun openBrowser(url: String) {
             if (Uri.parse(url).scheme !in listOf("https", "http")) return
@@ -135,6 +141,9 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val backdrop = rememberLayerBackdrop()
                         ObserveHomeUpdates(feed, account.user)
                         LaunchedEffect(refreshEpoch) { feed.refreshIfRequested(refreshEpoch) }
+                        LaunchedEffect(readingEpoch, account.user?.id) {
+                            feed.refreshReadListsIfRequested(readingEpoch, account.user?.id)
+                        }
                         LaunchedEffect(selected, account.user?.id) {
                             if (selected == 1 && account.categories.isEmpty()) account.loadCategories()
                             if (selected == 3) account.loadNotices()
@@ -266,7 +275,8 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             .focusProperties { onEnter = { if (replyShowing) cancelFocusChange() } }.focusGroup()) {
                         TopicScreen(state, display.glass, { nav.popBackStack() }, vm::refresh, vm::more, ::login, { authenticated { vm.like(it) } }, { authenticated { vm.bookmark(it) } }, { post -> authenticated { replyTarget = post?.number ?: 0; replyVisibility.targetState = true } }, ::user, {}, ::openLink,
                             { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, "${state.detail?.title.orEmpty()}\nhttps://linux.do/t/$id") }, "分享话题")) },
-                            follow = { authenticated { vm.follow() } }, react = { post, reaction -> authenticated { vm.react(post, reaction) } }, openBrowser = ::openBrowser, loadReplies = vm::loadReplies, resolveContext = vm::resolveContext)
+                            follow = { authenticated { vm.follow() } }, react = { post, reaction -> authenticated { vm.react(post, reaction) } }, openBrowser = ::openBrowser, loadReplies = vm::loadReplies, resolveContext = vm::resolveContext,
+                            readingEnabled = !replyShowing, onReadingBatch = { readingSync.submit(state.viewerId, it) })
                         }
                         val currentUser = account.user
                         val target = replyTarget
