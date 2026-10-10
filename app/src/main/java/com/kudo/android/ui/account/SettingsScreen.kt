@@ -59,6 +59,7 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                         SettingRow("界面材质效果", settings.glass.label, !showing) { show("glass") }
                         SettingRow("字体大小", if (settings.fontScale == 1f) "跟随系统" else "${(settings.fontScale * 100).toInt()}%", !showing) { show("font") }
                         SettingRow("主题列表样式", settings.topicListStyle.label, !showing) { show("list") }
+                        SettingRow("底栏中间按钮", settings.navigationAction.label, !showing) { show("navigation") }
                         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("显示用户签名", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                             CommunitySwitch(settings.showSignatures, { update(settings.copy(showSignatures = it)) }, enabled = !showing,
@@ -88,10 +89,10 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                 }
             }
         }
-        val actionSheet = dialog in listOf("theme", "glass", "font", "list")
+        val actionSheet = dialog in listOf("theme", "glass", "font", "list", "navigation")
         val title = when (dialog) {
             "theme" -> "主题风格"; "glass" -> "界面材质效果"; "font" -> "字体大小"
-            "list" -> "主题列表样式"
+            "list" -> "主题列表样式"; "navigation" -> "底栏中间按钮"
             "logout" -> "退出登录？"; else -> "酷DO"
         }
         LiquidModal(visibility, title, actionSheet, backdrop, settings.glass, ::dismiss,
@@ -109,10 +110,11 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                     "theme" -> ThemeMode.entries.map { it.label }
                     "glass" -> GlassMode.entries.map { it.label }
                     "list" -> TopicListStyle.entries.map { it.label }
+                    "navigation" -> NavigationAction.entries.map { it.label }
                     else -> listOf("较小 · 85%", "跟随系统", "较大 · 115%", "大号 · 130%")
                 }
                 val selected = when (dialog) {
-                    "theme" -> settings.theme.ordinal; "glass" -> settings.glass.ordinal; "list" -> settings.topicListStyle.ordinal; else -> scales.indexOf(settings.fontScale)
+                    "theme" -> settings.theme.ordinal; "glass" -> settings.glass.ordinal; "list" -> settings.topicListStyle.ordinal; "navigation" -> settings.navigationAction.ordinal; else -> scales.indexOf(settings.fontScale)
                 }
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface)) {
                     options.forEachIndexed { index, label ->
@@ -124,6 +126,7 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                                     "theme" -> settings.copy(theme = ThemeMode.entries[index])
                                     "glass" -> settings.copy(glass = GlassMode.entries[index])
                                     "list" -> settings.copy(topicListStyle = TopicListStyle.entries[index])
+                                    "navigation" -> settings.copy(navigationAction = NavigationAction.entries[index])
                                     else -> settings.copy(fontScale = scales[index])
                                 })
                                 dismiss()
