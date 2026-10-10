@@ -1,6 +1,7 @@
 """Group stable-tag commit subjects into a reproducible Chinese GitHub Release body."""
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 import re
 import subprocess
@@ -8,7 +9,16 @@ import subprocess
 from release_version import parse_tag
 
 
-GROUPS = ("新增", "修复", "调整", "维护")
+GROUPS = ("新增", "修复", "调整")
+ALLOWED_TYPES = {"feat": "新增", "fix": "修复", "perf": "调整"}
+IGNORED_TYPES = {"build", "chore", "ci", "doc", "docs", "refactor", "style", "test"}
+CONVENTIONAL_TYPES = r"feat|fix|perf|refactor|style|build|ci|doc|docs|chore|test"
+
+
+@dataclass(frozen=True)
+class ReleaseCommit:
+    subject: str
+    paths: tuple[str, ...] = ()
 
 
 def git(*arguments: str, cwd: Path | None = None) -> str:
@@ -34,30 +44,48 @@ def previous_tag(tag: str, cwd: Path | None = None) -> str | None:
 
 def classify(subject: str) -> tuple[str, str]:
     subject = " ".join(subject.split())
-    conventional = re.match(r"^(feat|fix|perf|refactor|style|build|ci|docs|chore|test)(?:\([^)]*\))?!?:\s*(.+)$", subject, re.I)
+    conventional = re.match(rf"^({CONVENTIONAL_TYPES})(?:\([^)]*\))?!?:\s*(.+)$", subject, re.I)
     if conventional:
         kind, title = conventional.groups()
-        group = {"feat": "新增", "fix": "修复", "perf": "调整", "refactor": "调整", "style": "调整"}.get(kind.lower(), "维护")
-        return group, title.strip()
+        return ALLOWED_TYPES.get(kind.lower(), ""), title.strip()
     if re.match(r"^(修复|解决|纠正|修正)", subject):
         return "修复", subject
     if re.match(r"^(新增|添加|支持|实现|接入)", subject):
         return "新增", subject
     if re.match(r"^(调整|优化|改进|完善|精简|收紧|上移|移除|更换|统一)", subject):
         return "调整", subject
-    return "维护", subject
+    return "", subject
 
 
-def render_notes(tag: str, subjects: list[str], repository: str, previous: str | None) -> str:
+def is_app_path(path: str) -> bool:
+    normalized = path.replace("\\", "/")
+    return normalized.startswith("app/src/main/") and "/licenses/" not in normalized
+
+
+def is_app_commit(commit: ReleaseCommit) -> bool:
+    subject = " ".join(commit.subject.split())
+    conventional = re.match(rf"^({CONVENTIONAL_TYPES})(?:\([^)]*\))?!?:\s*.+$", subject, re.I)
+    if conventional and conventional.group(1).lower() in IGNORED_TYPES:
+        return False
+    return any(is_app_path(path) for path in commit.paths)
+
+
+def render_notes(tag: str, subjects: list[str | ReleaseCommit], repository: str, previous: str | None) -> str:
     version = parse_tag(tag)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_][A-Za-z0-9_.-]*", repository):
         raise ValueError("仓库需使用owner/repository格式。")
     groups: dict[str, list[str]] = {name: [] for name in GROUPS}
     seen = set()
-    for subject in subjects:
+    for item in subjects:
+        commit = item if isinstance(item, ReleaseCommit) else ReleaseCommit(item)
+        subject = commit.subject
         if not subject.strip() or subject.startswith(("Merge ", "合并分支")):
             continue
+        if not is_app_commit(commit):
+            continue
         group, title = classify(subject)
+        if not group:
+            continue
         key = title.rstrip("。.").casefold()
         if key and key not in seen:
             groups[group].append(title)
@@ -67,7 +95,7 @@ def render_notes(tag: str, subjects: list[str], repository: str, previous: str |
         if titles:
             lines.extend([f"## {group}", "", *(f"- {title}" for title in titles), ""])
     if not seen:
-        lines.extend(["本版本没有新增提交。", ""])
+        lines.extend(["本版本暂无 App 功能变更。", ""])
     base = f"https://github.com/{repository}"
     link = f"{base}/compare/{previous}...{tag}" if previous else f"{base}/commits/{tag}"
     lines.extend([f"[完整变更]({link})", ""])
@@ -77,8 +105,13 @@ def render_notes(tag: str, subjects: list[str], repository: str, previous: str |
 def generate_notes(tag: str, repository: str, cwd: Path | None = None) -> str:
     previous = previous_tag(tag, cwd)
     revision = f"refs/tags/{previous}..refs/tags/{tag}" if previous else f"refs/tags/{tag}"
-    subjects = git("log", "--no-merges", "--reverse", "--format=%s", revision, cwd=cwd).splitlines()
-    return render_notes(tag, subjects, repository, previous)
+    records = git("log", "--no-merges", "--reverse", "--format=%H%x00%s", revision, cwd=cwd).splitlines()
+    commits = []
+    for record in records:
+        commit_hash, subject = record.split("\x00", 1)
+        paths = git("diff-tree", "--root", "--no-commit-id", "--name-only", "-r", commit_hash, cwd=cwd).splitlines()
+        commits.append(ReleaseCommit(subject, tuple(paths)))
+    return render_notes(tag, commits, repository, previous)
 
 
 def main() -> None:

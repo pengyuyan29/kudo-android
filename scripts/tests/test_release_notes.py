@@ -25,22 +25,29 @@ class ReleaseNotesTest(unittest.TestCase):
     def git(self, *args):
         return subprocess.run(["git", *args], cwd=self.root, capture_output=True, check=True, encoding="utf-8").stdout
 
-    def commit(self, subject):
+    def commit(self, subject, paths=("app/src/main/java/com/kudo/android/Feature.kt",)):
+        for path in paths:
+            target = self.root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(subject, encoding="utf-8")
+            self.git("add", path)
         self.git("-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", subject)
 
     def test_first_release_includes_history_and_groups_deduplicated_subjects(self):
         self.commit("支持原生帖子")
         self.commit("fix(ui): 修复头像角标")
         self.commit("调整设置间距")
-        self.commit("docs: 更新说明")
+        self.commit("docs: 更新说明", ("README.md",))
         self.commit("支持原生帖子")
         self.git("tag", "v0.1.0")
         notes = generate_notes("v0.1.0", "owner/repo", self.root)
-        for heading in ("新增", "修复", "调整", "维护"):
+        for heading in ("新增", "修复", "调整"):
             self.assertIn(f"## {heading}", notes)
         self.assertEqual(1, notes.count("- 支持原生帖子"))
         self.assertIn("- 修复头像角标", notes)
         self.assertNotIn("fix(ui):", notes)
+        self.assertNotIn("更新说明", notes)
+        self.assertNotIn("维护", notes)
         self.assertIn("/commits/v0.1.0", notes)
 
     def test_incremental_range_chooses_numeric_ancestor_and_ignores_other_branches(self):
@@ -64,7 +71,7 @@ class ReleaseNotesTest(unittest.TestCase):
 
     def test_merged_subjects_empty_changes_and_invalid_parameters(self):
         notes = render_notes("v1.0.0", ["Merge branch 'feature'", "", "  "], "owner/repo", "v0.9.0")
-        self.assertIn("本版本没有新增提交", notes)
+        self.assertIn("本版本暂无 App 功能变更", notes)
         for repository in ("../unsafe", "https://github.com/a/b", "a/b\n# injected"):
             with self.assertRaises(ValueError):
                 render_notes("v1.0.0", [], repository, None)
@@ -84,6 +91,32 @@ class ReleaseNotesTest(unittest.TestCase):
         notes = generate_notes("v0.2.0", "owner/repo", self.root)
         self.assertIn("新增检查更新", notes)
         self.assertNotIn("合并功能", notes)
+
+    def test_only_app_changes_and_allowed_types_are_kept(self):
+        for subject, paths in (
+            ("feat: 新增运行功能", ("app/src/main/java/com/kudo/android/Feature.kt",)),
+            ("fix: 修复运行问题", ("app/src/main/res/values/strings.xml",)),
+            ("perf: 优化渲染", ("app/src/main/java/com/kudo/android/Feature.kt",)),
+            ("docs: 更新说明", ("app/src/main/java/com/kudo/android/Feature.kt",)),
+            ("feat: 补测试", ("app/src/test/java/com/kudo/android/FeatureTest.kt",)),
+            ("fix: 更新许可证", ("app/src/main/assets/licenses/libavif.txt",)),
+            ("ci: 调整工作流", (".github/workflows/release.yml",)),
+            ("支持旧版功能", ("app/src/main/java/com/kudo/android/Legacy.kt",)),
+            ("构建旧版包", ("app/build.gradle.kts",)),
+        ):
+            self.commit(subject, paths)
+        self.git("tag", "v1.0.0")
+        notes = generate_notes("v1.0.0", "owner/repo", self.root)
+        self.assertIn("- 新增运行功能", notes)
+        self.assertIn("- 修复运行问题", notes)
+        self.assertIn("- 优化渲染", notes)
+        self.assertIn("- 支持旧版功能", notes)
+        self.assertNotIn("补测试", notes)
+        self.assertNotIn("更新许可证", notes)
+        self.assertNotIn("调整工作流", notes)
+        self.assertNotIn("更新说明", notes)
+        self.assertNotIn("构建旧版包", notes)
+        self.assertNotIn("## 维护", notes)
 
     def test_actual_workflow_writes_notes_for_new_and_retried_drafts_before_publication(self):
         bash = str(Path(r"C:\Program Files\Git\bin\bash.exe")) if os.name == "nt" else shutil.which("bash")
