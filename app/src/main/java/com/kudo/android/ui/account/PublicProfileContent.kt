@@ -142,13 +142,13 @@ internal fun ProfileEntryRow(entry: ProfileEntry, open: (String) -> Unit) {
                 if (entry.annotation.isNotBlank()) Text(entry.annotation, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.weight(1f))
-                if (entry.time.isNotBlank()) Text(relativeTime(entry.time).ifBlank { entry.time.take(10) }, fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 entry.number?.takeIf { it > 1 }?.let { Text("#$it", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline) }
                 entry.count?.let {
                     Icon(Icons.Rounded.FavoriteBorder, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.outline)
                     Text(compactNumber(it), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
+                if (entry.time.isNotBlank()) Text(relativeTime(entry.time).ifBlank { entry.time.take(10) }, fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
