@@ -44,27 +44,23 @@ class SurfaceLiquidUiTest {
     @Test fun topicSurfaceActionsReceiveIndependentPhysicalClicks() {
         var replies = 0
         var likes = 0
-        var bookmarks = 0
-        var shares = 0
+        var boosts = 0
         compose.setContent {
             KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
                 TopicScreen(TopicState(detail, false), GlassMode.LIQUID,
-                    {}, {}, {}, {}, { assertEquals(post.id, it.id); likes++ },
-                    { assertEquals(post.id, it.id); bookmarks++ }, { assertNull(it); replies++ },
-                    {}, {}, {}, { shares++ })
+                    {}, {}, {}, { boosts++ }, { assertEquals(post.id, it.id); likes++ },
+                    {}, { assertNull(it); replies++ }, {}, {}, {}, {})
             }
         }
         compose.onNodeWithTag("topic-actions").assertHasNoClickAction()
         compose.onAllNodesWithContentDescription("赞主帖").assertCountEquals(1)
         compose.onNodeWithText("写回复").performTouchInput { click() }
         compose.onNodeWithContentDescription("赞主帖").performTouchInput { click() }
-        compose.onNodeWithContentDescription("收藏主帖").performTouchInput { click() }
-        compose.onNodeWithContentDescription("分享话题").performTouchInput { click() }
+        compose.onNodeWithContentDescription("Boost 主帖").performTouchInput { click() }
         compose.runOnIdle {
             assertEquals(1, replies)
             assertEquals(1, likes)
-            assertEquals(1, bookmarks)
-            assertEquals(1, shares)
+            assertEquals(1, boosts)
         }
         capture("topic-surface-light.png")
     }
@@ -72,23 +68,20 @@ class SurfaceLiquidUiTest {
     @Test fun closedBusyAndMissingPostKeepActionPermissions() {
         var state by mutableStateOf(TopicState(detail.copy(closed = true), false, busy = setOf(post.id)))
         var mutations = 0
-        var shares = 0
         compose.setContent {
             KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
                 TopicScreen(state, GlassMode.LIQUID, {}, {}, {}, {}, { mutations++ }, { mutations++ },
-                    { mutations++ }, {}, {}, {}, { shares++ })
+                    { mutations++ }, {}, {}, {}, {})
             }
         }
         compose.onNodeWithText("写回复").assertIsNotEnabled().performTouchInput { click() }
         compose.onNodeWithContentDescription("赞主帖").assertIsNotEnabled().performTouchInput { click() }
-        compose.onNodeWithContentDescription("收藏主帖").assertIsNotEnabled().performTouchInput { click() }
-        compose.onNodeWithContentDescription("分享话题").assertIsEnabled().performTouchInput { click() }
-        compose.runOnIdle { assertEquals(0, mutations); assertEquals(1, shares) }
+        compose.onNodeWithContentDescription("Boost 主帖").assertIsNotEnabled().performTouchInput { click() }
+        compose.runOnIdle { assertEquals(0, mutations) }
         compose.runOnIdle { state = TopicState(detail.copy(posts = listOf(post.copy(number = 2))), false) }
         compose.onNodeWithContentDescription("赞主帖").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("收藏主帖").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Boost 主帖").assertIsNotEnabled()
         compose.onNodeWithText("写回复").assertIsEnabled()
-        compose.onNodeWithContentDescription("分享话题").assertIsEnabled()
     }
 
     @Test fun surfacePressMagnifiesContentAndCancelRestoresIt() {
@@ -171,8 +164,7 @@ class SurfaceLiquidUiTest {
             }
             assertTrue("深色前景必须可读", layouts.single().layoutInput.style.color.luminance() > 0.4f)
             compose.onNodeWithContentDescription("赞主帖").assertIsDisplayed()
-            compose.onNodeWithContentDescription("收藏主帖").assertIsDisplayed()
-            compose.onNodeWithContentDescription("分享话题").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Boost 主帖").assertIsDisplayed()
             compose.onNodeWithTag("topic-actions").assertHasNoClickAction()
             compose.onNodeWithText("写回复").performTouchInput { click() }
         }

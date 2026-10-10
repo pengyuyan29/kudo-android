@@ -114,6 +114,7 @@ internal fun TopicBottomBar(
     state: TopicState, backdrop: Backdrop, glass: GlassMode, enabled: Boolean,
     reply: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, share: () -> Unit,
     choose: (Post) -> Unit, modifier: Modifier = Modifier,
+    boost: (Post) -> Unit = {},
 ) {
     val detail = state.detail ?: return
     val first = detail.originalPost
@@ -136,11 +137,9 @@ internal fun TopicBottomBar(
             TopicReactionButton(first, available && (state.viewerId == null || first?.canReact == true),
                 choose = if (first?.reactionsAvailable == true && detail.validReactions.isNotEmpty()) ({ choose(first) }) else null,
                 click = { first?.let(like) }, bottom = true)
-            IconButton(onClick = { first?.let(bookmark) }, enabled = available) {
-                Icon(if (first?.bookmarkId != null) Icons.Rounded.Star else Icons.Rounded.StarOutline, "收藏主帖", Modifier.size(22.dp),
-                    tint = if (first?.bookmarkId != null) LogoYellow else LocalContentColor.current)
+            IconButton(onClick = { first?.let(boost) }, enabled = available && (state.viewerId == null || first?.canBoost == true)) {
+                Icon(Icons.Rounded.Bolt, "Boost 主帖", Modifier.size(24.dp))
             }
-            IconButton(onClick = share, enabled = enabled) { Icon(Icons.Rounded.Share, "分享话题", Modifier.size(22.dp)) }
         }
     }
 }

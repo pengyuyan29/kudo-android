@@ -17,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
@@ -29,7 +30,7 @@ import com.kudo.android.ui.components.liquid.LiquidModalAction
 import kotlinx.coroutines.flow.first
 
 @Composable
-fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}, onPostsRead: (Set<Int>) -> Unit = {}) {
+fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}, onPostsRead: (Set<Int>) -> Unit = {}, loadBoostRules: () -> Unit = {}, boost: (Post, String, () -> Unit) -> Unit = { _, _, _ -> }) {
     val backdrop = rememberLayerBackdrop()
     val modalBackdrop = rememberLayerBackdrop()
     val visibility = remember { MutableTransitionState(false) }
@@ -37,8 +38,20 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     val threadVisibility = remember { MutableTransitionState(false) }
     var threadRootId by rememberSaveable { mutableStateOf<Int?>(null) }
     var threadTarget by rememberSaveable { mutableStateOf<Int?>(null) }
+    val boostVisibility = remember { MutableTransitionState(false) }
+    var boostPostId by rememberSaveable { mutableStateOf<Int?>(null) }
+    var boostRaw by rememberSaveable(boostPostId) { mutableStateOf("") }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val boostShowing = boostVisibility.currentState || boostVisibility.targetState
     val reactionShowing = visibility.currentState || visibility.targetState
-    val showing = reactionShowing || threadVisibility.currentState || threadVisibility.targetState
+    val overlayShowing = reactionShowing || boostShowing
+    val showing = overlayShowing || threadVisibility.currentState || threadVisibility.targetState
+    fun openBoost(post: Post) {
+        if (state.viewerId == null) { login(); return }
+        if (!post.canBoost) return
+        boostPostId = post.id; loadBoostRules(); boostVisibility.targetState = true
+    }
+    fun closeBoost() { keyboard?.hide(); boostVisibility.targetState = false }
     fun openThread(root: Post, number: Int?) { threadRootId = root.id; threadTarget = number; threadVisibility.targetState = true }
     val threads = state.threads
     fun dismiss() { visibility.targetState = false }
@@ -95,7 +108,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                             }
                             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
                                 TopicPost(thread.root, detail, state, !showing, like, bookmark, ::replyTo, user, image, openLink, ::choose,
-                                    revealOriginal) { revealOriginal = true }
+                                    revealOriginal, revealOriginal = { revealOriginal = true }, boost = ::openBoost)
                                 if (thread.root.number > 1) ReplyPreview(thread, state.replyLoads[thread.root.id], state.hasMoreReplies(thread.root), !showing) {
                                     openThread(thread.root, it)
                                 }
@@ -112,7 +125,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                 }
             }
             TopicBottomBar(state, backdrop, glass, !showing, { replyTo(null) }, like, bookmark, share, ::choose,
-                Modifier.align(Alignment.BottomCenter))
+                Modifier.align(Alignment.BottomCenter), boost = ::openBoost)
         }
         val thread = threads.firstOrNull { it.root.id == threadRootId }
         LaunchedEffect(threadVisibility.targetState, threadRootId) {
@@ -128,20 +141,20 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         }
         val threadLoad = thread?.let { state.replyLoads[it.root.id] }
         AutomaticPostLoading(threadList, "more-replies", threadRootId to threadLoad?.cursors,
-            threadVisibility.targetState && !reactionShowing && !covered && thread != null && state.hasMoreReplies(thread.root) &&
+            threadVisibility.targetState && !overlayShowing && !covered && thread != null && state.hasMoreReplies(thread.root) &&
                 !state.loading && !state.contextLoading && threadLoad?.loading != true && threadLoad?.error == null &&
                 (threadTarget == null || threadLocated)) { thread?.let { loadReplies(it.root, false) } }
-        Box(Modifier.fillMaxSize().then(if (reactionShowing) Modifier.clearAndSetSemantics {} else Modifier)
-            .focusProperties { onEnter = { if (reactionShowing) cancelFocusChange() } }.focusGroup()) {
+        Box(Modifier.fillMaxSize().then(if (overlayShowing) Modifier.clearAndSetSemantics {} else Modifier)
+            .focusProperties { onEnter = { if (overlayShowing) cancelFocusChange() } }.focusGroup()) {
             LiquidModal(threadVisibility, "评论回复", true, modalBackdrop, glass, { threadVisibility.targetState = false },
                 actions = { LiquidModalAction("关闭", { threadVisibility.targetState = false }, Modifier.fillMaxWidth()) }) {
                 if (thread != null && detail != null) {
                     PostReadingViewport { viewport ->
                     LazyColumn(state = threadList, modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("thread-posts").then(viewport)) {
-                        item("root") { TopicPost(thread.root, detail, state, !reactionShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose) }
+                        item("root") { TopicPost(thread.root, detail, state, !overlayShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose, boost = ::openBoost) }
                         items(thread.replies, key = { it.id }) { post ->
                             HorizontalDivider()
-                            TopicPost(post, detail, state, !reactionShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose)
+                            TopicPost(post, detail, state, !overlayShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose, boost = ::openBoost)
                         }
                         val load = state.replyLoads[thread.root.id]
                         if (load?.loading == true) item { LoadingRow() }
@@ -162,6 +175,14 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                     if (visibility.targetState) { dismiss(); react(selected, it) }
                 }
             }
+        }
+        val boostPost = state.allPosts.firstOrNull { it.id == boostPostId }
+        val boosting = boostPostId in state.busy
+        CommunitySheet(boostVisibility, "Boost", { if (!boosting) closeBoost() }, showTitle = false,
+            dismissEnabled = !boosting, scrollContent = false, showActions = false) {
+            BoostForm(boostRaw, { boostRaw = it }, state, boosting,
+                send = { boostPost?.let { post -> boost(post, boostRaw) { boostRaw = ""; closeBoost() } } },
+                close = ::closeBoost, retry = loadBoostRules)
         }
     }
     }

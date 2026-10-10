@@ -23,6 +23,34 @@ class TopicViewModelTest {
     private suspend fun TopicViewModel.awaitState(predicate: (TopicState) -> Boolean): TopicState =
         withContext(Dispatchers.IO) { withTimeout(5_000) { state.first(predicate) } }
 
+    @Test fun boostWaitsForConfirmationAndSharesThePostMutationLock() = runTest {
+        val gate = CountDownLatch(1)
+        val writes = AtomicInteger()
+        withTopic(response = { request -> when {
+            request.path == "/t/5.json" -> MockResponse().setBody(topic.replace("\"post_number\":1", "\"post_number\":1,\"can_boost\":true"))
+            request.path == "/emojis.json" -> MockResponse().setBody("""{"custom":[{"name":"test","url":"/test.png"}]}""")
+            request.path!!.contains("/boosts") -> {
+                writes.incrementAndGet(); gate.await(5, TimeUnit.SECONDS)
+                MockResponse().setBody("""{"id":7,"cooked":"<p>加油</p>","user":{"id":9,"username":"booster"}}""")
+            }
+            else -> null
+        } }) { vm, _ ->
+            try {
+                val post = vm.awaitState { !it.loading }.detail!!.originalPost!!
+                vm.loadBoostRules(); vm.awaitState { it.boostEmojis != null }
+                var accepted = 0
+                vm.boost(post, "加油") { accepted++ }
+                vm.boost(post, "重复") { accepted++ }; vm.like(post)
+                assertEquals(0, accepted); assertTrue(vm.state.value.detail!!.originalPost!!.boosts.isEmpty())
+                gate.countDown()
+                val updated = vm.awaitState { it.busy.isEmpty() }.detail!!
+                assertEquals(1, accepted); assertEquals(1, writes.get())
+                assertEquals(7, updated.originalPost!!.boosts.single().id)
+                assertEquals(2, updated.originalPost!!.reactionCount)
+            } finally { gate.countDown() }
+        }
+    }
+
     @Test fun localReadFeedbackSurvivesLatePageAndRefreshWithoutMarkingSkippedFloors() = runTest {
         val gate = CountDownLatch(1)
         withTopic(response = { request ->

@@ -20,6 +20,7 @@ data class TopicState(
     val related: List<Post> = emptyList(), val contextLoading: Boolean = false, val contextError: Throwable? = null,
     val replyLoads: Map<Int, ReplyLoad> = emptyMap(),
     val readNumbers: Set<Int> = emptySet(),
+    val boostEmojis: Set<String>? = null, val boostRulesLoading: Boolean = false, val boostRulesError: String? = null,
 ) {
     val allPosts get() = (detail?.posts.orEmpty() + related + listOfNotNull(detail?.originalPost)).distinctBy(Post::id)
     val threads get() = postThreads(detail?.posts.orEmpty() + related)
@@ -237,7 +238,7 @@ class TopicViewModel(
         }
     }
 
-    fun like(post: Post) = action(post, repository::like)
+    fun like(post: Post) = action(post, block = repository::like)
     fun react(post: Post, reaction: String) = action(post) { latest ->
         val options = _state.value.detail?.validReactions.orEmpty()
         require(reaction in options || reaction == latest.activeReaction || (!latest.reactionsAvailable && reaction == "heart")) { "此回应暂不可用" }
@@ -245,7 +246,25 @@ class TopicViewModel(
     }
     fun bookmark(post: Post) = action(post) { latest -> latest.copy(bookmarkId = repository.bookmark(latest)) }
 
-    private fun action(post: Post, block: suspend (Post) -> Post) {
+    fun loadBoostRules() {
+        if (_state.value.boostEmojis != null || _state.value.boostRulesLoading) return
+        _state.update { it.copy(boostRulesLoading = true, boostRulesError = null) }
+        viewModelScope.launch {
+            try {
+                val names = withContext(Dispatchers.IO) { repository.emojiUrls().keys }
+                _state.update { it.copy(boostEmojis = names, boostRulesLoading = false) }
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { _state.update { it.copy(boostRulesLoading = false, boostRulesError = e.message ?: "表情规则读取失败") } }
+        }
+    }
+
+    fun boost(post: Post, raw: String, accepted: () -> Unit) {
+        val emojis = _state.value.boostEmojis ?: return
+        if (BoostRules.count(raw, emojis).problem != null) return
+        action(post, accepted) { latest -> repository.boost(latest, raw, emojis) }
+    }
+
+    private fun action(post: Post, accepted: () -> Unit = {}, block: suspend (Post) -> Post) {
         val snapshot = _state.value
         if (snapshot.loading || post.id in snapshot.busy) return
         val latest = snapshot.allPosts.firstOrNull { it.id == post.id } ?: return
@@ -257,6 +276,7 @@ class TopicViewModel(
                     detail.copy(posts = detail.posts.map { old -> if (old.id == updated.id) updated else old },
                         pinnedOriginal = if (detail.pinnedOriginal?.id == updated.id) updated else detail.pinnedOriginal)
                 }) }
+                accepted()
             } catch (e: CancellationException) { throw e } catch (e: Exception) { messages.send(e.message ?: "操作失败") }
             finally { _state.update { it.copy(busy = it.busy - post.id) } }
         }

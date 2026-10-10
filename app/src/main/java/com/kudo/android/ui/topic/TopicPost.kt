@@ -24,7 +24,7 @@ import java.util.Locale
 internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabled: Boolean,
     like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit,
     user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, choose: (Post) -> Unit,
-    originalRevealed: Boolean = false, revealOriginal: () -> Unit = {}) {
+    originalRevealed: Boolean = false, revealOriginal: () -> Unit = {}, boost: (Post) -> Unit = {}) {
     val ignoredUsers = LocalIgnoredUsers.current
     var revealed by remember(post.id, ignoredUsers) { mutableStateOf(false) }
     val ignored = post.author.username.lowercase(Locale.ROOT) in ignoredUsers
@@ -60,9 +60,12 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
                 TopicReactionButton(post, enabled && !state.loading && post.id !in state.busy && (state.viewerId == null || post.canReact),
                     choose = if (post.reactionsAvailable && detail.validReactions.isNotEmpty()) ({ choose(post) }) else null,
                     click = { like(post) })
-                IconButton(onClick = { bookmark(post) }, enabled = enabled && post.id !in state.busy) { Icon(if (post.bookmarkId != null) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkBorder, "收藏此楼层", Modifier.size(20.dp)) }
+                IconButton(onClick = { boost(post) }, enabled = enabled && !state.loading && post.id !in state.busy && (state.viewerId == null || post.canBoost)) {
+                    Icon(Icons.Rounded.Bolt, "Boost 此帖子", Modifier.size(22.dp))
+                }
                 TextButton(onClick = { reply(post) }, enabled = enabled && !detail.closed) { Text("回复") }
             }
+            PostBoosts(post, enabled, user, openLink)
         }
     }
 }

@@ -14,7 +14,7 @@ Status: implemented
 
 ## Existing note audit
 
-[账号与草稿](../feature/2026-10-07-account-and-composer.md)部分重叠，互链且保持发送互斥和确认后清理；[酷安式表单](../feature/2026-10-10-coolapk-forms.md)保持键盘与拖动面板约束；[Boost提案](../../proposed/feature/2026-10-10-post-boosts-and-length.md)收窄为独立短回复协议。没有完全吸收或过时记录。
+[账号与草稿](../feature/2026-10-07-account-and-composer.md)部分重叠，互链且保持发送互斥和确认后清理；[酷安式表单](../feature/2026-10-10-coolapk-forms.md)保持键盘与拖动面板约束；[Boost](../feature/2026-10-10-post-boosts-and-length.md)使用独立短回复协议。没有完全吸收或过时记录。
 
 ## Alternatives considered
 
