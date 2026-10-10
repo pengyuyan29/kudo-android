@@ -36,6 +36,8 @@ EditorViewModel 按用户 id、话题和回复楼层隔离持久草稿。上传�
 
 原生私信编辑器使用带 recipients 的账号草稿，发送 /posts.json 的 private_message 原型，收件人与正文只在明确发送时提交。聊天使用独立 /chat/{id} 发送，确认 message_id 后清除本机输入；原生频道支持创建单聊/群聊、正文、图片、历史分页，前台每20秒刷新，离开或后台停止。线程、附件管理等完整网站功能保留应用内聊天网页入口；不把轮询声称为 MessageBus 实时推送。
 
+公开主页私信入口预填目标用户名，并使用 {accountId}_message_{username} 独立本机草稿，普通写私信仍保留 message_0，不能覆盖另一收件人的未发送内容。本机草稿索引支持用户名段，主题回复仍要求数值楼层；私信草稿不声明回复楼层。从草稿列表恢复时传入原始key并核对账户前缀，不重新推导收件人key。UserProfileDataTest 先复现新草稿在旧数值索引中消失（artifacts/profile-message-draft-repro.txt）。
+
 ## Alternatives considered
 
 - 在原生表单收集密码：交互可以统一，但需要自行处理 MFA、OAuth 和站点验证变化；采用官网流程。

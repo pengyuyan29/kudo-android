@@ -216,7 +216,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val member = account.user
                         if (member != null) DraftsScreen(member, app.repository, app.settings, { nav.popBackStack() }, ::login) { draft ->
                             if (draft.remote) nav.navigate("cloud-draft/${Uri.encode(draft.key)}")
-                            else if (draft.privateMessage) nav.navigate("new-message")
+                            else if (draft.privateMessage) nav.navigate("new-message?draft=${Uri.encode(draft.key)}")
                             else editor(draft.topicId, draft.replyTo)
                         } else Column { AccountPageTopBar("我的草稿", { nav.popBackStack() }); EmptyState("登录后查看草稿", "草稿按账号分别保存。", actionLabel = "登录", action = ::login) }
                     }
@@ -231,13 +231,14 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             }
                         } ?: Column { AccountPageTopBar("云端草稿", { nav.popBackStack() }); EmptyState("请先登录", "登录后继续编辑。", actionLabel = "登录", action = ::login) }
                     }
-                    composable("new-message") {
+                    composable("new-message?recipient={recipient}&draft={draft}", arguments = listOf(navArgument("recipient") { defaultValue = "" },
+                        navArgument("draft") { defaultValue = "" })) { entry ->
                         account.user?.let { member -> key(member.id) {
-                            PrivateMessageScreen(member, app.repository, app.settings, { nav.popBackStack() }) { result ->
+                            PrivateMessageScreen(member, app.repository, app.settings, { nav.popBackStack() }, published = { result ->
                                 nav.popBackStack()
                                 if (!result.queued) result.topicId?.let { topic(it) }
                                 scope.launch { snackbar.showSnackbar(if (result.queued) "私信已提交审核" else "私信已发送") }
-                            }
+                            }, recipient = entry.arguments?.getString("recipient").orEmpty(), existingDraftKey = entry.arguments?.getString("draft").orEmpty())
                         } } ?: Column { AccountPageTopBar("写私信", { nav.popBackStack() }); EmptyState("请先登录", "登录后发送私信。", actionLabel = "登录", action = ::login) }
                     }
                     composable("chat/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->

@@ -14,6 +14,12 @@ class UserProfileDataTest {
         assertEquals(listOf(10), result.topics.map { it.topicId })
         assertEquals("回复来源", result.replies.single().title)
     }
+    @Test fun recipientSpecificMessageDraftIsVisibleAndKeepsItsKey() {
+        val drafts = localAccountDrafts(mapOf("draft_7_message_some.user_title" to "私信草稿", "draft_7_message_some.user_raw" to "未发送内容",
+            "draft_7_message_some.user_recipients" to "some.user"), 7)
+        assertEquals("7_message_some.user", drafts.single().key)
+        assertTrue(drafts.single().privateMessage)
+    }
     @Test fun messagePermissionUsesTargetUserPermissionRatherThanInventedSingularField() {
         val profile = parsePublicProfile(JSONObject("""{"user":{"id":1,"username":"a","can_send_private_messages":true,"can_send_private_message_to_user":true}}"""))
         assertTrue(profile.canMessage)
