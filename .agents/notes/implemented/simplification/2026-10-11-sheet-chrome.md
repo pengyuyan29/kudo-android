@@ -27,4 +27,6 @@ CommunitySheet默认隐藏可见标题及动作区，保留paneTitle语义。Liq
 
 ## Consequences
 
+The public profile action sheet is a compact exception: it hides the visual title and presents the four existing actions as icon plus short text rows, while retaining the sheet pane title for accessibility.
+
 普通面板减少重复关闭控件，更多菜单和居中确认保留明确取消路径。旧UI测试迁移为手势和paneTitle验证；新增面板若需业务动作区必须显式开启，不能直接批量删除居中确认的取消按钮。

@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.pager.*
 import androidx.compose.foundation.relocation.*
 import androidx.compose.foundation.selection.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +27,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.nestedscroll.*
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -169,17 +172,17 @@ internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: 
         CommunitySheet(detailsVisibility, "个人资料", { detailsVisibility.targetState = false }, showActions = false) {
             profile?.let { PublicProfileDetails(it, state.summary, openLink) }
         }
-        CommunitySheet(moreVisibility, "个人主页", { moreVisibility.targetState = false }, showTitle = true, showActions = false) {
-            ProfileMenuRow("复制主页链接") {
+        CommunitySheet(moreVisibility, "个人主页", { moreVisibility.targetState = false }, showTitle = false, showActions = false) {
+            ProfileMenuRow("copy", Icons.Rounded.ContentCopy, "复制链接") {
                 (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("个人主页", pageUrl))
                 moreVisibility.targetState = false
             }
-            ProfileMenuRow("分享个人主页") {
+            ProfileMenuRow("share", Icons.Rounded.Share, "分享") {
                 context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, pageUrl), "分享个人主页"))
                 moreVisibility.targetState = false
             }
-            ProfileMenuRow("在应用内网页查看") { moreVisibility.targetState = false; openWeb(pageUrl) }
-            ProfileMenuRow("刷新资料") { moreVisibility.targetState = false; refresh() }
+            ProfileMenuRow("web", Icons.Rounded.Language, "网页查看") { moreVisibility.targetState = false; openWeb(pageUrl) }
+            ProfileMenuRow("refresh", Icons.Rounded.Refresh, "刷新") { moreVisibility.targetState = false; refresh() }
         }
         CommunitySheet(followsVisibility, if (state.showingFollowers == true) "粉丝" else "关注", closeFollows, showActions = false, scrollContent = false) {
             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
@@ -202,8 +205,13 @@ internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: 
 }
 
 @Composable
-private fun ProfileMenuRow(title: String, action: () -> Unit) {
-    Text(title, Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = action).padding(horizontal = 12.dp, vertical = 16.dp), fontSize = 14.sp)
+private fun ProfileMenuRow(key: String, icon: ImageVector, title: String, action: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = action).testTag("profile-menu-$key")
+        .padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Icon(icon, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(title, fontSize = 14.sp)
+    }
 }
 
 @Composable

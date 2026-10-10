@@ -221,10 +221,14 @@ class PublicProfileUiTest {
     @Test fun darkLargeTextAndDraggableMoreSheetRemainUsable() {
         show(dark = true, scale = 1.3f)
         compose.onNodeWithContentDescription("个人主页更多操作").performClick()
-        compose.onNodeWithText("复制主页链接").assertIsDisplayed()
+        compose.onNodeWithTag("profile-menu-copy").assertIsDisplayed()
+        compose.onNodeWithText("复制链接").assertIsDisplayed()
+        compose.onNodeWithText("分享").assertIsDisplayed()
+        compose.onNodeWithText("网页查看").assertIsDisplayed()
+        compose.onNodeWithText("刷新").assertIsDisplayed()
         screenshot("public-profile-dark-large-sheet.png")
         compose.onNodeWithTag("liquid-action-sheet").performTouchInput { swipeDown() }
-        compose.onNodeWithText("复制主页链接").assertDoesNotExist()
+        compose.onNodeWithText("复制链接").assertDoesNotExist()
     }
     @Test fun unavailableContentHasReturnAndNoMisleadingVerificationOrRetry() {
         var returned = false
