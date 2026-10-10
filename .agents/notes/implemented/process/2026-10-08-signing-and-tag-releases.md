@@ -50,12 +50,20 @@ GitHub Actions 在 v 开头的 Tag 推送时校验 Tag、执行脚本测试、�
 - 私有仓库 woliubang256/kudo-android 已连接，main 包含发布工作流；GitHub API 确认 Actions 已启用，Android Release 工作流处于 active。
 - GitHub CLI 2.102.0（下载包经官方 SHA256 校验）写入四个 Repository Secrets。写入前重新导出并核对本地正式证书，写入后通过 API 确认四项 Secret 名称均存在；没有输出密钥、密码或 Secret 值。实际云端取用与签名仍待首次 Tag 构建验证。
 - origin 内嵌凭据已迁至 Windows Credential Manager，存储后的回读比对与私有仓库 ls-remote 认证均通过，fetch / push URL 均不再包含用户信息。最初远程检查曾意外输出内嵌令牌，已告知用户撤销并更换；文档和提交不保存该令牌。
-- 当前没有创建版本 Tag、触发发布运行或创建 GitHub Release；仓库接入与 Secrets 配置不等于线上发布验收。
+- 接入阶段当时未创建版本 Tag、触发发布运行或创建 GitHub Release；仓库接入与 Secrets 配置不等于线上发布验收。
+
+2026-10-11 首次真实 Tag 发布验证：
+
+- 用户确认0.1.5真机修复有效并授权远程Tag与打包发布。main与annotated Tag `v0.1.5` 原子推送，Tag固定指向 `b3c072c5e92e41f3e8d17b05be7bb4f56d1ab3b7`；后续验收笔记提交不移动Tag。
+- [Android Release运行38074297223](https://github.com/woliubang256/kudo-android/actions/runs/38074297223)首轮245项JVM测试中，TopicFloorNavigationTest.aSupersededJumpCannotReplaceTheLatestTarget发生5秒等待超时，签名与发布均被跳过。本地独立6项及完整245项JVM测试、Lint通过；未改代码或测试，重跑同一失败构建。第二轮20项发布工具测试、笔记、完整JVM测试与Lint通过；检查构建7分4秒，正式R8构建5分55秒，build与publish均为success。此结果没有确定首次超时根因；再次出现应先保留具体测试报告并排查调度与等待条件，不能把一次重跑通过视为稳定性修复。
+- [v0.1.5 Release](https://github.com/woliubang256/kudo-android/releases/tag/v0.1.5)已发布且不是草稿或预发布，认证latest API指向该版本。附件为 `Kudo-0.1.5-release.apk` 与同名 `.sha256`，正文与本地按Tag提交生成的首发日志逐字匹配（忽略尾部空白）。
+- 从Release重新下载实际附件后，摘要、apksigner、aapt与16KB zipalign通过：版本0.1.5 / 1006，非debuggable，APK为7,893,508字节；SHA256为 `dea55876a0f537e2c1b1aa8bb73ec6c134fea5dcda9d100fe5665fa312a52aed`，正式证书SHA256为 `457c98f5786d224e5117d732126389b8b7cedad5df1b14366b7e662481d22418`，与原本机正式证书一致。云端和本机APK字节摘要不同，不声明跨平台构建字节可复现。
+- 云端附件、正文与校验记录保存于 `artifacts/release/0.1.5/cloud/`；首轮失败日志为 `remote-release-build-failure.log`，第二轮日志为 `remote-release-build-success.log` 与 `remote-release-publish-success.log`。GitHub访问凭据仅用于已有Credential Manager认证和API请求，下载重定向离开api.github.com时移除Authorization，不写入附件、日志或仓库。
 
 ## Consequences
 
 签名与版本检查使发布包能保持更新身份并对应 Tag；代价是开发者必须备份 signing/ 和 signing.properties。丢失正式证书或密码后无法使用原签名更新已安装应用。Debug 和 Release 保持相同包名、使用不同签名，不能互相覆盖安装；当前手机仍保留旧 Debug 签名应用，本次未卸载或替换，也未把构建和验签当成真机运行验收。
 
-远程仓库为 [woliubang256/kudo-android](https://github.com/woliubang256/kudo-android)，用户已恢复此前暂缓的远程接入。私有仓库的 main 已包含工作流，GitHub Actions 已启用，Android Release 工作流处于 active；接入使用本地已生成的正式证书配置四个 Repository Secrets。首次真实 Tag 推送、云端构建与 Release 上传仍需单独验收；不能把本地或模拟检查当成线上运行记录。
+远程仓库为 [woliubang256/kudo-android](https://github.com/woliubang256/kudo-android)，私有仓库的 main 已包含工作流，GitHub Actions 已启用，Android Release 工作流处于 active；接入使用本地已生成的正式证书配置四个 Repository Secrets。v0.1.5已完成真实Tag触发、云端构建和Release附件验收。仓库仍为private，本次通过已认证API验收；公开仓库后仍需单独验证匿名latest API与App的更新检查，不能将认证访问通过当成公开可访问。
 
 关闭共享缓存使首次云端构建更慢，且依赖 Google Maven、Maven Central、Android SDK 及 GitHub 服务。稳定三段版本暂不支持 alpha/beta/rc；需要这些通道时须先设计安装升级顺序。

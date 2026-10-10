@@ -23,8 +23,10 @@ GitHub的generate-notes主要按PR整理，直接提交可能没有可用更新�
 
 临时Git仓库测试首次版本、增量范围、版本排序、非祖先Tag、重复及合并提交、中文分类和无功能变化；工作流始终在发布前上传并写入该正文。
 
-20项发布工具测试通过（含新增5项测试），日志artifacts/release-notes-tests.txt。从实际release.yml提取发布shell，在离线gh替身下验证新建Release、恢复草稿、已公开拒绝修改、上传失败和摘要失败；新建及重试均先写notes-file，再上传附件，最后公开。actionlint 1.7.12通过。未推送Tag或创建远程Release，真实云端发布仍待首次发版验收。
+20项发布工具测试通过（含新增5项测试），日志artifacts/release-notes-tests.txt。从实际release.yml提取发布shell，在离线gh替身下验证新建Release、恢复草稿、已公开拒绝修改、上传失败和摘要失败；新建及重试均先写notes-file，再上传附件，最后公开。actionlint 1.7.12通过，本地验证阶段未执行远程发布。
+
+2026-10-11首次真实发布v0.1.5：Tag固定指向b3c072c，因没有先前稳定Tag，正文整理全部祖先提交。云端运行38074297223第二轮完整通过，GitHub Release正文与脚本本地生成文件逐字一致（忽略尾部空白），包含高频拖动修复并附Tag提交历史链接。发布后实际下载APK和摘要并验签通过，验收记录见[签名与Tag发布](2026-10-08-signing-and-tag-releases.md)；云端正文留存于artifacts/release/0.1.5/cloud/release-notes.md。仓库仍私有，App匿名更新检查留待公开后验收。
 
 ## Consequences
 
-日志质量取决于commit标题，发布前需要查看生成结果；仅脚本模拟无法证明真实GitHub云端发布。
+日志质量取决于commit标题，发布前需要查看生成结果；首次版本包含完整历史，后续版本按数字较小的祖先稳定Tag增量生成。真实云端正文已验收，但私有仓库内认证访问不能证明App的匿名访问路径。
