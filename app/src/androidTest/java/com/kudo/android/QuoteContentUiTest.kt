@@ -57,6 +57,22 @@ class QuoteContentUiTest {
     }
     @After fun restore() { SingletonImageLoader.setUnsafe(previous); loader.shutdown() }
 
+    @Test fun oneboxShowsCachedPreviewAndClickKeepsTheOriginalDestination() {
+        var opened = ""
+        var photo = ""
+        compose.setContent { KudoTheme(DisplaySettings(theme = com.kudo.android.data.ThemeMode.DARK, fontScale = 1.3f)) {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).testTag("quote-fixture")) {
+                RichContent("""<aside class="onebox githubrepo" data-onebox-src="https://github.com/Kuddev/pebrel"><header class="source"><a href="https://github.com/Kuddev/pebrel">github.com</a></header><article class="onebox-body"><img class="thumbnail" src="https://quote.test/preview.png"><h3><a href="https://github.com/Kuddev/pebrel">GitHub - Kuddev/pebrel: AI-native terminal</a></h3><p>AI-native, GPU-accelerated terminal emulator for Windows.</p></article></aside>""", { photo = it }, { opened = it })
+            }
+        } }
+        compose.onNodeWithText("GitHub - Kuddev/pebrel: AI-native terminal", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("AI-native, GPU-accelerated terminal emulator for Windows.", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("onebox-thumbnail", useUnmergedTree = true).assertIsDisplayed()
+        capture("onebox-dark-large.png")
+        compose.onNodeWithTag("onebox-preview").performClick()
+        compose.runOnIdle { assertEquals("https://github.com/Kuddev/pebrel", opened); assertEquals("", photo) }
+    }
+
     @Test fun updateLogStartsCollapsedAndKeepsItsChoiceAfterRestoration() {
         val restoration = StateRestorationTester(compose)
         restoration.setContent { KudoTheme(DisplaySettings()) {

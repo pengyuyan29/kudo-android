@@ -65,7 +65,7 @@ sealed interface ArticleBlock {
         val originalUrl: String = url, val filename: String = "",
         val dimensions: String = "", val sizeLabel: String = "",
     ) : ArticleBlock
-    data class Embed(val url: String, val title: String) : ArticleBlock
+    data class Embed(val url: String, val title: String, val description: String = "", val image: String? = null, val site: String = "") : ArticleBlock
     data object Rule : ArticleBlock
 }
 
@@ -132,8 +132,7 @@ fun parseArticle(html: String): List<ArticleBlock> {
             }
             "blockquote", "aside" -> {
                 if (element.hasClass("onebox")) {
-                    val link = element.selectFirst("a[href]")
-                    link?.let { a -> LinuxDoLink.webUrl(a.attr("href"))?.let { result.add(ArticleBlock.Embed(it, a.text().ifBlank { "打开链接" })) } }
+                    parseOnebox(element)?.let(result::add)
                 } else {
                     val siteQuote = element.normalName() == "aside" && element.hasClass("quote")
                     val title = if (siteQuote) element.children().firstOrNull { it.hasClass("title") } else null
@@ -366,7 +365,7 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                 Text(block.text, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).horizontalScroll(rememberScrollState()).padding(13.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
             }
             is ArticleBlock.Image -> image(block, path)
-            is ArticleBlock.Embed -> Text("↗ ${block.title}", Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { onLink(block.url) }.padding(14.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+            is ArticleBlock.Embed -> OneboxPreview(block, onLink)
             ArticleBlock.Rule -> Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
         } } }
     }
