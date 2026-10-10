@@ -33,6 +33,7 @@ class TopicReadingUiTest {
         } }
         compose.onNodeWithTag("unread-post-1").assertDoesNotExist()
         compose.onNodeWithTag("unread-post-2").assertExists()
+        compose.onNodeWithTag("post-floor-number-2").assertTextEquals("2").assertIsDisplayed()
         compose.onNodeWithTag("unread-post-3").assertDoesNotExist()
         compose.onNodeWithTag("unread-post-4").assertDoesNotExist()
         capture("post-unread-blue.png")
