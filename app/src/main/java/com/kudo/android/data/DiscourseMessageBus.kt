@@ -6,6 +6,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -28,7 +29,7 @@ class DiscourseMessageBus(
     private val client: DiscourseClient,
     private val endpoint: HttpUrl = "https://ping.ldstatic.com/".toHttpUrl(),
     private val userAgent: String = "Kudo/0.1 Android",
-) : FeedUpdates {
+) : FeedUpdates, NotificationUpdates {
     // Intentionally independent of the main-site cookie jar and interceptors.
     private val http = OkHttpClient.Builder().cookieJar(CookieJar.NO_COOKIES)
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
@@ -37,6 +38,21 @@ class DiscourseMessageBus(
 
     override fun observe(user: Member?): Flow<Unit> = flow {
         val cursors = MessageBusCursors(user?.id)
+        poll(user, cursors.values).collect { batch ->
+            val changed = cursors.accept(batch.messages)
+            if (changed || batch.reconnect) emit(Unit)
+        }
+    }
+
+    override fun notifications(user: Member): Flow<NotificationBatch> = flow {
+        val cursors = NotificationCursors(user)
+        poll(user, cursors.values).collect { batch ->
+            emit(cursors.accept(batch.messages, batch.initial, batch.reconnect))
+        }
+    }
+
+    private data class PollBatch(val messages: JSONArray, val initial: Boolean, val reconnect: Boolean)
+    private fun poll(user: Member?, cursors: Map<String, Long>): Flow<PollBatch> = flow {
         val id = UUID.randomUUID().toString().replace("-", "")
         var key: String? = null
         var sequence = 0L
@@ -49,7 +65,7 @@ class DiscourseMessageBus(
                 val url = endpoint.newBuilder().addPathSegments("message-bus/$id/poll")
                     .apply { if (first) addQueryParameter("dlp", "t") }.build()
                 val body = FormBody.Builder().apply {
-                    cursors.values.forEach { (channel, cursor) -> add(channel, cursor.toString()) }
+                    cursors.forEach { (channel, cursor) -> add(channel, cursor.toString()) }
                     add("__seq", (++sequence).toString())
                 }.build()
                 val request = Request.Builder().url(url).post(body)
@@ -57,8 +73,7 @@ class DiscourseMessageBus(
                     .header("Origin", client.baseUrl.toString().trimEnd('/'))
                     .header("X-SILENCE-LOGGER", "true").header("User-Agent", userAgent)
                     .apply { key?.let { header("X-Shared-Session-Key", it) } }.build()
-                val changed = cursors.accept(http.newCall(request).poll())
-                if (changed || reconnect) emit(Unit)
+                emit(PollBatch(http.newCall(request).poll(), first, reconnect))
                 first = false
                 reconnect = false
                 failures = 0
