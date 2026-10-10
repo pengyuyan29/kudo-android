@@ -6,6 +6,7 @@ sealed interface LinuxDoDestination {
     data class Topic(val id: Int, val number: Int? = null) : LinuxDoDestination
     data class User(val username: String) : LinuxDoDestination
     data class Category(val id: Int) : LinuxDoDestination
+    data class Tag(val slug: String, val id: Int? = null) : LinuxDoDestination
     data object Home : LinuxDoDestination
     data object Unavailable : LinuxDoDestination
 }
@@ -43,6 +44,12 @@ object LinuxDoLink {
             "c" -> path.lastOrNull()?.toIntOrNull()?.takeIf { id ->
                 id > 0 && path.size >= 2 && path.drop(1).dropLast(1).all { it.isNotBlank() }
             }?.let(LinuxDoDestination::Category) ?: LinuxDoDestination.Home
+            "tag" -> {
+                val slug = path.getOrNull(1)?.takeIf { it.matches(Regex("[\\p{L}\\p{N}_-][\\p{L}\\p{N}_-]*")) }
+                val id = path.getOrNull(2)?.toIntOrNull()?.takeIf { it > 0 }
+                if (slug == null || path.size > 3 || (path.size == 3 && id == null)) LinuxDoDestination.Home
+                else LinuxDoDestination.Tag(slug, id)
+            }
             else -> LinuxDoDestination.Home
         }
     }

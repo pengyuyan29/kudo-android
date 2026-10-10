@@ -17,9 +17,9 @@ data class FeedState(val topics: List<Topic> = emptyList(), val categories: List
 
 private fun defaultFeedFilter(user: Member?, inCategory: Boolean) = if (user != null && !inCategory) "unread" else "latest"
 
-class FeedViewModel(private val repository: CommunityRepository, private val categoryId: Int? = null, initialUser: Member? = null, private val updates: FeedUpdates? = null, private val updateIntervalMillis: Long = 15_000) : ViewModel() {
+class FeedViewModel(private val repository: CommunityRepository, private val categoryId: Int? = null, initialUser: Member? = null, private val updates: FeedUpdates? = null, private val updateIntervalMillis: Long = 15_000, private val tagSlug: String? = null, private val tagId: Int? = null) : ViewModel() {
     private var user = initialUser
-    private val _state = MutableStateFlow(FeedState(filter = defaultFeedFilter(user, categoryId != null), accountId = user?.id))
+    private val _state = MutableStateFlow(FeedState(filter = defaultFeedFilter(user, categoryId != null || tagSlug != null), accountId = user?.id))
     val state = _state.asStateFlow()
     private val _pages = MutableStateFlow<Map<String, FeedState>>(emptyMap())
     val pages = _pages.asStateFlow()
@@ -42,7 +42,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         _pages.value = emptyMap()
         baseline = null
         acknowledgeOnProbe = false
-        _state.value = FeedState(filter = defaultFeedFilter(value, categoryId != null), accountId = value?.id)
+        _state.value = FeedState(filter = defaultFeedFilter(value, categoryId != null || tagSlug != null), accountId = value?.id)
         refresh()
         restartUpdates()
         return true
@@ -81,7 +81,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         _pages.update { pages -> pages.filterKeys { it !in dependent }.mapValues { it.value.copy(newCount = null) } }
         if (_state.value.filter in dependent) {
             refresh()
-        } else if (categoryId == null) {
+        } else if (categoryId == null && tagSlug == null) {
             // Reading must not replace public pages, pagination or their saved scroll positions.
             readingCountJob?.cancel()
             val token = generation
@@ -132,7 +132,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
                     val token = generation
                     val filter = _state.value.filter
                     try {
-                        val page = withContext(Dispatchers.IO) { repository.topics(filter, categoryId) }
+                        val page = withContext(Dispatchers.IO) { loadTopics(filter) }
                         if (token != generation) { channel.trySend(Unit); continue }
                         val changed = page.topics.any { topic ->
                             val old = previous[topic.id]
@@ -167,7 +167,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         _state.update { it.copy(loading = true, loadingMore = false, error = null, moreError = null, newCount = null) }
         job = viewModelScope.launch {
             try {
-                val page = withContext(Dispatchers.IO) { repository.topics(filter, categoryId) }
+                val page = withContext(Dispatchers.IO) { loadTopics(filter) }
                 if (token != generation) return@launch
                 baseline = page.topics.associateBy(Topic::id)
                 acknowledgeOnProbe = arrivalRevision != refreshRevision
@@ -182,7 +182,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
                             // Optional metadata must not replace a successful feed with an error.
                         }
                     }
-                    if (account != null && categoryId == null) launch {
+                    if (account != null && categoryId == null && tagSlug == null) launch {
                         try {
                             val count = withContext(Dispatchers.IO) { repository.newTopicCount(account) }
                             if (token == generation) _state.update { it.copy(newCount = count) }
@@ -202,11 +202,15 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         _state.update { it.copy(loadingMore = true, moreError = null) }
         moreJob = viewModelScope.launch {
             try {
-                val page = withContext(Dispatchers.IO) { repository.topics(snapshot.filter, categoryId, next) }
+                val page = withContext(Dispatchers.IO) { loadTopics(snapshot.filter, next) }
                 if (token == generation) _state.update { it.copy(topics = (it.topics + page.topics).distinctBy(Topic::id), next = page.next?.takeUnless { path -> path == next }, loadingMore = false) }
             } catch (e: CancellationException) { throw e } catch (e: Exception) { if (token == generation) _state.update { it.copy(loadingMore = false, moreError = e) } }
         }
     }
+
+    private suspend fun loadTopics(filter: String, next: String? = null): TopicPage =
+        if (tagSlug != null) repository.tagTopics(tagSlug, tagId, filter, next)
+        else repository.topics(filter, categoryId, next)
 }
 
 private fun Topic.hasNewContentComparedTo(old: Topic): Boolean = bumpedAt != old.bumpedAt || replies != old.replies ||

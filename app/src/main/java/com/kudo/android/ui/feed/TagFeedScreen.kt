@@ -1,0 +1,76 @@
+package com.kudo.android.ui.feed
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Tag
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.kudo.android.data.*
+import com.kudo.android.ui.theme.LogoYellow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
+
+/** A tag starts at the same compact, already-collapsed state as a category toolbar. */
+@Composable
+internal fun TagFeedScreen(slug: String, state: FeedState, user: Member?, select: (String) -> Unit,
+    refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit,
+    search: () -> Unit, login: () -> Unit, back: () -> Unit, listStyle: TopicListStyle,
+    pages: Map<String, FeedState>, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding()) {
+        Row(Modifier.fillMaxWidth().height(48.dp).background(LogoYellow.copy(alpha = .10f))
+            .testTag("tag-toolbar"), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(40.dp).clickable(role = Role.Button, onClick = back), contentAlignment = Alignment.Center) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回", Modifier.size(24.dp))
+            }
+            Icon(Icons.Rounded.Tag, "标签", Modifier.size(21.dp), tint = LogoYellow)
+            Text(slug, Modifier.weight(1f).padding(horizontal = 8.dp).testTag("tag-toolbar-name"),
+                fontSize = 17.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Box(Modifier.size(40.dp).clickable(role = Role.Button, onClick = search), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Search, "搜索", Modifier.size(24.dp))
+            }
+        }
+        val tabs = FeedFilter.available(user != null).map { it.value to it.label }
+        key(slug, user?.id, user?.unifiedNew) {
+            val pager = rememberPagerState(initialPage = tabs.indexOfFirst { it.first == state.filter }.coerceAtLeast(0), pageCount = { tabs.size })
+            val scope = rememberCoroutineScope()
+            val currentSelect by rememberUpdatedState(select)
+            LaunchedEffect(pager) {
+                snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { index ->
+                    tabs.getOrNull(index)?.first?.let(currentSelect)
+                }
+            }
+            LaunchedEffect(state.filter) {
+                val index = tabs.indexOfFirst { it.first == state.filter }
+                if (index >= 0 && pager.currentPage != index && !pager.isScrollInProgress) pager.scrollToPage(index)
+            }
+            FeedTabBar(tabs, tabs.getOrNull(pager.currentPage)?.first ?: state.filter) { value ->
+                val index = tabs.indexOfFirst { it.first == value }
+                if (index >= 0) scope.launch { pager.animateScrollToPage(index) }
+            }
+            HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth().testTag("tag-pager"), key = { tabs[it].first }) { index ->
+                val value = tabs[index].first
+                val page = if (value == state.filter) state else pages[value]?.takeIf { it.accountId == user?.id }
+                    ?: FeedState(filter = value, accountId = user?.id, categories = state.categories)
+                FeedPage(page, pager.settledPage == index && value == state.filter, {},
+                    refresh, more, openTopic, openUser, login, listStyle)
+            }
+        }
+    }
+}

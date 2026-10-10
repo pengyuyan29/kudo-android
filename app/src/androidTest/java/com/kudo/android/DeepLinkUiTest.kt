@@ -33,6 +33,10 @@ class DeepLinkUiTest {
                 composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) {
                     Text("分类：${it.arguments!!.getInt("id")}")
                 }
+                composable("tag/{slug}?id={id}", arguments = listOf(navArgument("slug") { type = NavType.StringType },
+                    navArgument("id") { type = NavType.IntType; defaultValue = 0 })) {
+                    Text("标签：${it.arguments!!.getString("slug")}")
+                }
                 composable("web?url={url}", arguments = listOf(navArgument("url") { type = NavType.StringType })) {
                     Text("网页：${it.arguments!!.getString("url")}")
                 }
@@ -99,6 +103,8 @@ class DeepLinkUiTest {
         compose.onNodeWithText("用户：stingysheep").assertIsDisplayed()
         click("/c/parent/develop/4")
         compose.onNodeWithText("分类：4").assertIsDisplayed()
+        click("/tag/193-tag/193")
+        compose.onNodeWithText("标签：193-tag").assertIsDisplayed()
         click("/guidelines")
         compose.onNodeWithText("网页：https://linux.do/guidelines").assertIsDisplayed()
         click("https://example.org/help?from=topic&next=%2Ft%2F123#section")

@@ -35,6 +35,21 @@ class FeedRepositoryTest {
         assertEquals(listOf(0, 12, 0, 0, 0), page.topics.map(Topic::unreadPosts))
         assertFalse(page.topics[3].unseen)
     }
+
+    @Test fun tagTopicsKeepTagScopeAndUseTheCanonicalIdPath() = runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            val repository = CommunityRepository(DiscourseClient(NoCookies, server.url("/")))
+            server.enqueue(MockResponse().setBody("""{"topic_list":{"topics":[{"id":31}],"more_topics_url":"/tag/193-tag/193/l/hot.json?page=1"}}"""))
+            val first = repository.tagTopics("193-tag", 193)
+            assertEquals("/tag/193-tag/193.json", server.takeRequest().path)
+            assertEquals(31, first.topics.single().id)
+            server.enqueue(MockResponse().setBody("""{"topic_list":{"topics":[{"id":32}]}}"""))
+            val next = repository.tagTopics("193-tag", 193, filter = "hot", next = first.next)
+            assertEquals("/tag/193-tag/193/l/hot.json?page=1", server.takeRequest().path)
+            assertEquals(32, next.topics.single().id)
+        }
+    }
     @Test fun homeFiltersMatchWebsiteAndKeepServerOrderAndPagination() = runBlocking {
         val server = MockWebServer()
         server.start()

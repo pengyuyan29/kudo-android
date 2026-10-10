@@ -12,6 +12,14 @@ class CommunityRepository(val client: DiscourseClient) {
         val path = next ?: if (categoryId == null) "/$endpoint.json" else "/c/$categoryId/l/$endpoint.json"
         return DiscourseParser.topicPage(client.get(path))
     }
+    suspend fun tagTopics(slug: String, id: Int? = null, filter: String = "latest", next: String? = null): TopicPage {
+        require(slug.matches(Regex("[\\p{L}\\p{N}_-][\\p{L}\\p{N}_-]*")))
+        require(FeedFilter.entries.any { it.value == filter })
+        val base = "/tag/$slug${id?.let { "/$it" }.orEmpty()}"
+        val endpoint = if (filter == FeedFilter.UNREAD.value) "unseen" else filter
+        val path = next ?: if (filter == FeedFilter.LATEST.value) "$base.json" else "$base/l/$endpoint.json"
+        return DiscourseParser.topicPage(client.get(path))
+    }
     suspend fun newTopicCount(user: Member): Int {
         val url = client.baseUrl.newBuilder().addPathSegment("u").addPathSegment(user.username)
             .addPathSegment("topic-tracking-state.json").build()

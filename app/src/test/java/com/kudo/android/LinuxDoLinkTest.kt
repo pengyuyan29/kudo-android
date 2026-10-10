@@ -37,6 +37,15 @@ class LinuxDoLinkTest {
         }
     }
 
+    @Test fun tagsAcceptSlugOnlyAndLinuxDoNumericSuffix() {
+        assertEquals(Tag("193-tag", 193), LinuxDoLink.parse("https://linux.do/tag/193-tag/193"))
+        assertEquals(Tag("193-tag", 193), LinuxDoLink.parseContent("/tag/193-tag/193"))
+        assertEquals(Tag("network"), LinuxDoLink.parse("https://linux.do/tag/network"))
+        listOf("/tag/", "/tag/network/0", "/tag/network/193/extra", "/tag/network/l/latest").forEach {
+            assertEquals(it, Home, LinuxDoLink.parse("https://linux.do$it"))
+        }
+    }
+
     @Test fun unrelatedOriginsAndEncodedSlashesAreNotRoutedAsProfiles() {
         listOf("https://linux.do.evil.test/t/topic/1", "https://example.com/u/test", "javascript:alert(1)",
             "https://user@linux.do/t/1", "https://linux.do:444/t/1").forEach { assertNull(LinuxDoLink.parse(it)) }

@@ -188,6 +188,16 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             ?: Category(id, "社区分类", "", "", "", 0)
                         FeedScreen(state.forUser(account.user, inCategory = true), account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, category = category, back = { nav.popBackStack() }, listStyle = display.topicListStyle, pages = pages, createTopic = { editor(categoryId = it) }, glass = display.glass)
                     }
+                    composable("tag/{slug}?id={id}", arguments = listOf(navArgument("slug") { type = NavType.StringType }, navArgument("id") { type = NavType.IntType; defaultValue = 0 })) { entry ->
+                        val slug = entry.arguments!!.getString("slug").orEmpty()
+                        val id = entry.arguments!!.getInt("id").takeIf { it > 0 }
+                        val vm = model("tag-$slug-${id ?: 0}") { FeedViewModel(app.repository, initialUser = account.user, tagSlug = slug, tagId = id) }
+                        val state by vm.state.collectAsStateWithLifecycle()
+                        val pages by vm.pages.collectAsStateWithLifecycle()
+                        RefreshFeedOnResume(vm, account.user)
+                        TagFeedScreen(slug, state.forUser(account.user, inCategory = true), account.user, vm::select, vm::refresh, vm::more,
+                            { topic(it) }, ::user, { nav.navigate("search") }, ::login, { nav.popBackStack() }, display.topicListStyle, pages)
+                    }
                     composable("search") {
                         val vm = model("search") { SearchViewModel(app.repository) }
                         val state by vm.state.collectAsStateWithLifecycle()
