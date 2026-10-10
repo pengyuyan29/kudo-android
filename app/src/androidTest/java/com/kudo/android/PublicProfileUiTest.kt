@@ -116,6 +116,14 @@ class PublicProfileUiTest {
             compose.activity.window.decorView).isAppearanceLightStatusBars) }
         screenshot("public-profile-square-collapsed.png")
     }
+    @Test fun toolbarIdentitySlotsExistBeforeFullyCollapsedForGradualReveal() {
+        show()
+        compose.onNodeWithTag("profile-toolbar-avatar", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("profile-toolbar-follow", useUnmergedTree = true).assertExists()
+        repeat(1) { compose.onNodeWithTag("profile-list-SUMMARY").performTouchInput { swipeUp() } }
+        compose.onNodeWithTag("profile-toolbar-avatar", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("profile-toolbar-follow", useUnmergedTree = true).assertExists()
+    }
     @Test fun failedCardFallsBackToAvatarPixels() {
         show("https://profile.test/bad.png")
         compose.waitUntil(5000) { fetched.any { it.endsWith("avatar.png") } }

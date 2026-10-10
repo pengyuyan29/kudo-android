@@ -163,7 +163,8 @@ internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: 
             }
             ProfileToolbar(profile.member, collapsed, viewerId, state.followBusy,
                 { if (viewerId == null) login() else follow() }, back, search,
-                { moreVisibility.targetState = true }, Modifier.align(Alignment.TopCenter))
+                { moreVisibility.targetState = true }, Modifier.align(Alignment.TopCenter),
+                collapseFraction = if (maximum > 0f) (collapse / maximum).coerceIn(0f, 1f) else 1f)
         }
         CommunitySheet(detailsVisibility, "个人资料", { detailsVisibility.targetState = false }, showActions = false) {
             profile?.let { PublicProfileDetails(it, state.summary, openLink) }

@@ -25,4 +25,6 @@ PublicProfileUiTest 在 RMX2202 / Android 13 先复现快速上滑后标签顶�
 
 ## Consequences
 
+The pinned toolbar keeps the avatar, display name, and follow action in stable slots while their alpha follows the header collapse fraction. This makes the identity appear progressively during the pin transition instead of popping in only at the final offset.
+
 页面的纵向位移有统一消费顺序，左右切页仍由 Pager 负责；代价是顶部依赖 Compose 嵌套滚动的 SideEffect 语义，升级 Foundation 时需保留长短页和惯性用例。真机继续用原 Android Debug 证书覆盖安装，保留账号和数据。
