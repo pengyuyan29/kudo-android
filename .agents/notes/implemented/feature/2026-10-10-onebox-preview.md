@@ -21,7 +21,7 @@ Status: implemented
 
 ## Testing
 
-OneboxPreviewTest 使用实际 GitHub onebox 结构验证目标、标题、摘要、图片、来源与相册排除，并覆盖非法地址和缺字段回退。QuoteContentUiTest 验证暗色130%字号下文字、缩略图与点击目的地。结果随本轮集中验证补齐。
+本轮42项相关JVM测试全过，其中 OneboxPreviewTest 的2项使用实际 GitHub onebox 结构验证目标、标题、摘要、图片、来源与相册排除，并覆盖非法地址和缺字段回退（artifacts/content-about-checks.txt）。RMX2202 / Android13 的 QuoteContentUiTest 验证暗色130%字号下文字、缩略图与点击目的地通过（artifacts/content-about-fixed-device.txt），已查看 onebox-dark-large.png。Debug构建通过，Lint为0错误、30项既有警告和1项提示。
 
 ## Consequences
 

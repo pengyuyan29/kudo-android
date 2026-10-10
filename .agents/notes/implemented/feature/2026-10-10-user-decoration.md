@@ -40,6 +40,8 @@ Post 读取 user_signature（图片 URL 或 cooked HTML），Member 读取 profi
 
 沉浸式标题滚动时，以标题底部是否覆盖状态栏高度决定图标前景，不能只检查第一个可见列表项。组合阶段读取派生的覆盖状态和图片载入状态，随后由 SideEffect 写出，避免只在副作用读取状态导致滚动不触发重组。真机用例先复现标题剩余半个状态栏高度仍保留覆盖颜色（artifacts/member-statusbar-repro.txt），随后使用实际标题偏移、尺寸与状态栏 inset 修复。
 
-原生签名支持内容子集，不复刻网页主题 CSS。远程图片失败时回退；资料补齐失败不能影响登录和现有个人信息。
+原生签名支持内容子集，不复刻网页主题 CSS。远程签名图片失败时隐藏，资料背景图失败时回退；资料补齐失败不能影响登录和现有个人信息。
 
 签名图片加载失败后隐藏该图片，不保留“签名图片”及空白占位；当文字与可用图片均不存在时同时移除签名分隔线。失败仅记在当前签名组合，修改签名或重新进入可重试，普通头像的失败回退不变。gonethen 的实际帖子与用户 custom_fields.signature_url 均返回同一 GIF，但来源地址 TLS 失败，不能据网页不显示推断用户未设置签名。包含可用文字的混合签名继续保留文字；SVG 的错误、HTTP失败和SSL失败也遵循隐藏规则并释放实例，不放宽证书校验。
+
+失败隐藏先由 SignatureFailureUiTest 复现残留签名区域（artifacts/signature-failure-repro-device.txt），修复后2项真机用例通过，覆盖整段空签名消失和混合签名保留文字（artifacts/content-about-device.txt）。本轮另重跑 GIF／APNG／WebP 签名动画1项通过，验证默认关闭、逐帧变化和前后台暂停（artifacts/content-about-fixed-device.txt）。

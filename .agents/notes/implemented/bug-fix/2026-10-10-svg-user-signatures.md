@@ -34,6 +34,8 @@ RMX2202 / Android13 先用 skyrock 的真实 SVG URL 复现20秒仍只显示占�
 
 162项JVM单测通过，包括 SVG URL 分类、查询参数、图片壳转义和 CSP。SVG 的3项真机用例、签名偏好1项及 GIF／APNG／WebP 签名动画1项全部通过（11.803秒，artifacts/svg-signature-final-device.txt），覆盖真实图片、离线红蓝动画帧、默认关闭无请求、禁止导航及其他资源、后台暂停、禁用销毁、滑动正文及离屏销毁。滚动首轮错误地在 SideEffect 中复制 ScrollState.value，未随布局更新；改为断言真实 ScrollState，未放宽产品滚动条件。构建记录为 artifacts/svg-signature-build.txt 和 svg-signature-final-build.txt。
 
+失败隐藏改动后3项离线SVG真机回归通过（artifacts/content-about-device.txt），覆盖错误隐藏与实例释放、CSS动画帧和关闭释放、原生滚动及离屏释放；本轮未重复访问真实 skyrock 图片。关联的签名偏好用例也通过。
+
 ## Consequences
 
-SVG 签名可以保留浏览器动画；容器比原生图片占用更多资源，因此仅用于可见签名。具体渲染受设备 WebView 版本影响，网络失败仍保留占位。仅识别 HTTPS 图片路径的 .svg 扩展，扩展名缺失的 SVG 不在本次已验证范围。外部 SVG 的浏览器图片模式限制外部资源和脚本；本次实际签名及 CSS 动画夹具经过验证，不承诺任意网页嵌入内容。
+SVG 签名可以保留浏览器动画；容器比原生图片占用更多资源，因此仅用于可见签名。具体渲染受设备 WebView 版本影响，网络失败后隐藏并释放图片。仅识别 HTTPS 图片路径的 .svg 扩展，扩展名缺失的 SVG 不在本次已验证范围。外部 SVG 的浏览器图片模式限制外部资源和脚本；本次实际签名及 CSS 动画夹具经过验证，不承诺任意网页嵌入内容。
