@@ -6,6 +6,8 @@ import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -30,11 +32,14 @@ import com.kudo.android.data.*
 import com.kudo.android.ui.components.CategoryIcons
 import com.kudo.android.ui.theme.LogoYellow
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun CategoryFeedScreen(category: Category, state: FeedState, user: Member?, select: (String) -> Unit,
     refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit,
-    search: () -> Unit, login: () -> Unit, back: () -> Unit, modifier: Modifier, listStyle: TopicListStyle) {
+    search: () -> Unit, login: () -> Unit, back: () -> Unit, modifier: Modifier, listStyle: TopicListStyle,
+    pages: Map<String, FeedState>) {
     val tint = remember(category.color) {
         runCatching { Color(android.graphics.Color.parseColor("#${category.color.removePrefix("#")}")) }.getOrDefault(LogoYellow)
     }
@@ -97,9 +102,30 @@ internal fun CategoryFeedScreen(category: Category, state: FeedState, user: Memb
                 }
             }
             val tabs = FeedFilter.available(user != null).map { it.value to it.label }
-            FeedTabBar(tabs, state.filter, select)
-            Box(Modifier.weight(1f)) {
-                FeedPage(state, true, { collapse = 0f }, refresh, more, openTopic, openUser, login, listStyle, nested)
+            key(category.id, user?.id, user?.unifiedNew) {
+                val pager = rememberPagerState(initialPage = tabs.indexOfFirst { it.first == state.filter }.coerceAtLeast(0), pageCount = { tabs.size })
+                val scope = rememberCoroutineScope()
+                val currentSelect by rememberUpdatedState(select)
+                LaunchedEffect(pager) {
+                    snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { index ->
+                        tabs.getOrNull(index)?.first?.let(currentSelect)
+                    }
+                }
+                LaunchedEffect(state.filter) {
+                    val index = tabs.indexOfFirst { it.first == state.filter }
+                    if (index >= 0 && pager.currentPage != index && !pager.isScrollInProgress) pager.scrollToPage(index)
+                }
+                FeedTabBar(tabs, tabs.getOrNull(pager.currentPage)?.first ?: state.filter) { value ->
+                    val index = tabs.indexOfFirst { it.first == value }
+                    if (index >= 0) scope.launch { pager.animateScrollToPage(index) }
+                }
+                HorizontalPager(pager, Modifier.weight(1f).fillMaxWidth().testTag("category-pager"), key = { tabs[it].first }) { index ->
+                    val value = tabs[index].first
+                    val page = if (value == state.filter) state else pages[value]?.takeIf { it.accountId == user?.id }
+                        ?: FeedState(filter = value, accountId = user?.id, categories = state.categories)
+                    FeedPage(page, pager.settledPage == index && value == state.filter, { collapse = 0f },
+                        refresh, more, openTopic, openUser, login, listStyle, nested)
+                }
             }
     }
 }

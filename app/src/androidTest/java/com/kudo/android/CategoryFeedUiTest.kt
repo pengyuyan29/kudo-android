@@ -36,6 +36,50 @@ class CategoryFeedUiTest {
         capture("category-expanded.png")
     }
 
+    @Test fun swipesAndClicksShareSelectionAndRememberPositionsAcrossDistantPages() {
+        val pages = listOf("latest", "hot", "top").associateWith { page(it) }
+        var state by mutableStateOf(pages.getValue("latest"))
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            FeedScreen(state, null, { state = pages.getValue(it) }, {}, {}, {}, {}, {}, {}, {}, category = category, pages = pages)
+        } }
+        compose.onNodeWithTag("category-header").performTouchInput { swipeUp(durationMillis = 600) }
+        compose.onNodeWithTag("feed-list-latest").performScrollToIndex(10)
+        val pinned = compose.onNodeWithText("最新").fetchSemanticsNode().boundsInRoot.top
+        compose.onNodeWithTag("category-pager").performTouchInput { swipeLeft(durationMillis = 600) }
+        compose.onNodeWithText("热门").assertIsSelected()
+        compose.onNodeWithText("hot 话题 1").assertIsDisplayed()
+        compose.onNodeWithTag("category-pager").performTouchInput { swipeLeft(durationMillis = 600) }
+        compose.onNodeWithText("排行榜").assertIsSelected()
+        compose.onNodeWithTag("feed-list-top").performScrollToIndex(14)
+        compose.onNodeWithText("最新").performClick().assertIsSelected()
+        compose.onNodeWithText("latest 话题 11").assertIsDisplayed()
+        assertEquals(pinned, compose.onNodeWithText("最新").fetchSemanticsNode().boundsInRoot.top, 2f)
+        compose.onNodeWithText("排行榜").performClick().assertIsSelected()
+        compose.onNodeWithText("top 话题 15").assertIsDisplayed()
+        compose.onNodeWithTag("category-pager").performTouchInput { swipeRight(durationMillis = 600) }
+        compose.onNodeWithText("热门").assertIsSelected()
+        capture("category-pager-hot.png")
+    }
+
+    @Test fun loggedInPagesIncludePersonalFiltersAndLogoutRemovesTheirContent() {
+        var user by mutableStateOf<Member?>(Member(7, "seven", "七", ""))
+        var state by mutableStateOf(page().copy(accountId = 7))
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            FeedScreen(state, user, { state = page(it).copy(accountId = user?.id) }, {}, {}, {}, {}, {}, {}, {},
+                category = category, pages = mapOf("unread" to page("unread").copy(accountId = 7)))
+        } }
+        compose.onNodeWithText("最新").assertIsSelected()
+        compose.onNodeWithTag("category-pager").performTouchInput { swipeRight(durationMillis = 600) }
+        compose.onNodeWithText("未读").assertIsSelected()
+        compose.onNodeWithText("类别").assertDoesNotExist()
+        for (label in listOf("最新", "新", "热门", "排行榜", "我的帖子", "已读", "书签"))
+            compose.onNodeWithText(label).performScrollTo().performClick().assertIsSelected()
+        compose.runOnIdle { user = null; state = page() }
+        compose.onNodeWithText("最新").assertIsSelected()
+        listOf("未读", "新", "我的帖子", "已读", "书签").forEach { compose.onNodeWithText(it).assertDoesNotExist() }
+        compose.onNodeWithText("bookmarks 话题 1").assertDoesNotExist()
+    }
+
     @Test fun listCollapsesFirstThenReturnsToTopBeforeExpandingAndKeepsHeaderColor() {
         compose.setContent { KudoTheme(DisplaySettings()) {
             FeedScreen(page(), null, {}, {}, {}, {}, {}, {}, {}, {}, category = category)

@@ -178,10 +178,11 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val id = entry.arguments!!.getInt("id")
                         val vm = model("category-$id") { FeedViewModel(app.repository, id, account.user) }
                         val state by vm.state.collectAsStateWithLifecycle()
+                        val pages by vm.pages.collectAsStateWithLifecycle()
                         RefreshFeedOnResume(vm, account.user)
                         val category = account.categories.firstOrNull { it.id == id } ?: state.categories.firstOrNull { it.id == id }
                             ?: Category(id, "社区分类", "", "", "", 0)
-                        FeedScreen(state.forUser(account.user, inCategory = true), account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, category = category, back = { nav.popBackStack() }, listStyle = display.topicListStyle)
+                        FeedScreen(state.forUser(account.user, inCategory = true), account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, category = category, back = { nav.popBackStack() }, listStyle = display.topicListStyle, pages = pages)
                     }
                     composable("search") {
                         val vm = model("search") { SearchViewModel(app.repository) }
