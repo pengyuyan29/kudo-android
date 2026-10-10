@@ -58,17 +58,18 @@ class TopicReadingUiTest {
         screenshot.recycle()
     }
 
-    @Test fun realExposureMarksOnlyTheBodyAndThreadPreviewStaysUnreadUntilOpened() {
+    @Test fun realExposureMarksOnlyOriginalBodyAndThreadPreviewStaysUnreadUntilNavigated() {
         val batches = mutableListOf<TopicReadingBatch>()
         val root = post(8).copy(read = false)
         val child = post(9).copy(replyTo = 8, read = false)
-        val detail = TopicDetail(12, "实际读到", 1, listOf(root, child), listOf(root.id, child.id), false)
-        var state by mutableStateOf(TopicState(detail, false, viewerId = 7))
+        val detail = TopicDetail(12, "实际读到", 1, listOf(root), listOf(root.id, child.id), false)
+        var state by mutableStateOf(TopicState(detail, false, viewerId = 7, related = listOf(child)))
         var blocked by mutableStateOf(true)
         compose.setContent { KudoTheme(DisplaySettings()) {
             CompositionLocalProvider(LocalReadingBlocked provides blocked) {
                 TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
-                    onReadingBatch = { batches += it }, onPostsRead = { state = state.copy(readNumbers = state.readNumbers + it) })
+                    onReadingBatch = { batches += it }, onPostsRead = { state = state.copy(readNumbers = state.readNumbers + it) },
+                    jumpTo = { state = state.copy(detail = detail.copy(posts = listOf(root, child)), targetNumber = it, targetRevision = state.targetRevision + 1) })
             }
         } }
         compose.waitForIdle(); SystemClock.sleep(1300)
@@ -77,20 +78,25 @@ class TopicReadingUiTest {
         compose.runOnIdle { assertEquals(setOf(8), state.readNumbers); blocked = true }
         compose.waitUntil(3000) { batches.isNotEmpty() }
         compose.onNodeWithText("查看 1 条回复").performClick()
+        compose.runOnIdle { blocked = false }
+        compose.waitForIdle(); SystemClock.sleep(1300)
+        compose.runOnIdle { assertEquals(setOf(8), state.readNumbers); blocked = true }
+        compose.onNodeWithTag("thread-jump-9").performScrollTo().performClick()
+        compose.onNodeWithTag("post-9").assertIsDisplayed()
         compose.onNodeWithTag("unread-post-9").assertIsDisplayed()
         compose.runOnIdle { blocked = false }
         compose.waitUntil(4000) { 9 in state.readNumbers }
         compose.runOnIdle { blocked = true; assertEquals(setOf(8, 9), state.readNumbers) }
     }
 
-    @Test fun detailAndThreadSheetUseSeparateViewportsAndOnlyFullRepliesCount() {
+    @Test fun readOnlyDiscussionDoesNotAddReadingTimeForCachedReplies() {
         var active by mutableStateOf(true)
         val batches = mutableListOf<TopicReadingBatch>()
         val root = post(8)
         val child = post(9).copy(replyTo = 8)
-        val detail = TopicDetail(12, "离线详情", 1, listOf(root, child), listOf(root.id, child.id), false)
+        val detail = TopicDetail(12, "离线详情", 1, listOf(root), listOf(root.id, child.id), false)
         compose.setContent { KudoTheme(DisplaySettings()) {
-            TopicScreen(TopicState(detail, loading = false, viewerId = 7), GlassMode.TRANSLUCENT,
+            TopicScreen(TopicState(detail, loading = false, viewerId = 7, related = listOf(child)), GlassMode.TRANSLUCENT,
                 {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, readingEnabled = active, onReadingBatch = { batches += it })
         } }
         compose.waitForIdle(); SystemClock.sleep(1300)
@@ -102,7 +108,7 @@ class TopicReadingUiTest {
         compose.runOnIdle { active = true }
         compose.waitForIdle(); SystemClock.sleep(1300)
         compose.runOnIdle { active = false }
-        compose.waitUntil(3000) { batches.any { 9 in it.timings } }
+        compose.runOnIdle { assertFalse(batches.any { 9 in it.timings }) }
     }
 
     @Test fun disposingAnOldViewerKeepsItsOriginalSubmissionIdentity() {

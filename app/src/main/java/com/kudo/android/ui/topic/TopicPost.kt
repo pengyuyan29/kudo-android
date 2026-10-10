@@ -99,3 +99,22 @@ internal fun ReplyPreview(thread: PostThread, load: ReplyLoad?, hasMore: Boolean
             Modifier.fillMaxWidth().clickable(enabled = enabled) { open(null) }.padding(vertical = 3.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
     }
 }
+
+@Composable
+internal fun ThreadPreviewPost(post: Post, enabled: Boolean, image: (String) -> Unit,
+    openLink: (String) -> Unit, navigate: (Int) -> Unit) {
+    val hidden = post.author.username.lowercase(Locale.ROOT) in LocalIgnoredUsers.current
+    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp).testTag("thread-preview-post-${post.number}"),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Avatar(post.author, 24.dp)
+            Text(post.author.displayName, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary)
+            Text("#${post.number} · 跳到帖子", Modifier.clickable(enabled = enabled) { navigate(post.number) }
+                .padding(vertical = 8.dp).testTag("thread-jump-${post.number}"),
+                style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        }
+        if (hidden) Text("内容已忽略", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else RichContent(post.cooked, image, openLink, galleryKey = "thread-preview-${post.id}")
+    }
+}

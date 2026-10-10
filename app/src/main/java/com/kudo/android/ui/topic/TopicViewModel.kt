@@ -89,7 +89,7 @@ class TopicViewModel(
         val snapshot = _state.value
         val detail = snapshot.detail ?: return
         if (snapshot.loadingMore || snapshot.loading || snapshot.jumping) return
-        val loaded = (detail.posts + snapshot.related).map { it.id }.toSet()
+        val loaded = detail.posts.map { it.id }.toSet()
         val ids = detail.stream.filterNot { it in loaded }.take(20)
         if (ids.isEmpty()) return
         val requestGeneration = generation

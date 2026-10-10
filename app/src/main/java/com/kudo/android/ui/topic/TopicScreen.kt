@@ -28,6 +28,7 @@ import com.kudo.android.ui.components.*
 import com.kudo.android.ui.components.liquid.LiquidModal
 import com.kudo.android.ui.components.liquid.LiquidModalAction
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @Composable
 fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}, onPostsRead: (Set<Int>) -> Unit = {}, loadBoostRules: () -> Unit = {}, boost: (Post, String, () -> Unit) -> Unit = { _, _, _ -> }, jumpTo: (Int) -> Unit = {}, vote: (Post, String, List<String>) -> Unit = { _, _, _ -> }) {
@@ -37,7 +38,6 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     var reactionPostId by remember { mutableStateOf<Int?>(null) }
     val threadVisibility = remember { MutableTransitionState(false) }
     var threadRootId by rememberSaveable { mutableStateOf<Int?>(null) }
-    var threadTarget by rememberSaveable { mutableStateOf<Int?>(null) }
     val boostVisibility = remember { MutableTransitionState(false) }
     var boostPostId by rememberSaveable { mutableStateOf<Int?>(null) }
     var boostRaw by rememberSaveable(boostPostId) { mutableStateOf("") }
@@ -55,8 +55,9 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         boostPostId = post.id; loadBoostRules(); boostVisibility.targetState = true
     }
     fun closeBoost() { keyboard?.hide(); boostVisibility.targetState = false }
-    fun openThread(root: Post, number: Int?) { threadRootId = root.id; threadTarget = number; threadVisibility.targetState = true }
+    fun openThread(root: Post) { threadRootId = root.id; threadVisibility.targetState = true }
     val threads = state.threads
+    val posts = state.detail?.posts.orEmpty().distinctBy(Post::id).sortedBy(Post::number)
     fun dismiss() { visibility.targetState = false }
     fun choose(post: Post) { reactionPostId = post.id; visibility.targetState = true }
     fun replyTo(post: Post?) { threadVisibility.targetState = false; visibility.targetState = false; reply(post) }
@@ -67,36 +68,44 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     val originalIgnored = detail?.author?.username?.lowercase(java.util.Locale.ROOT) in ignoredUsers
     val listState = rememberLazyListState()
     var currentFloor by rememberSaveable(detail?.id) { mutableIntStateOf(state.targetNumber ?: 1) }
+    val scope = rememberCoroutineScope()
+    fun navigatePost(number: Int) {
+        threadVisibility.targetState = false
+        val index = posts.indexOfFirst { it.number == number }
+        if (index < 0) jumpTo(number)
+        else scope.launch {
+            listState.scrollToItem(index + if (!originalIgnored || revealOriginal) 1 else 0)
+            currentFloor = number
+        }
+    }
     var located by rememberSaveable(detail?.id, state.targetNumber, state.targetRevision) { mutableStateOf(false) }
     LaunchedEffect(state.targetRevision) {
         if (state.targetRevision > 0) { floorVisibility.targetState = false; keyboard?.hide() }
     }
-    val mainVisible by remember(listState, threads) { derivedStateOf {
-        listState.layoutInfo.visibleItemsInfo.firstNotNullOfOrNull { item -> threads.firstOrNull { it.root.id == item.key }?.root?.number }
+    val mainVisible by remember(listState, posts) { derivedStateOf {
+        listState.layoutInfo.visibleItemsInfo.firstNotNullOfOrNull { item -> posts.firstOrNull { it.id == item.key }?.number }
     } }
     LaunchedEffect(mainVisible, showing, state.jumping, located) {
         if (!showing && !state.jumping && (state.targetNumber == null || located)) mainVisible?.let { currentFloor = it }
     }
-    LaunchedEffect(threads, state.loading, state.contextLoading, state.targetNumber, state.targetRevision) {
+    LaunchedEffect(posts, state.loading, state.contextLoading, state.targetNumber, state.targetRevision) {
         if (!located && !state.loading && !state.jumping && !state.contextLoading && state.error == null && state.targetNumber != null) {
-            val index = threads.indexOfFirst { it.root.number == state.targetNumber || it.replies.any { post -> post.number == state.targetNumber } }
+            val index = posts.indexOfFirst { it.number == state.targetNumber }
             if (index >= 0) {
                 threadVisibility.targetState = false
                 listState.scrollToItem(index + if (!originalIgnored || revealOriginal) 1 else 0)
-                val thread = threads[index]
-                if (thread.root.number != state.targetNumber) openThread(thread.root, state.targetNumber)
                 currentFloor = state.targetNumber
                 located = true
             }
         }
     }
-    val hasMore = detail?.stream?.any { id -> state.allPosts.none { it.id == id } } == true
+    val hasMore = detail?.stream?.any { id -> posts.none { it.id == id } } == true
     val covered = LocalReadingBlocked.current
-    AutomaticPostLoading(listState, "more-posts", detail?.stream to state.allPosts.map(Post::id),
+    AutomaticPostLoading(listState, "more-posts", detail?.stream to posts.map(Post::id),
         hasMore && !showing && !covered && !state.loading && !state.jumping && !state.loadingMore && !state.contextLoading &&
             state.error == null && state.moreError == null && (state.targetNumber == null || located), more)
     TopicReadingEnvironment(detail?.id ?: 0, state.viewerId, readingEnabled && detail != null && !state.loading && !state.jumping &&
-        !floorShowing && (state.targetNumber == null || located), onReadingBatch, onPostsRead) {
+        !showing && (state.targetNumber == null || located), onReadingBatch, onPostsRead) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Box(Modifier.fillMaxSize().layerBackdrop(modalBackdrop)
             .then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)
@@ -115,15 +124,16 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                                 if (detail.closed) Text("话题已关闭", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                             }
                         }
-                        items(threads, key = { it.root.id }) { thread ->
-                            LaunchedEffect(thread.root.id, state.contextLoading) {
-                                if (!state.contextLoading && thread.root.number > 1) loadReplies(thread.root, true)
+                        items(posts, key = { it.id }) { post ->
+                            val thread = threads.firstOrNull { it.root.id == post.id }
+                            LaunchedEffect(post.id, state.contextLoading) {
+                                if (!state.contextLoading && post.number > 1 && thread != null) loadReplies(post, true)
                             }
                             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-                                TopicPost(thread.root, detail, state, !showing, like, bookmark, ::replyTo, user, image, openLink, ::choose,
+                                TopicPost(post, detail, state, !showing, like, bookmark, ::replyTo, user, image, openLink, ::choose,
                                     revealOriginal, revealOriginal = { revealOriginal = true }, boost = ::openBoost, vote = vote, login = login)
-                                if (thread.root.number > 1) ReplyPreview(thread, state.replyLoads[thread.root.id], state.hasMoreReplies(thread.root), !showing) {
-                                    openThread(thread.root, it)
+                                if (post.number > 1 && thread != null) ReplyPreview(thread, state.replyLoads[post.id], state.hasMoreReplies(post), !showing) {
+                                    if (it == null) openThread(post) else navigatePost(it)
                                 }
                             }
                         }
@@ -146,44 +156,27 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             if (threadVisibility.targetState && thread != null) loadReplies(thread.root, false)
         }
         val threadList = rememberLazyListState()
-        var threadLocated by remember(threadRootId, threadTarget, state.targetRevision) { mutableStateOf(false) }
-        val threadVisible by remember(threadList, thread) { derivedStateOf {
-            threadList.layoutInfo.visibleItemsInfo.firstNotNullOfOrNull { item ->
-                if (item.key == "root") thread?.root?.number else thread?.replies?.firstOrNull { it.id == item.key }?.number
-            }
-        } }
-        LaunchedEffect(threadVisible, threadVisibility.targetState, overlayShowing, threadLocated) {
-            if (threadVisibility.targetState && !overlayShowing && (threadTarget == null || threadLocated)) threadVisible?.let { currentFloor = it }
-        }
-        LaunchedEffect(thread, threadTarget, threadVisibility.targetState) {
-            if (!threadLocated && threadVisibility.targetState && threadTarget != null) {
-                val index = thread?.replies?.indexOfFirst { it.number == threadTarget } ?: -1
-                if (index >= 0) { threadList.scrollToItem(index + 1); threadLocated = true }
-            }
-        }
+        LaunchedEffect(threadRootId) { threadList.scrollToItem(0) }
         val threadLoad = thread?.let { state.replyLoads[it.root.id] }
         AutomaticPostLoading(threadList, "more-replies", threadRootId to threadLoad?.cursors,
             threadVisibility.targetState && !overlayShowing && !covered && thread != null && state.hasMoreReplies(thread.root) &&
-                !state.loading && !state.jumping && !state.contextLoading && threadLoad?.loading != true && threadLoad?.error == null &&
-                (threadTarget == null || threadLocated)) { thread?.let { loadReplies(it.root, false) } }
+                !state.loading && !state.jumping && !state.contextLoading && threadLoad?.loading != true && threadLoad?.error == null) { thread?.let { loadReplies(it.root, false) } }
         Box(Modifier.fillMaxSize().then(if (overlayShowing) Modifier.clearAndSetSemantics {} else Modifier)
             .focusProperties { onEnter = { if (overlayShowing) cancelFocusChange() } }.focusGroup()) {
             LiquidModal(threadVisibility, "评论回复", true, modalBackdrop, glass, { threadVisibility.targetState = false },
                 actions = { LiquidModalAction("关闭", { threadVisibility.targetState = false }, Modifier.fillMaxWidth()) }) {
                 if (thread != null && detail != null) {
-                    PostReadingViewport { viewport ->
-                    LazyColumn(state = threadList, modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("thread-posts").then(viewport)) {
-                        item("root") { TopicPost(thread.root, detail, state, !overlayShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose, boost = ::openBoost, vote = vote, login = login) }
+                    LazyColumn(state = threadList, modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("thread-posts")) {
+                        item("root") { ThreadPreviewPost(thread.root, !overlayShowing, image, openLink, ::navigatePost) }
                         items(thread.replies, key = { it.id }) { post ->
                             HorizontalDivider()
-                            TopicPost(post, detail, state, !overlayShowing, like, bookmark, ::replyTo, user, image, openLink, ::choose, boost = ::openBoost, vote = vote, login = login)
+                            ThreadPreviewPost(post, !overlayShowing, image, openLink, ::navigatePost)
                         }
                         val load = state.replyLoads[thread.root.id]
                         if (load?.loading == true) item { LoadingRow() }
                         else if (load?.error != null) item { ErrorState(load.error, { loadReplies(thread.root, false) }, login) }
                         else if (state.hasMoreReplies(thread.root)) item("more-replies") { Text("上拉继续加载回复", Modifier.fillMaxWidth().padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         else item { Text("已显示全部回复", Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    }
                     }
                 } else Text("原评论暂不可访问，请关闭后重试")
             }

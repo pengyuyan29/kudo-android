@@ -30,30 +30,33 @@ class NestedReplyUiTest {
             TopicScreen(TopicState(detail, false, targetNumber = target), GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, bookmark, reply, {}, {}, {}, {})
         } }
     }
-    @Test fun previewShowsThreeRepliesAndFullThreadActionsUseActualFloors() {
+    @Test fun previewShowsThreeRepliesAndOriginalFloorActionsUseActualFloors() {
         var replied = 0; var saved = 0
         compose.setContent { Screen(reply = { replied = it!!.number }, bookmark = { saved = it.number }) }
         compose.onNodeWithTag("reply-preview-2").performScrollTo().assertIsDisplayed()
         (3..5).forEach { compose.onNodeWithTag("reply-preview-post-$it").assertExists() }
         compose.onNodeWithTag("reply-preview-post-6").assertDoesNotExist()
-        compose.onNodeWithTag("post-3").assertDoesNotExist()
         compose.onNodeWithText("回复 #2").assertDoesNotExist()
         capture("nested-reply-preview.png")
         compose.onNodeWithTag("reply-preview-post-3").performClick()
-        compose.onNodeWithText("评论回复").assertIsDisplayed()
-        capture("nested-reply-thread.png")
+        compose.onNodeWithText("评论回复").assertDoesNotExist()
+        compose.onNodeWithTag("post-3").assertIsDisplayed()
+        capture("nested-reply-original.png")
         compose.onNode(hasContentDescription("更多操作") and hasAnyAncestor(hasTestTag("post-3"))).performClick()
         compose.onNodeWithText("收藏").performClick()
         compose.onNode(hasText("回复") and hasClickAction() and hasAnyAncestor(hasTestTag("post-3"))).performClick()
         compose.onNodeWithText("评论回复").assertDoesNotExist()
         compose.runOnIdle { assertEquals(3, replied); assertEquals(3, saved) }
     }
-    @Test fun deepLinkOpensTheThreadAtTheTargetAndSystemBackRestoresTheTopic() {
+    @Test fun deepLinkTargetsOriginalFloorAndSystemBackClosesReadOnlyDiscussion() {
         compose.setContent { Screen(target = 7) }
-        compose.onNodeWithText("评论回复").assertIsDisplayed()
+        compose.onNodeWithText("评论回复").assertDoesNotExist()
         compose.onNodeWithTag("post-7").assertIsDisplayed()
+        compose.onNodeWithTag("topic-posts").performScrollToNode(hasTestTag("reply-preview-2"))
+        compose.onNodeWithText("查看更多回复").performClick()
+        compose.onNodeWithText("评论回复").assertIsDisplayed()
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
-        compose.onNodeWithText("楼中楼话题").assertExists()
+        compose.onNodeWithTag("post-2").assertExists()
         compose.onNodeWithText("评论回复").assertDoesNotExist()
     }
 

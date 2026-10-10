@@ -27,7 +27,7 @@ class TopicFloorNavigationUiTest {
     private val posts = listOf(post(1), post(2), post(8), post(20), post(80, 8))
     private val detail = TopicDetail(5, "真实楼层索引", 1, posts, posts.map(Post::id), false, highestPostNumber = 100)
 
-    @Test fun sliderOnlyPreviewsAndConfirmedNestedFloorOpensItsThread() {
+    @Test fun sliderOnlyPreviewsAndConfirmedNestedFloorTargetsTheMainTimeline() {
         var state by mutableStateOf(TopicState(detail, false))
         var requests = 0
         compose.setContent { KudoTheme(DisplaySettings()) {
@@ -52,7 +52,7 @@ class TopicFloorNavigationUiTest {
         compose.onNodeWithTag("floor-input").performTextReplacement("80")
         compose.onNodeWithTag("floor-confirm").assertIsEnabled().performClick()
         compose.onNodeWithTag("floor-input").assertDoesNotExist()
-        compose.onNodeWithTag("thread-posts").assertIsDisplayed()
+        compose.onNodeWithTag("thread-posts").assertDoesNotExist()
         compose.onNodeWithTag("post-80").assertIsDisplayed()
         compose.runOnIdle { assertEquals(1, requests) }
     }
@@ -131,8 +131,9 @@ class TopicFloorNavigationUiTest {
         compose.waitUntil(4000) { 20 in state.readNumbers }
         // At the end of a short list, earlier bodies can remain genuinely visible beside the target.
         compose.runOnIdle {
-            assertTrue(state.readNumbers.all { it in setOf(2, 8, 20) })
-            assertFalse(80 in state.readNumbers)
+            // Child 80 is now also an original timeline item and may be genuinely visible.
+            assertTrue(state.readNumbers.all { it in setOf(2, 8, 20, 80) })
+            assertFalse(1 in state.readNumbers)
         }
     }
 

@@ -14,6 +14,49 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ThreadAndDecorationTest {
+    @Test fun previewOnlyCachedFloorBecomesAnOriginalTimelineItemWhenNavigated() = runTest {
+        val paths = CopyOnWriteArrayList<String>()
+        withVm(dispatch = { request ->
+            paths += request.path!!
+            when (request.path) {
+                "/t/5.json" -> topic(json(1), json(2, 1, 1))
+                "/posts/2/replies.json?after=1" -> "[${json(3, 2)}]"
+                else -> null
+            }
+        }) { vm ->
+            val root = vm.await { !it.loading }.detail!!.posts.last()
+            vm.loadReplies(root, true)
+            vm.await { it.replyLoads[root.id]?.loading == false && it.related.any { p -> p.number == 3 } }
+            val before = paths.size
+            vm.jumpTo(3)
+            val state = vm.await { it.targetNumber == 3 && !it.jumping }
+            assertEquals(listOf(1, 2, 3), state.detail!!.posts.map(Post::number))
+            assertEquals(before, paths.size)
+            assertEquals(1L, state.targetRevision)
+        }
+    }
+    @Test fun prefetchedPreviewDoesNotMakeContinuationSkipTheOriginalFloor() = runTest {
+        val requested = CopyOnWriteArrayList<Int>()
+        withVm(dispatch = { request -> when {
+            request.path == "/t/5.json" -> topic(json(1), json(2, 1, 1))
+            request.path == "/posts/2/replies.json?after=1" -> "[${json(3, 2)}]"
+            request.path!!.contains("/posts.json") -> {
+                val ids = request.requestUrl!!.queryParameterValues("post_ids[]").map { it!!.toInt() }
+                requested.addAll(ids)
+                """{"post_stream":{"posts":[${ids.joinToString { json(it, if (it == 3) 2 else null) }}]}}"""
+            }
+            else -> null
+        } }) { vm ->
+            val root = vm.await { !it.loading }.detail!!.posts.last()
+            vm.loadReplies(root, true)
+            vm.await { it.replyLoads[root.id]?.loading == false && it.related.any { p -> p.number == 3 } }
+            assertEquals(listOf(1, 2), vm.state.value.detail!!.posts.map(Post::number))
+            vm.more()
+            val state = vm.await { !it.loadingMore }
+            assertTrue("楼中楼预取不得让主时间线分页跳过3楼", 3 in requested)
+            assertEquals(listOf(1, 2, 3, 4), state.detail!!.posts.map(Post::number))
+        }
+    }
     private val author = Member(1, "author", "作者", "")
     private fun post(n: Int, parent: Int? = null) = Post(n, n, author, "正文$n", "", 0, false, null, parent, false)
     private fun json(n: Int, parent: Int? = null, count: Int = 0) = """{"id":$n,"post_number":$n,"user_id":1,"username":"author","cooked":"<p>正文$n</p>","reply_to_post_number":$parent,"reply_count":$count}"""
