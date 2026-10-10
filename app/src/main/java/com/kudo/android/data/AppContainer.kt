@@ -18,6 +18,7 @@ class AndroidSessionCookies : SessionCookies {
 
 class AppContainer(context: Context) {
     val settings = AppSettings(context.applicationContext)
+    val notifications = com.kudo.android.notifications.LocalNotifications(context.applicationContext)
     val cookies = AndroidSessionCookies()
     val userAgent: String = WebSettings.getDefaultUserAgent(context.applicationContext)
     val client = DiscourseClient(cookies, userAgent = { userAgent })
