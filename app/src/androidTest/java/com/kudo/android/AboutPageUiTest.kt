@@ -66,17 +66,35 @@ class AboutPageUiTest {
         } }
         for (mode in GlassMode.entries) {
             compose.runOnIdle { settings = settings.copy(glass = mode) }
-            compose.onNodeWithContentDescription("LINUX DO Logo").performScrollTo().assertIsDisplayed()
-            compose.onNodeWithText("酷DO是独立 LINUX DO 第三方安卓原生客户端").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithTag("about-content").performScrollToNode(hasContentDescription("LINUX DO Logo"))
+            compose.onNodeWithContentDescription("LINUX DO Logo").assertIsDisplayed()
+            compose.onNodeWithTag("about-content").performScrollToNode(hasText("酷DO是独立 LINUX DO 第三方安卓原生客户端"))
+            compose.onNodeWithText("酷DO是独立 LINUX DO 第三方安卓原生客户端").assertIsDisplayed()
             capture("about-dark-narrow-${mode.name.lowercase()}.png", "about-narrow")
-            compose.onNodeWithText("隐私说明").performScrollTo().performClick()
+            compose.onNodeWithTag("about-content").performScrollToNode(hasText("隐私说明"))
+            compose.onNodeWithText("隐私说明").performClick()
             val layouts = mutableListOf<TextLayoutResult>()
             compose.onNodeWithText("酷DO 直接连接 Linux.do。", substring = true).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
             assertFalse(layouts.single().isLineEllipsized(layouts.single().lineCount - 1))
             assertTrue(layouts.single().layoutInput.style.color.red > 0.5f)
             compose.onNodeWithText("知道了").assertIsDisplayed().performClick()
-            compose.onNodeWithText("真诚 · 友善 · 团结 · 专业", substring = false).assertExists()
+            compose.onNodeWithTag("about-content").performScrollToNode(hasTestTag("about-slogan"))
+            capture("about-dark-narrow-${mode.name.lowercase()}-footer.png", "about-narrow")
+            compose.onNodeWithTag("about-slogan").assertIsDisplayed()
         }
+    }
+
+    @Test fun narrowAboutRowsDoNotSqueezeTheirTitlesIntoIndividualCharacters() {
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f)) {
+            Box(Modifier.fillMaxSize(), propagateMinConstraints = false) {
+                Box(Modifier.width(280.dp).height(420.dp)) { AboutScreen {} }
+            }
+        } }
+        compose.onNodeWithText("${BuildConfig.VERSION_NAME} · LINUX DO 第三方客户端").performScrollTo()
+        val layouts = mutableListOf<TextLayoutResult>()
+        compose.onNode(hasText("酷DO") and hasAnyAncestor(hasClickAction()), useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals("短标题应有完整单行宽度", 1, layouts.single().lineCount)
     }
 
     private fun capture(name: String, tag: String? = null) {

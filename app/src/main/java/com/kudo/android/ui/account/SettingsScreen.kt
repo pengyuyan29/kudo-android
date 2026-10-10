@@ -26,8 +26,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.kudo.android.BuildConfig
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
 import com.kudo.android.ui.components.liquid.LiquidModal
@@ -148,7 +148,8 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
 internal fun SettingRow(title: String, value: String, enabled: Boolean, action: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = action).heightIn(min = 68.dp).padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        Text(value, Modifier.widthIn(max = 190.dp).padding(start = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, Modifier.weight(1.1f).padding(start = 12.dp), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End)
         Icon(Icons.Rounded.ChevronRight, null, Modifier.padding(start = 5.dp).size(18.dp), MaterialTheme.colorScheme.outline)
     }
 }

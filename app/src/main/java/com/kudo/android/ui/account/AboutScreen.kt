@@ -50,9 +50,9 @@ fun AboutScreen(openLink: (String) -> Unit = {}, back: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 item {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp), verticalAlignment = Alignment.Top) {
                             Brand(R.drawable.ic_kudo, "酷DO", Modifier.weight(1f))
-                            Icon(Icons.Rounded.Favorite, "热爱", Modifier.padding(bottom = 34.dp).size(28.dp), tint = Color(0xFFFF5B66))
+                            Icon(Icons.Rounded.Favorite, "热爱", Modifier.padding(top = 18.dp).size(28.dp), tint = Color(0xFFFF5B66))
                             Brand(R.drawable.ic_linux_do, "LINUX DO", Modifier.weight(1f))
                         }
                         Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -71,7 +71,7 @@ fun AboutScreen(openLink: (String) -> Unit = {}, back: () -> Unit) {
                         SettingRow("隐私说明", "账号与草稿仅保存在本机", !showing) { show("privacy") }
                     }
                 }
-                item { Text("真诚 · 友善 · 团结 · 专业", style = MaterialTheme.typography.bodySmall,
+                item { Text("真诚 · 友善 · 团结 · 专业", Modifier.testTag("about-slogan"), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center) }
             }
         }
