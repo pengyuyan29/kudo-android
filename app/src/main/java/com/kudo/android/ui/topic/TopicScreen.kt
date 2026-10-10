@@ -28,6 +28,7 @@ import com.kudo.android.ui.components.*
 import com.kudo.android.ui.components.liquid.LiquidModal
 import com.kudo.android.ui.components.liquid.LiquidModalAction
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -69,16 +70,22 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     val listState = rememberLazyListState()
     var currentFloor by rememberSaveable(detail?.id) { mutableIntStateOf(state.targetNumber ?: 1) }
     val scope = rememberCoroutineScope()
+    suspend fun scrollToPost(index: Int) {
+        val itemIndex = index + if (!originalIgnored || revealOriginal) 1 else 0
+        snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > itemIndex }
+        delay(16)
+        listState.animateScrollToItem(itemIndex)
+    }
     fun navigatePost(number: Int) {
         threadVisibility.targetState = false
         val index = posts.indexOfFirst { it.number == number }
         if (index < 0) jumpTo(number)
         else scope.launch {
-            listState.scrollToItem(index + if (!originalIgnored || revealOriginal) 1 else 0)
+            scrollToPost(index)
             currentFloor = number
         }
     }
-    var located by rememberSaveable(detail?.id, state.targetNumber, state.targetRevision) { mutableStateOf(false) }
+    var located by remember(detail?.id, state.targetRevision) { mutableStateOf(false) }
     LaunchedEffect(state.targetRevision) {
         if (state.targetRevision > 0) { floorVisibility.targetState = false; keyboard?.hide() }
     }
@@ -93,7 +100,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             val index = posts.indexOfFirst { it.number == state.targetNumber }
             if (index >= 0) {
                 threadVisibility.targetState = false
-                listState.scrollToItem(index + if (!originalIgnored || revealOriginal) 1 else 0)
+                scrollToPost(index)
                 currentFloor = state.targetNumber
                 located = true
             }

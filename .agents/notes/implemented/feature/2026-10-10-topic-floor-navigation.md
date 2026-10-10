@@ -36,6 +36,10 @@ TopicFloorNavigationTest覆盖真实最高编号、已加载和重复目标零�
 
 最终59项相关JVM测试通过，Debug Lint无错误（30项既有警告、1项hint）。本批40项不同真机用例通过：回复/表单8项、楼层/续载/阅读/Boost/楼中楼/材质25项、作者/回应/更多7项；其中最初三个旧夹具断言或尾部视口假设失败，适配新入口与实际曝光后分别重跑通过。实际触摸滑块验证和首楼按钮通过（floor-drag-device.txt），浅色进度/跳楼弹窗、三种深色窄屏材质截图分别存于artifacts/floor-*.png。测试版以install -r覆盖安装，未清理账号数据，未向真实社区发送测试内容。
 
+## Far jump continuation
+
+After a jump completes, automatic pagination must select missing stream IDs after the target post. Loading the first page again inserts posts before the target and shifts the visible floor back to the low twenties. If the target post is not present in the stream index, pagination stays paused until a refresh supplies an ordered anchor.
+
 ## Consequences
 
 删除或不可见楼层会造成楼层编号空洞，按网站真实号码显示且明确反馈不可达；长文当前位置表示当前可见楼层，不表示整篇已读完。

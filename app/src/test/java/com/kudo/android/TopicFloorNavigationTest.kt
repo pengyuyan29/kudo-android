@@ -19,6 +19,8 @@ import java.util.concurrent.atomic.AtomicInteger
 class TopicFloorNavigationTest {
     private fun post(number: Int, parent: Int? = null) = """{"id":$number,"post_number":$number,"user_id":2,"username":"author","cooked":"<p>楼层$number</p>","reply_to_post_number":$parent}"""
     private fun topic(posts: String = post(1)) = """{"id":5,"title":"跳楼","highest_post_number":100,"post_stream":{"stream":[1,20,80,100],"posts":[$posts]}}"""
+    private fun streamedTopic(posts: String, highest: Int = 120) =
+        """{"id":5,"title":"far jump","highest_post_number":$highest,"post_stream":{"stream":[${(1..highest).joinToString(",")}],"posts":[$posts]}}"""
     private suspend fun TopicViewModel.await(predicate: (TopicState) -> Boolean) = withContext(Dispatchers.IO) {
         withTimeout(5000) { state.first(predicate) }
     }
@@ -55,6 +57,28 @@ class TopicFloorNavigationTest {
             assertEquals(80, result.threads.single { it.root.number == 20 }.replies.single().number)
             assertEquals(100, result.detail!!.highestPostNumber)
             assertTrue(result.readNumbers.isEmpty()); assertTrue(paths.all { it.startsWith("GET ") })
+        }
+    }
+
+    @Test fun loadingAfterAFarJumpDoesNotInsertTheFirstPageBeforeTheTarget() = runTest {
+        withTopic({ request ->
+            when {
+                request.path == "/t/5.json" -> MockResponse().setBody(streamedTopic("${post(1)},${post(2)}"))
+                request.path == "/t/5/100.json" -> MockResponse().setBody(streamedTopic(post(100)))
+                request.path?.startsWith("/t/5/posts.json") == true -> {
+                    val ids = request.requestUrl?.queryParameterValues("post_ids[]").orEmpty().mapNotNull { value -> value?.toIntOrNull() }
+                    MockResponse().setBody(streamedTopic(ids.joinToString(",") { post(it) }))
+                }
+                else -> null
+            }
+        }) { vm, _ ->
+            vm.await { !it.loading }
+            vm.jumpTo(100)
+            vm.await { it.targetNumber == 100 && !it.jumping }
+            vm.more()
+            val result = vm.await { !it.loadingMore && it.detail?.posts?.any { post -> post.number > 100 } == true }
+            assertFalse("far jump must not insert the first page before the target", result.detail!!.posts.any { it.number in 3..22 })
+            assertTrue(result.detail.posts.any { it.number == 101 })
         }
     }
 

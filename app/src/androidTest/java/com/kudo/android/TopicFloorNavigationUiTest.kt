@@ -76,6 +76,24 @@ class TopicFloorNavigationUiTest {
         }
     }
 
+    @Test fun aFarFloorJumpAlignsTheRequestedPostInsteadOfStoppingAtTheLoadedWindow() {
+        val loaded = (1..20).map(::post) + post(80, 20) + (81..200).map(::post)
+        var state by mutableStateOf(TopicState(detail.copy(posts = loaded, stream = loaded.map(Post::id)), false))
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+                jumpTo = { state = state.copy(targetNumber = it, targetRevision = state.targetRevision + 1) })
+        } }
+        val viewport = compose.onNodeWithTag("topic-posts").fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("topic-floor-index").performClick()
+        compose.onNodeWithTag("floor-input").performTextReplacement("80")
+        compose.onNodeWithTag("floor-confirm").performClick()
+        compose.waitForIdle()
+        val targetTop = compose.onNodeWithTag("post-80").fetchSemanticsNode().boundsInRoot.top
+        assertTrue("far jump must leave the requested post visible: target=" + targetTop + " viewportBottom=" + viewport.bottom,
+            targetTop < viewport.bottom)
+        compose.onNodeWithText("80 / 100").assertIsDisplayed()
+    }
+
     @Test fun narrowDarkLargeTextKeepsAllControlsAndFailureKeepsTheForm() {
         var state by mutableStateOf(TopicState(detail.copy(highestPostNumber = 120000), false))
         var mode by mutableStateOf(GlassMode.LIQUID)
