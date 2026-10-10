@@ -1,0 +1,105 @@
+package com.kudo.android.ui.feed
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.input.nestedscroll.*
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.*
+import com.kudo.android.data.*
+import com.kudo.android.ui.components.CategoryIcons
+import com.kudo.android.ui.theme.LogoYellow
+import kotlin.math.roundToInt
+
+@Composable
+internal fun CategoryFeedScreen(category: Category, state: FeedState, user: Member?, select: (String) -> Unit,
+    refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit,
+    search: () -> Unit, login: () -> Unit, back: () -> Unit, modifier: Modifier, listStyle: TopicListStyle) {
+    val tint = remember(category.color) {
+        runCatching { Color(android.graphics.Color.parseColor("#${category.color.removePrefix("#")}")) }.getOrDefault(LogoYellow)
+    }
+    val background = tint.copy(alpha = .14f).compositeOver(MaterialTheme.colorScheme.surface)
+    var maximum by remember(category.id) { mutableFloatStateOf(0f) }
+    var collapse by rememberSaveable(category.id, user?.id, user?.unifiedNew) { mutableFloatStateOf(0f) }
+    val currentMaximum by rememberUpdatedState(maximum)
+    val nested = remember(category.id, user?.id, user?.unifiedNew) { object : NestedScrollConnection {
+        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+            if (available.y >= 0f) return Offset.Zero
+            val previous = collapse
+            collapse = (collapse - available.y).coerceIn(0f, currentMaximum)
+            return Offset(0f, previous - collapse)
+        }
+        override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+            if (available.y <= 0f) return Offset.Zero
+            val previous = collapse
+            collapse = (collapse - available.y).coerceIn(0f, currentMaximum)
+            return Offset(0f, previous - collapse)
+        }
+    } }
+    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            Column(Modifier.fillMaxWidth().background(background).testTag("category-header")
+                .scrollable(rememberScrollableState { delta ->
+                    val previous = collapse
+                    collapse = (collapse - delta).coerceIn(0f, maximum)
+                    previous - collapse
+                }, Orientation.Vertical)) {
+                Row(Modifier.fillMaxWidth().statusBarsPadding().height(48.dp).padding(horizontal = 4.dp)
+                    .testTag("category-toolbar"), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(40.dp).clickable(role = Role.Button, onClick = back), contentAlignment = Alignment.Center) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, "返回", Modifier.size(24.dp))
+                    }
+                    if (maximum > 0 && collapse >= maximum - 1f) {
+                        Icon(CategoryIcons.get(category.icon), null, Modifier.size(24.dp).testTag("category-toolbar-icon"), tint = tint)
+                        Text(category.name, Modifier.weight(1f).padding(horizontal = 9.dp).testTag("category-toolbar-name"),
+                            fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    } else Spacer(Modifier.weight(1f))
+                    Box(Modifier.size(40.dp).clickable(role = Role.Button, onClick = search), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Search, "搜索", Modifier.size(24.dp))
+                    }
+                }
+                Column(Modifier.fillMaxWidth().clipToBounds().layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+                    maximum = placeable.height.toFloat()
+                    collapse = collapse.coerceIn(0f, maximum)
+                    val offset = collapse.roundToInt()
+                    layout(placeable.width, placeable.height - offset) { placeable.placeRelative(0, -offset) }
+                }.padding(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 22.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Box(Modifier.size(64.dp).background(tint.copy(alpha = .14f), RoundedCornerShape(20.dp)), contentAlignment = Alignment.Center) {
+                            Icon(CategoryIcons.get(category.icon), null, Modifier.size(34.dp).testTag("category-expanded-icon"), tint = tint)
+                        }
+                        Text(category.name, Modifier.weight(1f), fontSize = 23.sp, lineHeight = 30.sp,
+                            fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                    if (category.description.isNotBlank()) Text(category.description, Modifier.padding(top = 12.dp),
+                        fontSize = 13.sp, lineHeight = 20.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            val tabs = FeedFilter.available(user != null).map { it.value to it.label }
+            FeedTabBar(tabs, state.filter, select)
+            Box(Modifier.weight(1f)) {
+                FeedPage(state, true, { collapse = 0f }, refresh, more, openTopic, openUser, login, listStyle, nested)
+            }
+    }
+}

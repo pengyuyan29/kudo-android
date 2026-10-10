@@ -36,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -51,11 +52,15 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit, search: () -> Unit, login: () -> Unit, categories: () -> Unit, modifier: Modifier = Modifier, categoryTitle: String? = null, back: () -> Unit = {}, listStyle: TopicListStyle = TopicListStyle.FEED, pages: Map<String, FeedState> = emptyMap(), categoryContent: (@Composable () -> Unit)? = null) {
+fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit, search: () -> Unit, login: () -> Unit, categories: () -> Unit, modifier: Modifier = Modifier, category: Category? = null, back: () -> Unit = {}, listStyle: TopicListStyle = TopicListStyle.FEED, pages: Map<String, FeedState> = emptyMap(), categoryContent: (@Composable () -> Unit)? = null) {
+    if (category != null) {
+        CategoryFeedScreen(category, state, user, select, refresh, more, openTopic, openUser, search, login, back, modifier, listStyle)
+        return
+    }
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).then(if (categoryTitle == null) Modifier.statusBarsPadding().nestedScroll(scrollBehavior.nestedScrollConnection) else Modifier)) {
-        if (categoryTitle != null) PageTopBar(categoryTitle, back)
-        else Row(Modifier.fillMaxWidth().clipToBounds().layout { measurable, constraints ->
+    val resetHeader = { scrollBehavior.state.heightOffset = 0f; scrollBehavior.state.contentOffset = 0f }
+    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).statusBarsPadding().nestedScroll(scrollBehavior.nestedScrollConnection)) {
+        Row(Modifier.fillMaxWidth().clipToBounds().layout { measurable, constraints ->
             val placeable = measurable.measure(constraints)
             scrollBehavior.state.heightOffsetLimit = -placeable.height.toFloat()
             val offset = scrollBehavior.state.heightOffset.roundToInt()
@@ -74,11 +79,8 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
         }
         val tabs = FeedFilter.available(user != null).map {
             it.value to if (it == FeedFilter.NEW && state.newCount != null) "新 (${state.newCount})" else it.label
-        } + if (categoryTitle == null) listOf("categories" to "类别") else emptyList()
-        if (categoryTitle != null) {
-            FeedTabBar(tabs, state.filter, select)
-            Box(Modifier.weight(1f)) { FeedPage(state, true, scrollBehavior, refresh, more, openTopic, openUser, login, listStyle) }
-        } else key(user?.id, user?.unifiedNew) {
+        } + listOf("categories" to "类别")
+        key(user?.id, user?.unifiedNew) {
             val pager = rememberPagerState(initialPage = tabs.indexOfFirst { it.first == state.filter }.coerceAtLeast(0), pageCount = { tabs.size })
             val scope = rememberCoroutineScope()
             val currentSelect by rememberUpdatedState(select)
@@ -106,7 +108,7 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
                 } else {
                     val page = if (value == state.filter) state else pages[value]?.takeIf { it.accountId == user?.id }
                         ?: FeedState(filter = value, accountId = user?.id, categories = state.categories)
-                    FeedPage(page, pager.settledPage == index && value == state.filter, scrollBehavior,
+                    FeedPage(page, pager.settledPage == index && value == state.filter, resetHeader,
                         refresh, more, openTopic, openUser, login, listStyle)
                 }
             }
@@ -116,9 +118,9 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FeedPage(state: FeedState, active: Boolean, scrollBehavior: TopAppBarScrollBehavior,
+internal fun FeedPage(state: FeedState, active: Boolean, scrollToTop: () -> Unit,
     refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit,
-    login: () -> Unit, listStyle: TopicListStyle) {
+    login: () -> Unit, listStyle: TopicListStyle, nested: NestedScrollConnection? = null) {
     val ignored = com.kudo.android.ui.topic.LocalIgnoredUsers.current
     val visibleTopics = state.topics.filterNot { it.author?.username?.lowercase(java.util.Locale.ROOT) in ignored }
         val listState = rememberLazyListState()
@@ -128,8 +130,7 @@ private fun FeedPage(state: FeedState, active: Boolean, scrollBehavior: TopAppBa
         LaunchedEffect(scrollContext, state.scrollToTopRequest) {
             if (previousContext != scrollContext || consumedScrollRequest != state.scrollToTopRequest) {
                 listState.scrollToItem(0)
-                scrollBehavior.state.heightOffset = 0f
-                scrollBehavior.state.contentOffset = 0f
+                scrollToTop()
                 previousContext = scrollContext
                 consumedScrollRequest = state.scrollToTopRequest
             }
@@ -138,7 +139,7 @@ private fun FeedPage(state: FeedState, active: Boolean, scrollBehavior: TopAppBa
         LaunchedEffect(active, nearEnd, state.next) { if (active && nearEnd && state.next != null && state.moreError == null) more() }
         PullToRefreshBox(isRefreshing = state.loading && state.topics.isNotEmpty(), onRefresh = { if (active) refresh() }, modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             val traditional = listStyle == TopicListStyle.TITLE
-            LazyColumn(state = listState, contentPadding = if (traditional) PaddingValues(bottom = 112.dp) else PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(if (traditional) 0.dp else 8.dp), modifier = Modifier.fillMaxSize().testTag("feed-list-${state.filter}")) {
+            LazyColumn(state = listState, contentPadding = if (traditional) PaddingValues(bottom = 112.dp) else PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(if (traditional) 0.dp else 8.dp), modifier = Modifier.fillMaxSize().then(if (nested != null) Modifier.nestedScroll(nested) else Modifier).testTag("feed-list-${state.filter}")) {
                 if (state.loading && state.topics.isEmpty()) item { LoadingRow() }
                 if (state.error != null) item { ErrorState(state.error, refresh, login) }
                 if (!state.loading && state.error == null && visibleTopics.isEmpty()) item { EmptyState("暂时没有可显示话题", "换个分类，或者稍后再来看看。") }
@@ -157,7 +158,7 @@ private fun FeedPage(state: FeedState, active: Boolean, scrollBehavior: TopAppBa
 }
 
 @Composable
-private fun FeedTabBar(tabs: List<Pair<String, String>>, selected: String, select: (String) -> Unit) {
+internal fun FeedTabBar(tabs: List<Pair<String, String>>, selected: String, select: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).horizontalScroll(rememberScrollState()).selectableGroup().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         tabs.forEach { (value, label) ->
             key(value) {
