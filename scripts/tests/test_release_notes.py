@@ -103,6 +103,7 @@ class ReleaseNotesTest(unittest.TestCase):
             ("fix: 更新许可证", ("app/src/main/assets/licenses/libavif.txt",)),
             ("ci: 调整工作流", (".github/workflows/release.yml",)),
             ("支持旧版功能", ("app/src/main/java/com/kudo/android/Legacy.kt",)),
+            ("保留旧版功能", ("app/src/main/java/com/kudo/android/Legacy.kt",)),
             ("构建旧版包", ("app/build.gradle.kts",)),
         ):
             self.commit(subject, paths)
@@ -112,6 +113,7 @@ class ReleaseNotesTest(unittest.TestCase):
         self.assertIn("- 修复运行问题", notes)
         self.assertIn("- 优化渲染", notes)
         self.assertIn("- 支持旧版功能", notes)
+        self.assertIn("- 保留旧版功能", notes)
         self.assertNotIn("补测试", notes)
         self.assertNotIn("更新许可证", notes)
         self.assertNotIn("调整工作流", notes)

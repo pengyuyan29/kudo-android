@@ -54,7 +54,7 @@ def classify(subject: str) -> tuple[str, str]:
         return "新增", subject
     if re.match(r"^(调整|优化|改进|完善|精简|收紧|上移|移除|更换|统一)", subject):
         return "调整", subject
-    return "", subject
+    return "调整", subject
 
 
 def is_app_path(path: str) -> bool:
