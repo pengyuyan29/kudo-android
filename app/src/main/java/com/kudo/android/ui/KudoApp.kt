@@ -111,7 +111,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
         fun openLink(url: String) {
             nav.openContentLink(url, { selected = 0 }, ::invalidLink)
         }
-        fun editor(id: Int? = null, number: Int? = null) { authenticated { nav.navigate("compose?topic=${id ?: 0}&reply=${number ?: 0}") } }
+        fun editor(id: Int? = null, number: Int? = null, categoryId: Int? = null) { authenticated { nav.navigate("compose?topic=${id ?: 0}&reply=${number ?: 0}&category=${categoryId ?: 0}") } }
         LaunchedEffect(account) { account.events.collect { snackbar.showSnackbar(it) } }
         LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { account.checkSession() } }
         IncomingLinuxDoLink(nav, incomingUrl, linkSequence, { selected = 0 }, consumeLink)
@@ -182,7 +182,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         RefreshFeedOnResume(vm, account.user)
                         val category = account.categories.firstOrNull { it.id == id } ?: state.categories.firstOrNull { it.id == id }
                             ?: Category(id, "社区分类", "", "", "", 0)
-                        FeedScreen(state.forUser(account.user, inCategory = true), account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, category = category, back = { nav.popBackStack() }, listStyle = display.topicListStyle, pages = pages)
+                        FeedScreen(state.forUser(account.user, inCategory = true), account.user, vm::select, vm::refresh, vm::more, { topic(it) }, ::user, { nav.navigate("search") }, ::login, {}, category = category, back = { nav.popBackStack() }, listStyle = display.topicListStyle, pages = pages, createTopic = { editor(categoryId = it) }, glass = display.glass)
                     }
                     composable("search") {
                         val vm = model("search") { SearchViewModel(app.repository) }
@@ -220,7 +220,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         if (member != null) DraftsScreen(member, app.repository, app.settings, { nav.popBackStack() }, ::login) { draft ->
                             if (draft.remote) nav.navigate("cloud-draft/${Uri.encode(draft.key)}")
                             else if (draft.privateMessage) nav.navigate("new-message?draft=${Uri.encode(draft.key)}")
-                            else editor(draft.topicId, draft.replyTo)
+                            else editor(draft.topicId, draft.replyTo, draft.categoryContext)
                         } else Column { AccountPageTopBar("我的草稿", { nav.popBackStack() }); EmptyState("登录后查看草稿", "草稿按账号分别保存。", actionLabel = "登录", action = ::login) }
                     }
                     composable("cloud-draft/{key}") { entry ->
@@ -330,14 +330,15 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                 message = { authenticated { nav.navigate("new-message?recipient=${Uri.encode(username)}") } }, openWeb = ::openWebPage)
                         }
                     }
-                    composable("compose?topic={topic}&reply={reply}", arguments = listOf(navArgument("topic") { type = NavType.IntType; defaultValue = 0 }, navArgument("reply") { type = NavType.IntType; defaultValue = 0 })) { entry ->
+                    composable("compose?topic={topic}&reply={reply}&category={category}", arguments = listOf(navArgument("topic") { type = NavType.IntType; defaultValue = 0 }, navArgument("reply") { type = NavType.IntType; defaultValue = 0 }, navArgument("category") { type = NavType.IntType; defaultValue = 0 })) { entry ->
                         val topicId = entry.arguments!!.getInt("topic").takeIf { it > 0 }
                         val replyTo = entry.arguments!!.getInt("reply").takeIf { it > 0 }
+                        val categoryId = entry.arguments!!.getInt("category").takeIf { it > 0 }
                         val currentUser = account.user
                         if (currentUser == null) {
                             Column { PageTopBar("发布", { nav.popBackStack() }); EmptyState("登录后发布", "草稿会自动保存在本机。", actionLabel = "登录", action = ::login) }
                         } else {
-                            val vm = model("editor-${currentUser.id}-$topicId-$replyTo") { EditorViewModel(app, currentUser.id, topicId, replyTo) }
+                            val vm = model("editor-${currentUser.id}-$topicId-$replyTo-$categoryId") { EditorViewModel(app, currentUser.id, topicId, replyTo, categoryId = categoryId) }
                             LaunchedEffect(Unit) { if (account.categories.isEmpty()) account.loadCategories() }
                             LaunchedEffect(vm) { vm.published.collect { result ->
                                 nav.previousBackStackEntry?.savedStateHandle?.set("refresh", System.nanoTime())

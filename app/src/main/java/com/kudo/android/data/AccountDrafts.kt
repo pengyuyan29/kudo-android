@@ -6,7 +6,7 @@ import org.json.JSONObject
 
 data class SavedDraft(val key: String, val draft: Draft, val topicId: Int?, val replyTo: Int?,
     val remote: Boolean, val sequence: Int = 0, val source: String = "{}", val time: String = "",
-    val privateMessage: Boolean = false, val backupKey: String? = null) {
+    val privateMessage: Boolean = false, val backupKey: String? = null, val categoryContext: Int? = null) {
     val title get() = draft.title.ifBlank { topicId?.let { "话题 #$it 的回复" } ?: if (privateMessage) "未命名私信" else "未命名草稿" }
 }
 
@@ -18,7 +18,9 @@ internal fun localAccountDrafts(values: Map<String, *>, userId: Int): List<Saved
             val key = "${userId}_${topic}_$reply"
             val draft = Draft(values["draft_${key}_title"] as? String ?: "", values["draft_${key}_raw"] as? String ?: "",
                 values["draft_${key}_category"] as? Int ?: 0, values["draft_${key}_recipients"] as? String ?: "")
-            if (draft.raw.isBlank() && draft.title.isBlank()) null else SavedDraft(key, draft, topic.toIntOrNull(), reply.toIntOrNull()?.takeIf { it > 0 && topic != "message" }, false, privateMessage = topic == "message")
+            if (draft.raw.isBlank() && draft.title.isBlank()) null else SavedDraft(key, draft, topic.toIntOrNull(),
+                reply.toIntOrNull()?.takeIf { it > 0 && topic.toIntOrNull() != null }, false, privateMessage = topic == "message",
+                categoryContext = reply.toIntOrNull()?.takeIf { it > 0 && topic == "new" })
         }
     val backupPrefix = "draft_${userId}_cloud_"
     val backups = values.keys.filter { it.startsWith(backupPrefix) && it.endsWith("_raw") }.mapNotNull { rawKey ->

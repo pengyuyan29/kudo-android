@@ -117,7 +117,7 @@ internal fun LiquidButton(
                         drawRect(tint, blendMode = BlendMode.Hue)
                         drawRect(tint.copy(alpha = 0.75f))
                     }
-                    if (!canBlur) drawRect(fallbackSurface)
+                    if (!canBlur) drawRect(if (tint.isSpecified) tint.copy(alpha = .94f) else fallbackSurface)
                     else if (surfaceColor.isSpecified) drawRect(surfaceColor)
                     if (progress != null && progressColor.isSpecified) {
                         drawRect(progressColor, size = Size(size.width * progress.coerceIn(0f, 1f), size.height))

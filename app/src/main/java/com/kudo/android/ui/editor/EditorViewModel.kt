@@ -15,8 +15,10 @@ class EditorViewModel(private val app: AppContainer, userId: Int, val topicId: I
     categoryId: Int? = null,
     private val rulesRequest: suspend () -> ReplyRules = { app.repository.replyRules(requireNotNull(topicId), categoryId) },
 ) : ViewModel() {
-    private val draftKey = "${userId}_${topicId ?: "new"}_${replyTo ?: 0}"
-    var draft by mutableStateOf(app.settings.draft(draftKey)); private set
+    private val draftKey = "${userId}_${topicId ?: "new"}_${if (topicId == null) categoryId?.takeIf { it > 0 } ?: 0 else replyTo ?: 0}"
+    var draft by mutableStateOf(app.settings.draft(draftKey).let { saved ->
+        if (topicId == null && saved.categoryId == 0 && categoryId != null && categoryId > 0) saved.copy(categoryId = categoryId) else saved
+    }); private set
     var sending by mutableStateOf(false); private set
     var uploading by mutableStateOf(false); private set
     var error by mutableStateOf<String?>(null); private set

@@ -36,6 +36,42 @@ class CategoryFeedUiTest {
         capture("category-expanded.png")
     }
 
+    @Test fun yellowPublishButtonSupportsEveryMaterialAndOnlyOpensCurrentCategoryForMembers() {
+        var user by mutableStateOf<Member?>(null)
+        var mode by mutableStateOf(GlassMode.LIQUID)
+        var logins = 0
+        val opened = mutableListOf<Int>()
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f)) {
+            Box(Modifier.fillMaxSize()) {
+                FeedScreen(page().copy(accountId = user?.id), user, {}, {}, {}, {}, {}, {}, { logins++ }, {},
+                    Modifier.width(280.dp), category = category, createTopic = { opened += it }, glass = mode)
+            }
+        } }
+        val button = compose.onNodeWithTag("category-publish")
+        button.performTouchInput { click() }
+        compose.runOnIdle { assertEquals(1, logins); assertTrue(opened.isEmpty()); user = Member(7, "seven", "七", "") }
+        for (material in GlassMode.entries) {
+            compose.runOnIdle { mode = material }
+            val pixels = button.captureToImage().toPixelMap()
+            val background = pixels[pixels.width / 2, pixels.height / 4]
+            assertTrue("$material 发布背景保持黄色：$background", background.red > .75f && background.green > .4f && background.blue < .45f)
+            button.performTouchInput { click() }
+            capture("category-publish-${material.name.lowercase()}.png")
+        }
+        compose.runOnIdle { assertEquals(listOf(4, 4, 4), opened); mode = GlassMode.LIQUID }
+        val icon = compose.onNodeWithTag("category-publish-icon", useUnmergedTree = true)
+        val resting = icon.fetchSemanticsNode().boundsInRoot
+        compose.mainClock.autoAdvance = false
+        button.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(600)
+        assertTrue("按压时液态图标放大", icon.fetchSemanticsNode().boundsInRoot.height > resting.height)
+        button.performTouchInput { cancel() }
+        compose.mainClock.advanceTimeBy(900)
+        assertEquals(resting.height, icon.fetchSemanticsNode().boundsInRoot.height, 1f)
+        compose.runOnIdle { assertEquals(3, opened.size) }
+        compose.mainClock.autoAdvance = true
+    }
+
     @Test fun swipesAndClicksShareSelectionAndRememberPositionsAcrossDistantPages() {
         val pages = listOf("latest", "hot", "top").associateWith { page(it) }
         var state by mutableStateOf(pages.getValue("latest"))

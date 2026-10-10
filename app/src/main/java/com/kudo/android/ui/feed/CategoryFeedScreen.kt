@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -30,7 +31,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.CategoryIcons
+import com.kudo.android.ui.components.liquid.LiquidButton
+import com.kudo.android.ui.theme.Ink
 import com.kudo.android.ui.theme.LogoYellow
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -39,7 +44,8 @@ import kotlinx.coroutines.launch
 internal fun CategoryFeedScreen(category: Category, state: FeedState, user: Member?, select: (String) -> Unit,
     refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit,
     search: () -> Unit, login: () -> Unit, back: () -> Unit, modifier: Modifier, listStyle: TopicListStyle,
-    pages: Map<String, FeedState>) {
+    pages: Map<String, FeedState>, createTopic: (Int) -> Unit, glass: GlassMode) {
+    val backdrop = rememberLayerBackdrop()
     val tint = remember(category.color) {
         runCatching { Color(android.graphics.Color.parseColor("#${category.color.removePrefix("#")}")) }.getOrDefault(LogoYellow)
     }
@@ -61,7 +67,8 @@ internal fun CategoryFeedScreen(category: Category, state: FeedState, user: Memb
             return Offset(0f, previous - collapse)
         }
     } }
-    Column(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Column(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
             Column(Modifier.fillMaxWidth().background(background).testTag("category-header")
                 .scrollable(rememberScrollableState { delta ->
                     val previous = collapse
@@ -127,5 +134,13 @@ internal fun CategoryFeedScreen(category: Category, state: FeedState, user: Memb
                         refresh, more, openTopic, openUser, login, listStyle, nested)
                 }
             }
+        }
+        Box(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(20.dp)) {
+            LiquidButton(onClick = { if (user == null) login() else createTopic(category.id) }, backdrop = backdrop,
+                mode = glass, tint = LogoYellow, contentColor = Ink, contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(56.dp).testTag("category-publish")) {
+                Icon(Icons.Rounded.Add, "在${category.name}发帖", Modifier.size(28.dp).testTag("category-publish-icon"))
+            }
+        }
     }
 }

@@ -9,6 +9,19 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 
 class AccountDataTest {
+    @Test fun categoryNewDraftKeepsItsContextWithoutBecomingAReply() {
+        val drafts = localAccountDrafts(mapOf("draft_7_new_0_raw" to "通用草稿", "draft_7_new_4_raw" to "分类草稿",
+            "draft_7_new_4_category" to 98, "draft_8_new_4_raw" to "其他账号"), 7).associateBy { it.key }
+        assertEquals(2, drafts.size)
+        assertNull(drafts.getValue("7_new_0").categoryContext)
+        val category = drafts.getValue("7_new_4")
+        assertEquals(4, category.categoryContext)
+        assertEquals(98, category.draft.categoryId)
+        assertNull(category.topicId)
+        assertNull(category.replyTo)
+        assertFalse(category.remote)
+    }
+
     @Test fun summaryKeepsRealCountsAndUnknownValuesSeparateFromZero() {
         val summary = parseUserSummary(JSONObject("""{"user_summary":{"days_visited":825,"posts_read_count":357012,"likes_received":0,"post_count":3102}}"""))
         assertEquals(825, summary.daysVisited)

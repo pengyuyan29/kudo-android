@@ -16,13 +16,65 @@ class EditorLifecycleUiTest {
     private val userId = Int.MIN_VALUE
     @Before fun create() { instrumentation.runOnMainSync { app = AppContainer(instrumentation.targetContext) } }
     @After fun clean() {
-        instrumentation.runOnMainSync { editors.forEach { it.viewModelScope.cancel() }; listOf(8, 9).forEach { app.settings.clearDraft("${userId}_700_$it") } }
+        instrumentation.runOnMainSync {
+            editors.forEach { it.viewModelScope.cancel() }
+            listOf(8, 9).forEach { app.settings.clearDraft("${userId}_700_$it") }
+            listOf(0, 4, 98).forEach { app.settings.clearDraft("${userId}_new_$it") }
+        }
     }
     private fun editor(floor: Int = 8, rules: suspend () -> ReplyRules = { ReplyRules(16, 64000) }, publish: suspend (Draft) -> PublishResult = { PublishResult(700, false) }): EditorViewModel {
         lateinit var value: EditorViewModel
         instrumentation.runOnMainSync { value = EditorViewModel(app, userId, 700, floor, publish, rulesRequest = rules); editors += value }
         runBlocking { withTimeout(5000) { while (value.rulesLoading) delay(10) } }
         return value
+    }
+
+    private fun newEditor(category: Int?, publish: suspend (Draft) -> PublishResult = { error("打开编辑器不能发送") }): EditorViewModel {
+        lateinit var vm: EditorViewModel
+        instrumentation.runOnMainSync {
+            vm = EditorViewModel(app, userId, null, null, publish, categoryId = category)
+            editors += vm
+        }
+        return vm
+    }
+
+    @Test fun categoryEditorsPreselectTheirCategoryAndKeepGeneralOtherCategoryAndManualDraftChoices() {
+        instrumentation.runOnMainSync { app.settings.saveDraft("${userId}_new_0", Draft("首页草稿", "首页正文", 12)) }
+        val four = newEditor(4)
+        val other = newEditor(98)
+        assertEquals(4, four.draft.categoryId)
+        assertEquals(98, other.draft.categoryId)
+        assertEquals("", four.draft.raw)
+        instrumentation.runOnMainSync {
+            four.edit(four.draft.copy(title = "分类四", raw = "分类草稿", categoryId = 98))
+            other.edit(other.draft.copy(raw = "另一分类草稿"))
+        }
+        val restored = newEditor(4)
+        assertEquals("分类草稿", restored.draft.raw)
+        assertEquals("手动改选的分类要随草稿恢复", 98, restored.draft.categoryId)
+        assertEquals("首页正文", newEditor(null).draft.raw)
+        assertEquals("另一分类草稿", newEditor(98).draft.raw)
+        val saved = app.settings.drafts(userId).first { it.key == "${userId}_new_4" }
+        assertEquals(4, saved.categoryContext)
+        assertNull(saved.topicId)
+        assertNull(saved.replyTo)
+    }
+
+    @Test fun categoryPublishUsesPreselectedCategoryAndOnlyClearsItsConfirmedDraft() = runBlocking {
+        var published: Draft? = null
+        val vm = newEditor(4) { published = it; PublishResult(701, false) }
+        instrumentation.runOnMainSync {
+            app.settings.saveDraft("${userId}_new_0", Draft(raw = "首页草稿"))
+            app.settings.saveDraft("${userId}_new_98", Draft(raw = "其他分类草稿"))
+            vm.edit(vm.draft.copy(title = "标题", raw = "确认发送的分类正文"))
+        }
+        assertNull(published)
+        instrumentation.runOnMainSync { vm.publish() }
+        withTimeout(5000) { vm.published.first() }
+        assertEquals(4, published!!.categoryId)
+        assertEquals("", app.settings.draft("${userId}_new_4").raw)
+        assertEquals("首页草稿", app.settings.draft("${userId}_new_0").raw)
+        assertEquals("其他分类草稿", app.settings.draft("${userId}_new_98").raw)
     }
 
     @Test fun successfulReplyClearsBothStoredAndLiveDraftBeforeTheSameSheetReopens() = runBlocking {
