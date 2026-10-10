@@ -36,6 +36,7 @@ internal fun MemberHeader(member: Member, summary: UserSummary?, loading: Boolea
     val ink = if (loaded) Color.White else Ink
     BoxWithConstraints(modifier.fillMaxWidth().background(Color.White).testTag("member-header")) {
         val avatarSize = if (maxHeight < 280.dp) 48.dp else 64.dp
+        val identityGap = if (maxHeight < 320.dp) 12.dp else 40.dp
         val pixels = with(LocalDensity.current) { maxWidth.roundToPx().coerceIn(128, 1200) }
         AvatarImage(member.profileBackground.takeIf(String::isNotBlank)?.let(::mediaUrl) ?: avatar, pixels, true,
             Modifier.matchParentSize().testTag("member-background"), fallbackUrl = avatar,
@@ -57,7 +58,7 @@ internal fun MemberHeader(member: Member, summary: UserSummary?, loading: Boolea
                 }
                 ProfileArrow(ink, profile)
             }
-            Row(Modifier.fillMaxWidth().padding(top = if (maxHeight < 320.dp) 12.dp else 40.dp),
+            Row(Modifier.fillMaxWidth().padding(top = identityGap),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf("访问天数" to summary?.daysVisited, "已读帖子" to summary?.postsRead,
                     "获赞" to summary?.likesReceived, "发帖数" to summary?.posts).forEach { (label, value) ->

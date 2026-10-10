@@ -136,7 +136,7 @@ class TopicDetailUiTest {
         compose.runOnIdle { assertEquals(2, shortTaps) }
         compose.onNodeWithTag("liquid-action-sheet").assertDoesNotExist()
         compose.onNodeWithContentDescription("赞主帖").performTouchInput { longClick(durationMillis = 650) }
-        compose.onNodeWithText("回应").assertIsDisplayed()
+        compose.onNodeWithTag("liquid-action-sheet").assertIsDisplayed()
         compose.onNodeWithTag("reaction-choice-distorted_face").assertIsDisplayed()
         compose.onNodeWithText("写回复").assertDoesNotExist()
         capture("topic-responses-light.png")

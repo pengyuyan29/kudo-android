@@ -41,7 +41,8 @@ class SettingsModalUiTest {
         compose.onNodeWithText("界面材质效果").performTouchInput { click() }
         compose.onNodeWithTag("liquid-action-sheet").assertIsDisplayed()
         compose.onAllNodesWithText("字体大小").assertCountEquals(0)
-        compose.onAllNodesWithText("界面材质效果").assertCountEquals(1)
+        compose.onAllNodesWithText("界面材质效果").assertCountEquals(0)
+        compose.onNodeWithText("取消").assertDoesNotExist()
         compose.onNodeWithTag("modal-choice-${GlassMode.LIQUID.ordinal}").assertIsSelected()
         capture("settings-sheet-light.png")
         compose.onNodeWithText("半透明").performTouchInput { click() }
@@ -49,7 +50,7 @@ class SettingsModalUiTest {
         compose.onNodeWithTag("liquid-action-sheet").assertDoesNotExist()
         compose.onNodeWithText("界面材质效果").performClick()
         compose.onNodeWithTag("modal-choice-${GlassMode.TRANSLUCENT.ordinal}").assertIsSelected()
-        compose.onNodeWithText("取消").performClick()
+        closeSheet()
     }
 
     @Test fun cancelScrimAndBackDoNotChangeSettingsOrNavigate() {
@@ -58,7 +59,7 @@ class SettingsModalUiTest {
         var backs = 0
         show({ settings }, { updates++ }, back = { backs++ })
         compose.onNodeWithText("主题风格").performClick()
-        compose.onNodeWithText("取消").performTouchInput { click() }
+        closeSheet()
         compose.onNodeWithTag("liquid-action-sheet").assertDoesNotExist()
         compose.onNodeWithText("主题风格").performClick()
         compose.onNodeWithTag("modal-scrim").performTouchInput { click(Offset(width / 2f, height * 0.1f)) }
@@ -96,7 +97,7 @@ class SettingsModalUiTest {
                 .performKeyInput { pressKey(Key.Tab) }
         }
         compose.onNode(isFocused()).assert(hasAnyAncestor(hasTestTag("liquid-action-sheet")))
-        compose.onNodeWithText("取消").performClick()
+        closeSheet()
     }
 
     @Test fun logoutRequiresConfirmationAndDoesNotRepeatDuringExit() {
@@ -123,9 +124,9 @@ class SettingsModalUiTest {
             compose.runOnIdle { settings = settings.copy(glass = mode) }
             compose.onNodeWithText("字体大小").performClick()
             compose.onNodeWithText("大号 · 130%").assertIsDisplayed()
-            compose.onNodeWithText("取消").assertIsDisplayed()
+            compose.onNodeWithText("取消").assertDoesNotExist()
             capture("settings-sheet-${mode.name.lowercase()}-dark-large.png")
-            compose.onNodeWithText("取消").performClick()
+            closeSheet()
             compose.onNode(hasScrollAction()).performScrollToNode(hasText("字体大小"))
         }
     }
@@ -146,6 +147,10 @@ class SettingsModalUiTest {
         compose.runOnIdle { assertEquals(1, links) }
         compose.onNodeWithText("知道了").performClick()
         compose.onNodeWithTag("liquid-dialog").assertDoesNotExist()
+    }
+
+    private fun closeSheet() {
+        compose.onNodeWithTag("modal-scrim").performTouchInput { click(Offset(2f, 2f)) }
     }
 
     private fun openSetting(label: String) {

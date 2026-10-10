@@ -163,8 +163,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                 !state.loading && !state.jumping && !state.contextLoading && threadLoad?.loading != true && threadLoad?.error == null) { thread?.let { loadReplies(it.root, false) } }
         Box(Modifier.fillMaxSize().then(if (overlayShowing) Modifier.clearAndSetSemantics {} else Modifier)
             .focusProperties { onEnter = { if (overlayShowing) cancelFocusChange() } }.focusGroup()) {
-            LiquidModal(threadVisibility, "评论回复", true, modalBackdrop, glass, { threadVisibility.targetState = false },
-                actions = { LiquidModalAction("关闭", { threadVisibility.targetState = false }, Modifier.fillMaxWidth()) }) {
+            LiquidModal(threadVisibility, "评论回复", true, modalBackdrop, glass, { threadVisibility.targetState = false }) {
                 if (thread != null && detail != null) {
                     LazyColumn(state = threadList, modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp).testTag("thread-posts")) {
                         item("root") { ThreadPreviewPost(thread.root, !overlayShowing, image, openLink, ::navigatePost) }
@@ -182,8 +181,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             }
         }
         val selected = state.allPosts.firstOrNull { it.id == reactionPostId }
-        LiquidModal(visibility, "回应", true, modalBackdrop, glass, ::dismiss,
-            actions = { LiquidModalAction("取消", ::dismiss, Modifier.fillMaxWidth()) }) {
+        LiquidModal(visibility, "回应", true, modalBackdrop, glass, ::dismiss) {
             if (selected != null) {
                 TopicReactionChoices(selected, detail?.validReactions.orEmpty(),
                     visibility.targetState && selected.id !in state.busy && (state.viewerId == null || selected.canReact)) {

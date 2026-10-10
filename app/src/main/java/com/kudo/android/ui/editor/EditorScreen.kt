@@ -114,8 +114,7 @@ internal fun EditorForm(draft: Draft, categories: List<Category>, edit: (Draft) 
             }
         }
         if (!reply) CommunitySheet(categorySheet, "发布到", { categorySheet.targetState = false },
-            containerColor = MaterialTheme.colorScheme.background,
-            actions = { LiquidModalAction("取消", { categorySheet.targetState = false }, Modifier.fillMaxWidth()) }) {
+            containerColor = MaterialTheme.colorScheme.background) {
             if (categories.isEmpty()) {
                 Text(categoryError?.message ?: "分类暂未加载", style = MaterialTheme.typography.bodyMedium)
                 CommunityButton("重新加载", reloadCategories)

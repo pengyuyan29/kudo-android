@@ -62,7 +62,7 @@ class SheetGestureUiTest {
         var busy by mutableStateOf(true)
         compose.setContent { KudoTheme(DisplaySettings(fontScale = 1.3f)) {
             Box(Modifier.fillMaxWidth().height(320.dp)) {
-                CommunitySheet(visibility, "选择内容", { visibility.targetState = false }, dismissEnabled = !busy,
+                CommunitySheet(visibility, "选择内容", { visibility.targetState = false }, dismissEnabled = !busy, showActions = true,
                     actions = { CommunityButton("取消", { visibility.targetState = false }, Modifier.fillMaxWidth(), enabled = !busy) }) {
                     repeat(30) { Text("选项 $it", Modifier.fillMaxWidth().heightIn(min = 48.dp)) }
                 }

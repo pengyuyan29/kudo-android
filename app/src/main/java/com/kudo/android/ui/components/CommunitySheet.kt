@@ -31,8 +31,8 @@ internal val LocalSheetActions = staticCompositionLocalOf { false }
 @Composable
 internal fun CommunitySheet(
     visibility: MutableTransitionState<Boolean>, title: String, dismiss: () -> Unit,
-    modifier: Modifier = Modifier, showTitle: Boolean = true, dismissEnabled: Boolean = true,
-    scrollContent: Boolean = true, showActions: Boolean = true,
+    modifier: Modifier = Modifier, showTitle: Boolean = false, dismissEnabled: Boolean = true,
+    scrollContent: Boolean = true, showActions: Boolean = false,
     containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
     contentPadding: PaddingValues = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
     actions: @Composable RowScope.() -> Unit = {}, content: @Composable ColumnScope.() -> Unit,

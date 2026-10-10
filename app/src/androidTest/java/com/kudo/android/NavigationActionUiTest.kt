@@ -37,7 +37,7 @@ class NavigationActionUiTest {
             assertEquals(NavigationAction.SEARCH, AppSettings(context).display.value.navigationAction)
             compose.onNodeWithText("底栏中间按钮").performClick()
             compose.onNodeWithTag("modal-choice-1").assertIsSelected()
-            compose.onNodeWithText("取消").performClick()
+            compose.onNodeWithTag("sheet-drag-handle").performTouchInput { swipeDown() }
             assertEquals(NavigationAction.SEARCH, AppSettings(context).display.value.navigationAction)
         } finally { prefs.edit().apply { if (previous == null) remove("navigation_action") else putString("navigation_action", previous) }.commit() }
     }

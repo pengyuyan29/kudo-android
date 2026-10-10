@@ -96,11 +96,12 @@ fun TopicActionsHost(repository: CommunityRepository, viewer: Member?, glass: Gl
             }
         } else LiquidModal(visibility, title, true, backdrop, glass, vm::dismiss,
             dismissEnabled = !state.busy,
-            showTitle = state.panel != TopicActionPanel.MENU,
+            showTitle = false,
+            showActions = state.panel == TopicActionPanel.MENU || state.panel == TopicActionPanel.IGNORE,
             actions = {
-                LiquidModalAction(if (state.busy) "提交中…" else "取消", vm::dismiss, Modifier.weight(1f))
+                if (state.panel == TopicActionPanel.MENU) LiquidModalAction("取消", vm::dismiss, Modifier.fillMaxWidth())
                 if (state.panel == TopicActionPanel.IGNORE) {
-                    CommunityButton("确认忽略", vm::submitIgnore, enabled = state.duration != null && !state.busy && !state.writeLocked && viewer?.canIgnoreUsers == true && state.post?.author?.id != viewer.id,
+                    CommunityButton(if (state.busy) "提交中…" else "确认忽略", vm::submitIgnore, enabled = state.duration != null && !state.busy && !state.writeLocked && viewer?.canIgnoreUsers == true && state.post?.author?.id != viewer.id,
                         modifier = Modifier.weight(1f))
                 }
             }) {

@@ -69,7 +69,7 @@ class TopicListStyleUiTest {
         compose.runOnIdle { assertEquals(TopicListStyle.TITLE, settings.topicListStyle) }
         compose.onNodeWithText("主题列表样式").performClick()
         compose.onNodeWithTag("modal-choice-1").assertIsSelected()
-        compose.onNodeWithText("取消").performClick()
+        compose.onNodeWithTag("sheet-drag-handle").performTouchInput { swipeDown() }
         compose.runOnIdle { assertEquals(TopicListStyle.TITLE, settings.topicListStyle) }
     }
 

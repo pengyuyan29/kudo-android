@@ -39,25 +39,25 @@ class NestedReplyUiTest {
         compose.onNodeWithText("回复 #2").assertDoesNotExist()
         capture("nested-reply-preview.png")
         compose.onNodeWithTag("reply-preview-post-3").performClick()
-        compose.onNodeWithText("评论回复").assertDoesNotExist()
+        compose.onNodeWithTag("liquid-action-sheet").assertDoesNotExist()
         compose.onNodeWithTag("post-3").assertIsDisplayed()
         capture("nested-reply-original.png")
         compose.onNode(hasContentDescription("更多操作") and hasAnyAncestor(hasTestTag("post-3"))).performClick()
         compose.onNodeWithText("收藏").performClick()
         compose.onNode(hasText("回复") and hasClickAction() and hasAnyAncestor(hasTestTag("post-3"))).performClick()
-        compose.onNodeWithText("评论回复").assertDoesNotExist()
+        compose.onNodeWithTag("liquid-action-sheet").assertDoesNotExist()
         compose.runOnIdle { assertEquals(3, replied); assertEquals(3, saved) }
     }
     @Test fun deepLinkTargetsOriginalFloorAndSystemBackClosesReadOnlyDiscussion() {
         compose.setContent { Screen(target = 7) }
-        compose.onNodeWithText("评论回复").assertDoesNotExist()
+        compose.onNodeWithTag("liquid-action-sheet").assertDoesNotExist()
         compose.onNodeWithTag("post-7").assertIsDisplayed()
         compose.onNodeWithTag("topic-posts").performScrollToNode(hasTestTag("reply-preview-2"))
         compose.onNodeWithText("查看更多回复").performClick()
-        compose.onNodeWithText("评论回复").assertIsDisplayed()
+        compose.onNodeWithTag("liquid-action-sheet").assertIsDisplayed()
         InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
         compose.onNodeWithTag("post-2").assertExists()
-        compose.onNodeWithText("评论回复").assertDoesNotExist()
+        compose.onNodeWithTag("liquid-action-sheet").assertDoesNotExist()
     }
 
     @Test fun darkLargeTextKeepsIgnoredRepliesHiddenUntilExplicitlyRevealed() {

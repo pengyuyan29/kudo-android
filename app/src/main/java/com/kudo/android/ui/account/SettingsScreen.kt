@@ -115,11 +115,10 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
         LiquidModal(visibility, title, actionSheet, backdrop, settings.glass, ::dismiss,
             sheetBackground = MaterialTheme.colorScheme.background,
             actions = {
-                if (actionSheet) LiquidModalAction("取消", ::dismiss, Modifier.fillMaxWidth())
-                else if (dialog == "logout") {
+                if (!actionSheet && dialog == "logout") {
                     LiquidModalAction("取消", ::dismiss, Modifier.weight(1f))
                     LiquidModalAction("退出", { if (visibility.targetState) { dismiss(); logout() } }, Modifier.weight(1f), primary = true)
-                } else LiquidModalAction("知道了", ::dismiss, Modifier.fillMaxWidth(), primary = true)
+                } else if (!actionSheet) LiquidModalAction("知道了", ::dismiss, Modifier.fillMaxWidth(), primary = true)
             }) {
             if (actionSheet) {
                 val scales = listOf(0.85f, 1f, 1.15f, 1.3f)

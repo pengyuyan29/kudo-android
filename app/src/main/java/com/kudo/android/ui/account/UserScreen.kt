@@ -168,7 +168,7 @@ internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: 
         CommunitySheet(detailsVisibility, "个人资料", { detailsVisibility.targetState = false }, showActions = false) {
             profile?.let { PublicProfileDetails(it, state.summary, openLink) }
         }
-        CommunitySheet(moreVisibility, "个人主页", { moreVisibility.targetState = false }, showActions = false) {
+        CommunitySheet(moreVisibility, "个人主页", { moreVisibility.targetState = false }, showTitle = true, showActions = false) {
             ProfileMenuRow("复制主页链接") {
                 (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("个人主页", pageUrl))
                 moreVisibility.targetState = false

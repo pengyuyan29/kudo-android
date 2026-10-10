@@ -92,6 +92,7 @@ internal fun BadgePage(badges: List<UserBadge>, loading: Boolean = false, error:
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     BadgeEmblem(badge, Modifier.size(64.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(badge.name, style = MaterialTheme.typography.titleMedium)
                         Text(if (badge.earned) "已获得" else "未获得", style = MaterialTheme.typography.titleMedium)
                         Text(when (badge.type) { 1 -> "金色徽章"; 2 -> "银色徽章"; else -> "铜色徽章" },
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
