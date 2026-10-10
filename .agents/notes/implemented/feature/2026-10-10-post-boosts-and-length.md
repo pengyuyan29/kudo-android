@@ -14,7 +14,7 @@ Unicode序列表和有效shortcode表取自2026-10-10网站pretty-text/emoji/dat
 
 主帖和回复都显示已有Boost，保留头像与服务端cooked的短内容；发送成功更新同一帖子在主列表、楼中楼和置顶原帖的副本。写操作复用Cookie、CSRF和逐帖互斥，不由UI乐观声称已发送。
 
-帖子操作栏移除左侧灰色“正文 / 回复”标记，保留右侧回复入口和楼层目标。Boost 在各楼层及底部主帖操作栏统一复用官网 Font Awesome rocket 矢量；官网插件 @icon=rocket 的只读证据位于 artifacts/boost-web-source.js。列表点赞数量用空心爱心表示，帖子和底部已选爱心使用 Discourse love 红色（#FA6C8D），其他品牌选中色继续使用 LogoYellow。
+帖子操作栏移除左侧灰色“正文 / 回复”标记，保留右侧回复入口和楼层目标。Boost 在各楼层及底部主帖操作栏统一复用官网 Font Awesome rocket 矢量；官网插件 @icon=rocket 的只读证据位于 artifacts/boost-web-source.js。火箭分别为17dp和19dp，与爱心实际图形高度接近；使用主题 onSurfaceVariant 的75%灰色，并继续服从禁用透明度。列表点赞数量用空心爱心表示，帖子和底部已选爱心使用 Discourse love 红色（#FA6C8D），其他品牌选中色继续使用 LogoYellow。
 
 ## Existing note audit
 
@@ -33,5 +33,7 @@ PostBoostsTest验证16/17字、5/6表情、旗帜/ZWJ/肤色、UTF-16普通补�
 ## Consequences
 
 操作栏调整后，TopicBoostsUiTest 与 TopicReadingUiTest 11项真机测试通过（rocket-actions-device.txt）；长文末尾测试改为定位仍存在的Boost操作，继续验证末尾实际曝光才标读。新增主帖/底部红色像素验证与有用操作/回复楼层检查2项通过（heart-rocket-device.txt）。构建通过，post-actions-rocket.png 展示复用官网火箭后的操作行。
+
+火箭尺寸与灰度复现测试先在旧实现因尺寸失败（boost-compact-repro-device.txt），调整后同机通过（boost-compact-device.txt）；同时检查楼层与底栏的实际高度、图形灰度，构建通过。
 
 网页插件的短文本规则或字段可能变化，需要按真实返回确认。网络结果未知时保留输入但不自动重试；用户可在社区确认。

@@ -3,6 +3,7 @@ package com.kudo.android
 import android.graphics.Bitmap
 import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -26,6 +27,28 @@ class TopicBoostsUiTest {
     private val root = first.copy(id = 2, number = 2, cooked = "<p>评论正文</p>", boosts = emptyList())
     private val child = first.copy(id = 3, number = 3, replyTo = 2, cooked = "<p>楼中楼正文</p>", boosts = listOf(PostBoost(101, author, "<p>回复也可以 Boost</p>")))
     private val detail = TopicDetail(5, "帖子与 Boost", 1, listOf(first, root, child), listOf(1, 2, 3), false)
+
+    @Test fun boostRocketIsCompactAndGrayInPostAndBottomActions() {
+        var density = 1f
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+            density = LocalDensity.current.density
+            TopicScreen(TopicState(detail.copy(posts = listOf(first)), false), GlassMode.TRANSLUCENT,
+                {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        } }
+        for ((label, maxSize) in listOf("Boost 此帖子" to 18f, "Boost 主帖" to 20f)) {
+            val icon = compose.onNodeWithContentDescription(label, useUnmergedTree = true)
+            assertTrue("$label 火箭高度应接近爱心", icon.fetchSemanticsNode().boundsInRoot.height <= maxSize * density)
+            val pixels = icon.captureToImage().toPixelMap()
+            val colored = buildList {
+                for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
+                    val color = pixels[x, y]
+                    if (color.red < .85f && kotlin.math.abs(color.red - color.green) < .05f) add(color.red)
+                }
+            }
+            assertTrue("$label 灰色应有足够图形像素", colored.size > 20)
+            assertTrue("$label 不应呈深黑色", colored.sorted()[colored.size / 2] > .45f)
+        }
+    }
 
     @Test fun selectedHeartUsesRedInPostAndBottomActions() {
         val liked = first.copy(liked = true, currentReaction = UserReaction("heart", true))

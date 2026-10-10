@@ -70,7 +70,8 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
                     choose = if (post.reactionsAvailable && detail.validReactions.isNotEmpty()) ({ choose(post) }) else null,
                     click = { like(post) })
                 IconButton(onClick = { boost(post) }, enabled = enabled && !state.loading && post.id !in state.busy && (state.viewerId == null || post.canBoost)) {
-                    Icon(CategoryIcons.get("rocket"), "Boost 此帖子", Modifier.size(22.dp))
+                    Icon(CategoryIcons.get("rocket"), "Boost 此帖子", Modifier.size(17.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .75f * LocalContentColor.current.alpha))
                 }
                 TextButton(onClick = { reply(post) }, enabled = enabled && !detail.closed) { Text("回复") }
             }

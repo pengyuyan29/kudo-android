@@ -159,7 +159,8 @@ internal fun TopicBottomBar(
                 choose = if (first?.reactionsAvailable == true && detail.validReactions.isNotEmpty()) ({ choose(first) }) else null,
                 click = { first?.let(like) }, bottom = true)
             IconButton(onClick = { first?.let(boost) }, enabled = available && (state.viewerId == null || first?.canBoost == true)) {
-                Icon(CategoryIcons.get("rocket"), "Boost 主帖", Modifier.size(24.dp))
+                Icon(CategoryIcons.get("rocket"), "Boost 主帖", Modifier.size(19.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .75f * LocalContentColor.current.alpha))
             }
         }
     }
