@@ -22,6 +22,26 @@ GitHub Actions 在 v 开头的 Tag 推送时校验 Tag、执行脚本测试、�
 
 本机 Git 认证使用 Git Credential Manager 的 Windows Credential Manager 存储（wincredman），origin 仅保存不含凭据的 HTTPS 地址。读取远程或认证信息时先在进程内脱敏，不能直接输出带凭据的 URL 或 credential fill 的原始结果。GitHub Secrets 由 GitHub CLI 加密提交，密钥及密码通过标准输入传递，GitHub 访问令牌只进入子进程环境。
 
+## Action runtime
+
+v0.1.5 的 build、publish 虽然成功，使用的七个 Action 的 action.yml 都声明 node20，因此 GitHub 强制使用 Node 24 时产生弃用警告，setup-java v4 另有版本弃用提示。Action 自身的运行时由上游 action.yml 决定，与 setup-node 安装供笔记脚本使用的 Node 22 分开管理。
+
+工作流使用截至 2026-10-11 已从各官方仓库核实的稳定发布版本，并继续固定完整提交 SHA：
+
+| Action | 版本 | 上游声明的运行时 |
+| --- | --- | --- |
+| actions/checkout | v7.0.1 | node24 |
+| actions/setup-java | v6.0.1 | node24 |
+| actions/setup-node | v7.1.0 | node24 |
+| gradle/actions/setup-gradle | v6.4.0 | node24 |
+| android-actions/setup-android | v4.0.4 | node24 |
+| actions/upload-artifact | v7.0.2 | node24 |
+| actions/download-artifact | v8.0.2 | node24 |
+
+Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移文档给出的最低版本为 v2.327.1，发布仍使用 GitHub 托管的 ubuntu-24.04。JDK 21、脚本 Node 22、SDK 36、Build Tools 35.0.0 及仓库 Gradle Wrapper 保持原有版本。setup-node 显式设置 package-manager-cache: false，避免新版包管理器自动检测开启共享缓存；setup-gradle 保留 cache-disabled: true，不将签名相关构建状态写入共享缓存。
+
+新版上传支持不压缩的单文件制品，但发布需要 APK、摘要和正文三个文件，因此显式使用 archive: true；下载显式使用 skip-decompress: false，让文件继续直接解压到 dist。digest-mismatch: error 使 Actions 制品摘要不一致时立即失败，发布 shell 仍单独核对 APK 的 SHA256。Tag 触发、权限拆分、临时密钥清理和草稿上传完才公开的契约保持一致。
+
 ## Related decisions
 
 检索现有笔记：[构建入口](2026-10-07-android-build.md)部分重叠，保留 Wrapper、AGP、JDK 与签名不入库的决定并互链；[客户端验证](../testing/2026-10-07-client-verification.md)部分重叠，保留真机与测试夹具边界。其他 UI、账号与头像笔记不承载发布流程，不归档或覆盖旧决策。
@@ -32,6 +52,8 @@ GitHub Actions 在 v 开头的 Tag 推送时校验 Tag、执行脚本测试、�
 - 将密钥库提交Git：新机器和CI无需配置就能复现签名，但会公开长期私钥，且违反现有构建约定；仅提交配置示例，CI使用Secrets。
 - 用GitHub run_number作为versionCode：重跑和构建次数容易递增，但依赖工作流历史，不能由Tag独立复现；使用有范围校验的三段版本映射。
 - 同时支持任意预发布Tag：适合复杂发布通道，但需要额外约束alpha、beta、rc及正式版的安装升级顺序；当前只支持已批准的三段正式版本。
+- 保留旧 Action 并依赖 GitHub 强制切换 Node 24：改动最少且 v0.1.5 已在兼容模式下发布成功，但上游仍声明已弃用的 Node 20，不能消除运行时和 setup-java 的版本弃用问题；升级到官方声明 node24 的稳定版本，不通过强制环境变量掩盖警告。
+- 移除 setup-android，直接使用 runner 的 sdkmanager：可以减少一个第三方 Action，但需要自行维护命令行工具、许可证和安装路径；上游 v4.0.4 已支持 Node 24，保留原有 SDK 安装接口。
 
 ## Verification
 
@@ -60,6 +82,12 @@ GitHub Actions 在 v 开头的 Tag 推送时校验 Tag、执行脚本测试、�
 - 从Release重新下载实际附件后，摘要、apksigner、aapt与16KB zipalign通过：版本0.1.5 / 1006，非debuggable，APK为7,893,508字节；SHA256为 `dea55876a0f537e2c1b1aa8bb73ec6c134fea5dcda9d100fe5665fa312a52aed`，正式证书SHA256为 `457c98f5786d224e5117d732126389b8b7cedad5df1b14366b7e662481d22418`，与原本机正式证书一致。云端和本机APK字节摘要不同，不声明跨平台构建字节可复现。
 - 云端附件、正文与校验记录保存于 `artifacts/release/0.1.5/cloud/`；首轮失败日志为 `remote-release-build-failure.log`，第二轮日志为 `remote-release-build-success.log` 与 `remote-release-publish-success.log`。GitHub访问凭据仅用于已有Credential Manager认证和API请求，下载重定向离开api.github.com时移除Authorization，不写入附件、日志或仓库。
 
+2026-10-11 Action 运行时升级本地验证：
+
+- 修改前从固定 SHA 读取七个官方 action.yml，运行时检查全部因 node20 失败；修改后同一检查全部通过，逐一确认声明 node24、工作流参数受支持，固定 SHA 与官方稳定版本 Tag 的实际提交一致。只读检查脚本与前后结果分别保存在 `artifacts/verify_actions_runtime.py`、`actions-runtime-before.json`、`actions-runtime-after.json`，不引入 CI 网络测试依赖。
+- 实际 `.github/workflows/release.yml` 通过 actionlint 1.7.12；20 项发布工具测试通过，包含从该工作流提取发布 shell 后验证的新建草稿、恢复草稿、已公开版本拒绝覆盖、上传失败和摘要失败路径。没有改动 App 源码，因此不重复无关的 JVM、Android Lint 或真机测试。
+- 本次仅修改工作流和现有发布笔记，并按用户确认推送 main；不创建新发布 Tag，不移动已发布 v0.1.5，不把本地校验视为新 Action 的云端发布验收。
+
 ## Consequences
 
 签名与版本检查使发布包能保持更新身份并对应 Tag；代价是开发者必须备份 signing/ 和 signing.properties。丢失正式证书或密码后无法使用原签名更新已安装应用。Debug 和 Release 保持相同包名、使用不同签名，不能互相覆盖安装；当前手机仍保留旧 Debug 签名应用，本次未卸载或替换，也未把构建和验签当成真机运行验收。
@@ -67,3 +95,5 @@ GitHub Actions 在 v 开头的 Tag 推送时校验 Tag、执行脚本测试、�
 远程仓库为 [woliubang256/kudo-android](https://github.com/woliubang256/kudo-android)，私有仓库的 main 已包含工作流，GitHub Actions 已启用，Android Release 工作流处于 active；接入使用本地已生成的正式证书配置四个 Repository Secrets。v0.1.5已完成真实Tag触发、云端构建和Release附件验收。仓库仍为private，本次通过已认证API验收；公开仓库后仍需单独验证匿名latest API与App的更新检查，不能将认证访问通过当成公开可访问。
 
 关闭共享缓存使首次云端构建更慢，且依赖 Google Maven、Maven Central、Android SDK 及 GitHub 服务。稳定三段版本暂不支持 alpha/beta/rc；需要这些通道时须先设计安装升级顺序。
+
+Action 升级跨越多个主版本，本地静态校验及发布 shell 夹具不能替代托管 runner 上的真实 SDK 安装和制品传递。修正仅推送 main，不创建或移动发布 Tag；重跑 v0.1.5 仍使用旧 Tag 的工作流。下一次新版本 Tag 发布需要确认 build、publish 不再出现这两类弃用警告，并重新验签和校验附件摘要；现有首次 JVM 超时问题没有在本次依赖升级中修复。
