@@ -1,5 +1,8 @@
 package com.kudo.android.ui.account
 
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,6 +15,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.*
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -62,97 +69,93 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
             }
         }
     }
-    val statusInset = WindowInsets.statusBars.getTop(LocalDensity.current)
-    val headerVisible by remember(scroll, statusInset) { derivedStateOf {
-        val header = scroll.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "header" }
-        if (scroll.layoutInfo.visibleItemsInfo.isEmpty()) true else header != null && header.offset + header.size > statusInset
-    } }
-    val requestedStatusStyle = if (headerVisible) !backgroundLoaded else null
+    val requestedStatusStyle = !backgroundLoaded
     SideEffect { statusBarStyle(requestedStatusStyle) }
     DisposableEffect(Unit) { onDispose { statusBarStyle(null) } }
-    LazyColumn(Modifier.fillMaxSize().testTag("member-profile"), state = scroll,
-        contentPadding = PaddingValues(bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        item(key = "header") {
-            UserBackground(member.profileBackground, LogoYellow, Modifier.fillMaxWidth().testTag("member-header")) { loaded ->
-                SideEffect { backgroundLoaded = loaded }
-                val ink = if (loaded) Color.White else Ink
-                Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 26.dp, bottom = 25.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Box(Modifier.clip(RoundedCornerShape(50)).clickable(role = Role.Button,
-                            onClickLabel = "打开个人主页", onClick = profile).testTag("member-avatar")) {
-                            Avatar(member, 64.dp, presentation = AvatarPresentation.ACCOUNT)
-                        }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(member.displayName, color = ink, fontSize = 21.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold)
-                            Text("@${member.username}", color = ink.copy(alpha = .78f), fontSize = 12.sp, lineHeight = 18.sp)
-                            Row(Modifier.clip(RoundedCornerShape(5.dp)).background(ink.copy(alpha = .12f))
-                                .clickable(role = Role.Button) { destination(AccountDestination.TRUST) }
-                                .padding(horizontal = 7.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text("Lv.${member.trustLevel}", color = ink, fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium)
-                                Icon(Icons.Rounded.ChevronRight, null, Modifier.size(13.dp), tint = ink)
-                            }
-                        }
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        listOf("访问天数" to summary?.daysVisited, "已读帖子" to summary?.postsRead,
-                            "获赞" to summary?.likesReceived, "发帖数" to summary?.posts).forEach { (label, value) ->
-                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                Text(value?.let(::compactNumber) ?: "—", color = ink, fontSize = 19.sp,
-                                    lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
-                                Text(label, color = ink.copy(alpha = .78f), fontSize = 11.sp, lineHeight = 17.sp)
-                            }
-                        }
-                    }
-                    if (loading || summaryError) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                        Text(if (loading) "正在读取统计…" else "统计暂不可用 · 点击重试",
-                            Modifier.then(if (summaryError) Modifier.clickable { refresh++ } else Modifier),
-                            color = ink.copy(alpha = .8f), fontSize = 11.sp, lineHeight = 16.sp)
-                    }
+    BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        val density = LocalDensity.current
+        val minimum = WindowInsets.statusBars.getTop(density) + with(density) { 48.dp.toPx() }
+        val expanded = maxWidth.coerceAtMost((maxHeight - 120.dp).coerceAtLeast(with(density) { minimum.toDp() }))
+        val height = with(density) { expanded.toPx() }
+        val maximum = (height - minimum).coerceAtLeast(0f)
+        var collapse by remember(user.id) { mutableFloatStateOf(0f) }
+        val latestMaximum by rememberUpdatedState(maximum)
+        val fraction = if (maximum > 0f) (collapse / maximum).coerceIn(0f, 1f) else 1f
+        val collapsed = fraction >= .999f
+        LaunchedEffect(maximum) { collapse = collapse.coerceIn(0f, maximum) }
+        val nested = remember(user.id) { object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y >= 0f) return Offset.Zero
+                val previous = collapse
+                collapse = (collapse - available.y).coerceIn(0f, latestMaximum)
+                return Offset(0f, previous - collapse)
+            }
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (available.y <= 0f) return Offset.Zero
+                val previous = collapse
+                collapse = (collapse - available.y).coerceIn(0f, latestMaximum)
+                return Offset(0f, previous - collapse)
+            }
+        } }
+        Column(Modifier.fillMaxSize().nestedScroll(nested)) {
+            Box(Modifier.fillMaxWidth().height(with(density) { (height - collapse).toDp() }).clipToBounds()
+                .testTag("member-header-viewport")
+                .scrollable(rememberScrollableState { delta ->
+                    val previous = collapse
+                    collapse = (collapse - delta).coerceIn(0f, maximum)
+                    previous - collapse
+                }, Orientation.Vertical)) {
+                MemberHeader(member, summary, loading, summaryError, { refresh++ }, profile,
+                    { destination(AccountDestination.TRUST) }, fraction,
+                    Modifier.offset { IntOffset(0, -collapse.toInt()) }.wrapContentHeight(Alignment.Top, unbounded = true).height(expanded)) {
+                    backgroundLoaded = it
                 }
             }
-        }
-        item(key = "shortcuts") {
-            BoxWithConstraints(Modifier.padding(horizontal = 8.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surface).padding(horizontal = 4.dp, vertical = 12.dp)) {
-                val columns = if (maxWidth < 300.dp) 2 else 4
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf(AccountDestination.TOPICS, AccountDestination.BOOKMARKS, AccountDestination.DRAFTS, AccountDestination.HISTORY)
-                        .chunked(columns).forEach { entries ->
-                            Row(Modifier.fillMaxWidth()) { entries.forEach { entry ->
-                                val (icon, color) = destinationIcon(entry)
-                                Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { destination(entry) }
-                                    .padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                                    Icon(icon, null, Modifier.size(25.dp), tint = color)
-                                    Text(entry.title, fontSize = 12.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("member-profile"), state = scroll,
+                contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                item(key = "shortcuts") {
+                    BoxWithConstraints(Modifier.padding(horizontal = 8.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surface).padding(horizontal = 4.dp, vertical = 12.dp)) {
+                        val columns = if (maxWidth < 300.dp) 2 else 4
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            listOf(AccountDestination.TOPICS, AccountDestination.BOOKMARKS, AccountDestination.DRAFTS, AccountDestination.HISTORY)
+                                .chunked(columns).forEach { entries ->
+                                    Row(Modifier.fillMaxWidth()) { entries.forEach { entry ->
+                                        val (icon, color) = destinationIcon(entry)
+                                        Column(Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { destination(entry) }
+                                            .padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                                            Icon(icon, null, Modifier.size(25.dp), tint = color)
+                                            Text(entry.title, fontSize = 12.sp, lineHeight = 18.sp, textAlign = TextAlign.Center)
+                                        }
+                                    } }
                                 }
-                            } }
                         }
+                    }
                 }
-            }
-        }
-        item(key = "community") {
-            Column(Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface)) {
-                val entries = listOf(AccountDestination.MESSAGES, AccountDestination.CHAT, AccountDestination.PENDING,
-                    AccountDestination.BADGES, AccountDestination.TRUST) +
-                    (if (member.trustLevel >= 3) listOf(AccountDestination.INVITES) else emptyList())
-                entries.forEach { entry ->
-                    val (icon, color) = destinationIcon(entry)
-                    CompactAccountRow(icon, color, entry.title, { destination(entry) })
+                item(key = "community") {
+                    Column(Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface)) {
+                        val entries = listOf(AccountDestination.MESSAGES, AccountDestination.CHAT, AccountDestination.PENDING,
+                            AccountDestination.BADGES, AccountDestination.TRUST) +
+                            (if (member.trustLevel >= 3) listOf(AccountDestination.INVITES) else emptyList())
+                        entries.forEach { entry ->
+                            val (icon, color) = destinationIcon(entry)
+                            CompactAccountRow(icon, color, entry.title, { destination(entry) })
+                        }
+                    }
                 }
+                item(key = "settings") {
+                    Column(Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface)) {
+                        CompactAccountRow(Icons.Rounded.Palette, Color(0xFF78828E), "界面与显示", settings)
+                        CompactAccountRow(Icons.Rounded.Info, Color(0xFF78828E), "关于酷DO", about, BuildConfig.VERSION_NAME)
+                    }
+                }
+                item { Text("真诚 · 友善 · 团结 · 专业", Modifier.fillMaxWidth().padding(20.dp), textAlign = TextAlign.Center,
+                    fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
-        item(key = "settings") {
-            Column(Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface)) {
-                CompactAccountRow(Icons.Rounded.Palette, Color(0xFF78828E), "界面与显示", settings)
-                CompactAccountRow(Icons.Rounded.Info, Color(0xFF78828E), "关于酷DO", about, BuildConfig.VERSION_NAME)
-            }
-        }
-        item { Text("真诚 · 友善 · 团结 · 专业", Modifier.fillMaxWidth().padding(20.dp), textAlign = TextAlign.Center,
-            fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (collapsed) MemberCompactHeader(member, backgroundLoaded, profile,
+            { destination(AccountDestination.TRUST) }, Modifier.align(Alignment.TopCenter))
     }
 }
 

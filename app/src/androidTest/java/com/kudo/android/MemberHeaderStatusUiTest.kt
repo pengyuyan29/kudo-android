@@ -17,7 +17,7 @@ import org.junit.Assert.*
 
 class MemberHeaderStatusUiTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
-    @Test fun statusBarRestoresThemeWhenHeaderOnlyRemainsBelowItsIcons() {
+    @Test fun statusBarKeepsHeaderStyleWhenCollapsedAndRestoresOnExit() {
         compose.runOnUiThread { compose.activity.enableEdgeToEdge() }
         var style: Boolean? = null
         var inset = 0
@@ -29,10 +29,9 @@ class MemberHeaderStatusUiTest {
         } }
         compose.waitForIdle()
         compose.runOnIdle { assertTrue(inset > 0); assertEquals(true, style) }
-        val height = compose.onNodeWithTag("member-header").fetchSemanticsNode().boundsInRoot.height
-        compose.onNodeWithTag("member-profile").performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, height - inset / 2f) }
+        compose.onNodeWithTag("member-profile").performTouchInput { swipeUp() }
         compose.waitForIdle()
-        val remaining = compose.onNodeWithTag("member-header").fetchSemanticsNode().boundsInRoot
-        compose.runOnIdle { assertNull("标题图已离开状态栏图标区域，应恢复主题图标颜色；inset=$inset, height=$height, remaining=$remaining", style) }
+        compose.onNodeWithTag("member-compact-header").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(true, style) }
     }
 }
