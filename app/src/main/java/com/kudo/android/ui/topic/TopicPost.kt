@@ -44,7 +44,9 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
                 }
                 Text("#${post.number}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            RichContent(post.cooked, image, openLink, galleryKey = "post-${post.id}", galleryBottomInset = 110.dp)
+            PostReadingContent(post.number, enabled && !state.loading) {
+                RichContent(post.cooked, image, openLink, galleryKey = "post-${post.id}", galleryBottomInset = 110.dp)
+            }
             UserSignature(post, openLink)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (post.number == 1) "正文" else "回复", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)

@@ -30,7 +30,7 @@ TopicReadingProgressTest 的4项离线测试通过，覆盖闪现不提交、暂
 
 TopicReadingSync 使用导航外作用域的串行队列，每次提交核对账号；换号取消在途请求并丢弃旧队列。3项 MockWebServer 测试检查 CSRF、毫秒表单、204成功、失败不重试、访客与旧账号拒绝，以及获取 CSRF 期间换号时不再提交旧正文计时。
 
-正文界面行为复现先在未接入 PostReadingContent 的 TopicPost 上超时失败（artifacts/reading-ui-repro.txt）。可见性使用 onLayoutRectChanged 跟踪祖先滚动与位置变化，不能只依赖首次 onGloballyPositioned；主列表扣除底部操作栏，楼中楼弹窗使用自己的视口。长文用实际末尾位置验证，而非固定次数的滑动。Compose 夹具分别验证短文与摘要排除、长文开头不计读/末尾计读、遮挡及访客/忽略内容。
+正文界面行为复现先在未接入 PostReadingContent 的 TopicPost 上超时失败（artifacts/reading-ui-repro.txt）。可见性使用 onLayoutRectChanged 跟踪祖先滚动与位置变化；几何必须在组合阶段读取，不能只在 SideEffect 里读取，否则不会订阅位置状态的变化。主列表扣除底部操作栏，楼中楼弹窗使用自己的视口。长文用实际末尾位置验证，而非固定次数的滑动，恢复计时后先等待界面完成组合再等待真实时间。Compose 夹具验证短文与摘要排除、长文开头不计读/末尾计读、遮挡及访客/忽略内容、旧会话销毁仍使用原账号回调。
 
 FeedPageCacheTest 验证阅读成功只失效 unread/new/read；已缓存书签和当前 latest 不重新请求话题，计数单独更新，重复epoch与其他账号通知无效，回顶请求不增加。
 
