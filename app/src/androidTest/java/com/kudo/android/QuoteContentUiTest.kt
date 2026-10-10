@@ -88,6 +88,7 @@ class QuoteContentUiTest {
         compose.onNodeWithTag("article-image-article-0").assertIsDisplayed()
         capture("details-expanded.png")
         restoration.emulateSavedInstanceStateRestore()
+        capture("details-restored.png")
         compose.onNodeWithText("加入catppuccin全家桶配色！").assertIsDisplayed()
         compose.onNodeWithContentDescription("收起折叠内容").performClick()
         compose.onNodeWithTag("article-image-article-0").assertDoesNotExist()

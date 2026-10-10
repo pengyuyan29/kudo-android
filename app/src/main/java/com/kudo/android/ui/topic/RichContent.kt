@@ -17,7 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
@@ -268,7 +268,9 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
     val imageIndices = remember(locations) { locations.mapIndexed { index, location -> location.path to index }.toMap() }
     val images = remember(locations) { locations.map { it.image } }
     val anchors = remember(blocks) { List(images.size) { GalleryThumbnailAnchor() } }
-    var collapsed by rememberSaveable(html, stateSaver = listSaver<List<String>, String>(save = { it }, restore = { it })) {
+    // listSaver drops empty lists; an expanded article must also survive restoration.
+    var collapsed by rememberSaveable(html, stateSaver = Saver<List<String>, ArrayList<String>>(
+        save = { ArrayList(it) }, restore = { it.toList() })) {
         mutableStateOf(closedDetails(blocks))
     }
     val gallery = LocalImageGallery.current
