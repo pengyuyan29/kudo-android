@@ -72,24 +72,30 @@ class AccountViewModel(
         if (member != null && notificationJob == null && updates != null) {
             val epoch = sessionEpoch
             notificationJob = viewModelScope.launch {
-                updates.notifications(member).collect { batch ->
-                    if (epoch != sessionEpoch) return@collect
-                    val alerts = ledger.accept(batch).filter { alert ->
-                        user?.ignoredUsers.orEmpty().none { it.equals(alert.username, true) }
-                    }
-                    unreadCount = ledger.count
-                    batch.snapshots.forEach { snapshot ->
-                        snapshot.notice?.let(delivery::correlate)
-                        val readIds = snapshot.recent.filterValues { it }.keys
-                        delivery.readForum(readIds, snapshot.count == 0)
-                        if (noticesLoaded) {
-                            val newest = snapshot.notice
-                            if (newest != null) notices = (listOf(newest) + notices.filterNot { it.id == newest.id })
-                            notices = notices.map { notice -> ledger.reads[notice.id]?.let { notice.copy(read = it) } ?: notice }
+                try {
+                    updates.notifications(member).collect { batch ->
+                        if (epoch != sessionEpoch) return@collect
+                        val alerts = ledger.accept(batch).filter { alert ->
+                            user?.ignoredUsers.orEmpty().none { it.equals(alert.username, true) }
                         }
+                        unreadCount = ledger.count
+                        batch.snapshots.forEach { snapshot ->
+                            snapshot.notice?.let(delivery::correlate)
+                            val readIds = snapshot.recent.filterValues { it }.keys
+                            delivery.readForum(readIds, snapshot.count == 0)
+                            if (noticesLoaded) {
+                                val newest = snapshot.notice
+                                if (newest != null) notices = (listOf(newest) + notices.filterNot { it.id == newest.id })
+                                notices = notices.map { notice -> ledger.reads[notice.id]?.let { notice.copy(read = it) } ?: notice }
+                            }
+                        }
+                        alerts.forEach(delivery::show)
+                        if ((batch.reconnect || alerts.isNotEmpty()) && batch.snapshots.none { it.count != null }) refreshNotificationCount()
                     }
-                    alerts.forEach(delivery::show)
-                    if ((batch.reconnect || alerts.isNotEmpty()) && batch.snapshots.none { it.count != null }) refreshNotificationCount()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: ApiFailure) {
+                    if (epoch == sessionEpoch && e.kind == FailureKind.VERIFICATION) messages.trySend(e.message)
                 }
             }
         }

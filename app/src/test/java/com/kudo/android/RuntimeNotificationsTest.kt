@@ -5,6 +5,7 @@ import com.kudo.android.data.*
 import com.kudo.android.ui.account.AccountViewModel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.*
 import okhttp3.mockwebserver.*
 import org.junit.Assert.*
@@ -13,6 +14,22 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RuntimeNotificationsTest {
+    @Test fun cloudflareNotificationStreamSurfacesManualVerificationMessage() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val server = MockWebServer(); server.start()
+        server.enqueue(MockResponse().setBody("""{"current_user":{"id":42,"username":"fixture"}}"""))
+        val vm = AccountViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))), {}, {},
+            NotificationUpdates { kotlinx.coroutines.flow.flow { throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage) } })
+        suspend fun awaitIdle() { repeat(20) { runCurrent(); withContext(Dispatchers.IO) { delay(10) } } }
+        try {
+            awaitIdle()
+            assertEquals(42, vm.user?.id)
+            val message = withTimeout(3000) { vm.events.first() }
+            assertTrue(message.contains("Cloudflare"))
+            assertTrue(message.contains("手动完成验证"))
+        } finally { vm.viewModelScope.cancel(); server.shutdown(); Dispatchers.resetMain() }
+    }
+
     @Test fun freshPageReadStatusSupersedesOlderRealtimeStatus() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val server = MockWebServer(); server.start()
