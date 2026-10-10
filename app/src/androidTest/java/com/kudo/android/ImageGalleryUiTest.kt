@@ -9,15 +9,23 @@ import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -26,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import coil3.EventListener
+import coil3.compose.AsyncImage
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.Uri
@@ -177,14 +186,13 @@ class ImageGalleryUiTest {
         compose.onNodeWithText("下一条内容").assertIsDisplayed()
     }
 
-    @Test fun listBadgeFollowsTheActualCurrentPictureAndOpensItsAlbum() {
+    @Test fun listBadgeKeepsItsPlacementAndOpensTopicWithoutLoadingAnAlbum() {
         val wide = ArticleBlock.Image("https://gallery.test/wide.png", "宽图示例", 1688f / 339f)
-        val tall = ArticleBlock.Image("https://gallery.test/tall.png", "长图示例", 0.2f)
-        val album = listOf(wide, tall, pictures.first())
         val topic = Topic(9, "形状角标测试", "", author, 1, emptyList(), 0, 0, 0, wide.url, "2026-10-09T00:00:00Z")
         var topicOpens = 0
+        var albumRequests = 0
         compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
-            ImageGalleryHost({ album }, {}) {
+            ImageGalleryHost({ albumRequests++; pictures }, {}) {
                 Column(Modifier.fillMaxSize().statusBarsPadding().padding(8.dp)) {
                     TopicCard(topic, null, { topicOpens++ }, {})
                 }
@@ -198,18 +206,10 @@ class ImageGalleryUiTest {
         assertEquals(previewBounds.right - inset, badgeBounds.right, 1f)
         assertEquals(previewBounds.bottom - inset, badgeBounds.bottom, 1f)
         badge.performTouchInput { click() }
-        compose.onNodeWithText("1 / 3").assertIsDisplayed()
-        compose.onNodeWithTag("image-pager").performTouchInput { swipeLeft(durationMillis = 500) }
-        compose.onNodeWithTag("gallery-page-1").performTouchInput { click() }
-        compose.onNodeWithText("长图", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText("宽图", useUnmergedTree = true).assertDoesNotExist()
-        compose.onNodeWithText("长图", useUnmergedTree = true).performTouchInput { click() }
-        compose.onNodeWithText("2 / 3").assertIsDisplayed()
-        compose.onNodeWithTag("image-pager").performTouchInput { swipeLeft(durationMillis = 500) }
-        compose.onNodeWithTag("gallery-page-2").performTouchInput { click() }
-        compose.onNodeWithText("长图", useUnmergedTree = true).assertDoesNotExist()
-        compose.onNodeWithText("宽图", useUnmergedTree = true).assertDoesNotExist()
-        compose.runOnIdle { assertEquals(0, topicOpens) }
+        compose.onNodeWithTag("image-viewer").assertDoesNotExist()
+        compose.onNodeWithText("宽图", useUnmergedTree = true).assertIsDisplayed()
+        compose.runOnIdle { assertEquals(1, topicOpens); assertEquals(0, albumRequests) }
+        capture("feed-image-opens-topic.png")
     }
 
     @Test fun aspectBadgesRecognizeThresholdsWithoutLabelingInvalidOrOrdinaryImages() {
@@ -297,24 +297,25 @@ class ImageGalleryUiTest {
         compose.onNodeWithTag("article-image-post-11-1").assertIsDisplayed()
     }
 
-    @Test fun listPreviewDoesNotOpenTheTopicAndReturnsTheCurrentPicture() {
+    @Test fun listImageOpensTopicOnceWithoutPreviewOrAlbumRequest() {
         var topicOpens = 0
-        val topic = Topic(9, "列表多图测试", "点击预览查看相册", author, 1, emptyList(), 0, 0, 0, pictures.first().url, "2026-10-09T00:00:00Z")
+        var albumRequests = 0
+        val topic = Topic(9, "列表图片进入详情", "点击图片查看帖子", author, 1, emptyList(), 0, 0, 0, pictures.first().url, "2026-10-09T00:00:00Z")
         compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
-            ImageGalleryHost({ pictures }, {}) {
+            ImageGalleryHost({ albumRequests++; pictures }, {}) {
+                val gallery = LocalImageGallery.current
+                SideEffect { observedGallery = gallery }
                 Column(Modifier.fillMaxSize().statusBarsPadding().padding(8.dp)) { TopicCard(topic, null, { topicOpens++ }, {}) }
             }
         } }
         compose.waitUntil(5_000) { loaded.contains(pictures.first().url) }
         compose.onNodeWithTag("topic-image-9").performTouchInput { click() }
-        third()
-        compose.onNodeWithTag("gallery-page-2").performTouchInput { click() }
         compose.onNodeWithTag("image-viewer").assertDoesNotExist()
-        compose.runOnIdle { assertEquals(0, topicOpens) }
-        val preview = compose.onNodeWithTag("topic-image-9").captureToImage().toPixelMap()
-        val color = preview[preview.width / 4, preview.height / 4]
-        assertTrue("第3张的蓝色预览必须留在列表", color.blue > color.red && color.blue > color.green)
-        capture("gallery-list-third.png")
+        compose.runOnIdle {
+            assertEquals(1, topicOpens)
+            assertEquals(0, albumRequests)
+            assertNull(observedGallery?.session)
+        }
     }
 
     @Test fun pinchAndPanningDoNotTurnPagesOrCloseTheViewer() {
@@ -435,16 +436,36 @@ class ImageGalleryUiTest {
         compose.onNodeWithTag("image-viewer").assertIsDisplayed()
     }
 
-    @Test fun fillingAListAlbumDoesNotResetAnInProgressZoom() {
+    // Saved sessions from older versions may still contain a deferred album.
+    // Keep race/transition coverage without restoring the removed feed preview entry point.
+    @Composable private fun DeferredAlbumPreview() {
+        val gallery = LocalImageGallery.current!!
+        var image by remember { mutableStateOf(pictures.first()) }
+        val anchor = remember { GalleryThumbnailAnchor().apply { contentScale = ContentScale.Crop } }
+        val radius = with(LocalDensity.current) { 10.dp.toPx() }
+        SideEffect { anchor.cornerRadius = radius; observedGallery = gallery }
+        RegisterGalleryOrigin("deferred-fixture") { current, _ -> image = current; withFrameNanos { }; anchor }
+        DisposableEffect(anchor) { onDispose { anchor.coordinates = null; anchor.painter = null } }
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(1.9f).onGloballyPositioned { anchor.coordinates = it }
+                .graphicsLayer { alpha = if (gallery.hiddenAnchor === anchor) 0f else 1f }
+                .clip(RoundedCornerShape(10.dp)).testTag("deferred-album-image")
+                .clickable { gallery.open(listOf(image), 0, "deferred-fixture", anchor, 9) }) {
+                AsyncImage(image.url, "恢复相册测试图片", Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
+                    onSuccess = { anchor.painter = it.painter })
+            }
+        }
+    }
+
+    @Test fun fillingADeferredAlbumDoesNotResetAnInProgressZoom() {
         val album = CompletableDeferred<List<ArticleBlock.Image>>()
-        val topic = Topic(9, "列表多图测试", "", author, 1, emptyList(), 0, 0, 0, pictures.first().url, "2026-10-09T00:00:00Z")
         compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
             ImageGalleryHost({ album.await() }, {}) {
-                Column(Modifier.fillMaxSize().statusBarsPadding()) { TopicCard(topic, null, {}, {}) }
+                DeferredAlbumPreview()
             }
         } }
         compose.waitUntil(5_000) { loaded.contains(pictures.first().url) }
-        compose.onNodeWithTag("topic-image-9").performTouchInput { click() }
+        compose.onNodeWithTag("deferred-album-image").performTouchInput { click() }
         compose.onNodeWithTag("gallery-page-0").performTouchInput {
             down(0, Offset(width * 0.4f, height * 0.5f))
             down(1, Offset(width * 0.6f, height * 0.5f))
@@ -475,18 +496,15 @@ class ImageGalleryUiTest {
         compose.onNodeWithText("原内容已更新").assertIsDisplayed()
     }
 
-    @Test fun fillingAListAlbumWhileDraggingKeepsPagerPagesConsistent() {
+    @Test fun fillingADeferredAlbumWhileDraggingKeepsPagerPagesConsistent() {
         val album = CompletableDeferred<List<ArticleBlock.Image>>()
-        val topic = Topic(9, "延迟补齐相册", "", author, 1, emptyList(), 0, 0, 0, pictures.first().url, "2026-10-09T00:00:00Z")
         compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
             ImageGalleryHost({ album.await() }, {}) {
-                val gallery = LocalImageGallery.current
-                SideEffect { observedGallery = gallery }
-                Column(Modifier.fillMaxSize().statusBarsPadding()) { TopicCard(topic, null, {}, {}) }
+                DeferredAlbumPreview()
             }
         } }
         compose.waitUntil(5_000) { loaded.contains(pictures.first().url) }
-        compose.onNodeWithTag("topic-image-9").performTouchInput { click() }
+        compose.onNodeWithTag("deferred-album-image").performTouchInput { click() }
         val pager = compose.onNodeWithTag("image-pager")
         val bounds = pager.fetchSemanticsNode().boundsInRoot
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -513,7 +531,7 @@ class ImageGalleryUiTest {
         compose.onNodeWithText("5 / 5").assertIsDisplayed()
         compose.onNodeWithTag("gallery-page-4").performTouchInput { click() }
         compose.onNodeWithTag("image-viewer").assertDoesNotExist()
-        compose.onNodeWithTag("topic-image-9").performTouchInput { click() }
+        compose.onNodeWithTag("deferred-album-image").performTouchInput { click() }
         compose.waitUntil(5_000) { observedGallery?.session?.albumLoaded == true }
         compose.runOnIdle { assertEquals("再次打开第5张预览，补齐相册不能跳回第1张", 4, observedGallery?.session?.index) }
         compose.onNodeWithText("5 / 5").assertIsDisplayed()
@@ -521,14 +539,13 @@ class ImageGalleryUiTest {
 
     @Test fun completingAnAlbumKeepsTheDisplayedImageForTheClosingAnimation() {
         val album = CompletableDeferred<List<ArticleBlock.Image>>()
-        val topic = Topic(9, "补齐后关闭当前图", "", author, 1, emptyList(), 0, 0, 0, pictures.first().url, "2026-10-09T00:00:00Z")
         compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
             ImageGalleryHost({ album.await() }, {}) {
-                Column(Modifier.fillMaxSize().statusBarsPadding()) { TopicCard(topic, null, {}, {}) }
+                DeferredAlbumPreview()
             }
         } }
         compose.waitUntil(5_000) { loaded.contains(pictures.first().url) }
-        compose.onNodeWithTag("topic-image-9").performTouchInput { click() }
+        compose.onNodeWithTag("deferred-album-image").performTouchInput { click() }
         compose.waitUntil(5_000) { loaded.count { it == pictures.first().url } >= 2 }
         compose.runOnIdle { album.complete(pictures) }
         compose.onNodeWithText("1 / 5").assertIsDisplayed()

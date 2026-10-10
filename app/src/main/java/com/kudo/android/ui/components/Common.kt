@@ -3,22 +3,17 @@ package com.kudo.android.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,9 +24,7 @@ import coil3.compose.AsyncImage
 import com.kudo.android.data.*
 import com.kudo.android.ui.theme.Ink
 import com.kudo.android.ui.theme.LogoYellow
-import com.kudo.android.ui.topic.*
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import java.util.UUID
 
 fun mediaUrl(value: String): String? {
     val url = "https://linux.do/".toHttpUrlOrNull()?.resolve(value.replace("{size}", "120")) ?: return null
@@ -105,34 +98,15 @@ fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (S
 
 @Composable
 private fun TopicPreviewImage(topicId: Int, url: String, openTopic: () -> Unit) {
-    val gallery = LocalImageGallery.current
-    val origin = rememberSaveable { UUID.randomUUID().toString() }
-    var preview by rememberSaveable(topicId, url, stateSaver = GalleryImageSaver) { mutableStateOf(ArticleBlock.Image(url, "话题图片")) }
-    var decodedRatio by remember(preview.url) { mutableStateOf<Float?>(null) }
-    val anchor = remember { GalleryThumbnailAnchor().apply { contentScale = ContentScale.Crop } }
-    val radius = with(LocalDensity.current) { 10.dp.toPx() }
-    SideEffect { anchor.cornerRadius = radius }
-    DisposableEffect(anchor) { onDispose { anchor.coordinates = null; anchor.painter = null } }
-    RegisterGalleryOrigin(origin) { image, _ ->
-        preview = image
-        withFrameNanos { }
-        anchor.requester.bringIntoView()
-        withFrameNanos { }
-        anchor
-    }
+    var decodedRatio by remember(url) { mutableStateOf<Float?>(null) }
     Box(Modifier.fillMaxWidth().heightIn(max = 190.dp).aspectRatio(1.9f)
-        .bringIntoViewRequester(anchor.requester).onGloballyPositioned { anchor.coordinates = it }
-        .graphicsLayer { alpha = if (gallery?.hiddenAnchor === anchor) 0f else 1f }
-        .testTag("topic-image-$topicId").clip(RoundedCornerShape(10.dp)).clickable {
-            if (gallery == null) openTopic() else gallery.open(listOf(preview), 0, origin, anchor, topicId)
-        }) {
-        AsyncImage(preview.url, "话题图片，点击放大", Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
+        .testTag("topic-image-$topicId").clip(RoundedCornerShape(10.dp)).clickable(onClick = openTopic)) {
+        AsyncImage(url, "话题图片，点击进入帖子详情", Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
             onSuccess = {
                 val decoded = it.result.image
                 if (decoded.width > 0 && decoded.height > 0) decodedRatio = decoded.width.toFloat() / decoded.height
-                anchor.painter = it.painter
             })
-        ImageAspectBadge(decodedRatio ?: preview.ratio)
+        ImageAspectBadge(decodedRatio)
     }
 }
 
