@@ -8,6 +8,8 @@ Status: implemented
 
 ## Decision
 
+签名全部原生渲染的范围由[SVG 签名修复](../bug-fix/2026-10-10-svg-user-signatures.md)部分取代：SVG 图片使用受限、无脚本的网页图片容器保留 CSS 动画；独立签名字段、默认关闭及位图动图契约继续有效。
+
 Post 读取 user_signature（图片 URL 或 cooked HTML），Member 读取 profile_background_upload_url 和 card_background_upload_url。签名使用本机 show_signatures 偏好，默认 false，设置界面立即更新；关闭时不创建图片请求。主帖和完整回复正文下显示签名，楼中楼短预览不放签名。原生解析文字、链接和图片，不执行网页脚本；图片等比限制高度，复用 GIF/WebP/APNG 解码及前台生命周期。
 
 已登录“我的”使用 profile_background_upload_url 作为沉浸式资料标题，覆盖状态栏并加遮罩，空值或失败使用 LogoYellow；公开个人主页标题也使用该字段。card_background_upload_url 保留为用户卡片的独立字段。会话接口不保证背景字段，个人中心按账号补齐公开资料，较早账号的响应不得覆盖新账号。头像进入个人主页，无独立“查看个人主页”行或顶部标题、设置按钮。

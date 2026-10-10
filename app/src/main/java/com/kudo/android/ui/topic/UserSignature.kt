@@ -1,5 +1,7 @@
 package com.kudo.android.ui.topic
 
+import android.content.Context
+import android.webkit.WebView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -17,7 +19,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.kudo.android.data.Post
-import com.kudo.android.data.plainText
 import com.kudo.android.ui.components.AvatarImage
 import com.kudo.android.ui.components.mediaUrl
 import com.kudo.android.ui.theme.LocalDisplaySettings
@@ -32,7 +33,8 @@ internal fun signatureBlocks(value: String): List<ArticleBlock> {
 }
 
 @Composable
-internal fun UserSignature(post: Post, openLink: (String) -> Unit) {
+internal fun UserSignature(post: Post, openLink: (String) -> Unit,
+    svgWebViewFactory: (Context) -> WebView = { SignatureImageWebView(it) }) {
     if (!LocalDisplaySettings.current.showSignatures || post.signature.isBlank()) return
     val blocks = remember(post.signature) { signatureBlocks(post.signature) }
     if (blocks.isEmpty()) return
@@ -43,7 +45,8 @@ internal fun UserSignature(post: Post, openLink: (String) -> Unit) {
                 .aspectRatio(block.ratio ?: 3.8f).clip(RoundedCornerShape(6.dp))
                 .semantics { contentDescription = "用户签名图片" }) {
                 val pixels = with(LocalDensity.current) { maxWidth.roundToPx() }.coerceAtLeast(1)
-                AvatarImage(block.url, pixels, true, Modifier.fillMaxSize(), contentScale = ContentScale.Fit,
+                if (isSvgSignature(block.url)) SvgSignatureImage(block.url, Modifier.fillMaxSize(), svgWebViewFactory)
+                else AvatarImage(block.url, pixels, true, Modifier.fillMaxSize(), contentScale = ContentScale.Fit,
                     placeholder = { Text("签名图片", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) })
             }
             is ArticleBlock.TextBlock -> {
