@@ -83,6 +83,24 @@ class MessageBusTest {
         } finally { server.shutdown() }
     }
 
+    @Test fun cloudflareChallengeStopsPollingWithVerificationFailure() = runBlocking {
+        val server = MockWebServer()
+        server.start()
+        try {
+            server.enqueue(MockResponse().setResponseCode(403)
+                .setHeader("cf-mitigated", "challenge")
+                .setBody("<html>Just a moment...</html>"))
+            val failure = runCatching {
+                withTimeout(3000) {
+                    DiscourseMessageBus(DiscourseClient(NoCookies, server.url("/")), server.url("/")).observe(null).first()
+                }
+            }.exceptionOrNull()
+            assertTrue("challenge should be surfaced instead of retried forever", failure is ApiFailure)
+            assertEquals(FailureKind.VERIFICATION, (failure as ApiFailure).kind)
+            assertEquals(1, server.requestCount)
+        } finally { server.shutdown() }
+    }
+
     @Test fun redirectCannotForwardSharedKeyAndMissingBootstrapKeyIsRejected() = runBlocking {
         val main = MockWebServer(); val push = MockWebServer(); val other = MockWebServer()
         main.start(); push.start(); other.start()

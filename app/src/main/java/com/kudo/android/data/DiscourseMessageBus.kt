@@ -80,6 +80,7 @@ class DiscourseMessageBus(
                 // A misconfigured server returning immediate empty bodies must not create a hot loop.
                 delay(1000)
             } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                if (e is ApiFailure && e.kind == FailureKind.VERIFICATION) throw e
                 reconnect = true
                 if (e is ApiFailure && e.kind in setOf(FailureKind.SIGN_IN, FailureKind.FORBIDDEN)) key = null
                 val retrySeconds = (e as? ApiFailure)?.retryAfter?.coerceAtLeast(1)
@@ -139,11 +140,13 @@ private suspend fun Call.poll(): JSONArray = suspendCancellableCoroutine { conti
         override fun onResponse(call: Call, response: Response) {
             try {
                 val messages = response.use {
+                    val body = it.body?.string().orEmpty()
                     when {
+                        isCloudflareChallenge(it, body) -> throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage)
                         it.code == 429 -> throw ApiFailure(FailureKind.RATE_LIMIT, "推送限流", retryAfterSeconds(it.header("Retry-After")))
                         it.code == 401 || it.code == 403 -> throw ApiFailure(FailureKind.SIGN_IN, "推送会话失效")
                         !it.isSuccessful -> throw IOException("推送请求失败：${it.code}")
-                        else -> JSONArray(it.body?.string().orEmpty())
+                        else -> JSONArray(body)
                     }
                 }
                 if (continuation.isActive) continuation.resume(messages)
