@@ -1,5 +1,8 @@
 package com.kudo.android.ui.topic
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -12,6 +15,7 @@ import androidx.compose.material.icons.rounded.Mood
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,6 +31,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
@@ -369,14 +374,34 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                     }
                 }
             }
-            is ArticleBlock.Code -> SelectionContainer {
-                Text(block.text, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).horizontalScroll(rememberScrollState()).padding(13.dp), fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
-            }
+            is ArticleBlock.Code -> CodeBlock(block.text)
             is ArticleBlock.Image -> image(block, path)
             is ArticleBlock.Embed -> OneboxPreview(block, onLink)
             is ArticleBlock.Poll -> poll(block.name)
             ArticleBlock.Rule -> Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
         } } }
+    }
+}
+
+@Composable
+private fun CodeBlock(code: String) {
+    val context = LocalContext.current
+    var copied by remember(code) { mutableStateOf(false) }
+    LaunchedEffect(copied) { if (copied) { kotlinx.coroutines.delay(1500); copied = false } }
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+        Row(Modifier.align(Alignment.End).clickable(role = Role.Button) {
+            (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
+                .setPrimaryClip(ClipData.newPlainText("代码", code))
+            copied = true
+        }.semantics { contentDescription = "复制代码" }.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Icon(Icons.Rounded.ContentCopy, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (copied) "已复制" else "复制", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        SelectionContainer {
+            Text(code, Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 13.dp, end = 13.dp, bottom = 13.dp),
+                fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
+        }
     }
 }
 
