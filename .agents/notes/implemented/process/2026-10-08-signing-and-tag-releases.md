@@ -10,6 +10,8 @@ Debug 依赖开发机器的默认证书，Release 没有签名配置，仓库没
 
 当前正式版基线为 `0.1.6` / `1007`。Release APK 只打包 `arm64-v8a`，发布脚本将验证 APK 的 `native-code` 清单只包含该 ABI；公开产物统一命名为 `kudo_<version>_release_arm64-v8a.apk` 及对应的 `.sha256` 文件。
 
+`release_version.py` 集中定义发布 ABI 并生成小写文件名，`prepare_release.py` 在复制 APK 前解析 `aapt dump badging`，缺少 native-code、包含多个 ABI 或出现其他 ABI 都会拒绝发布。
+
 生成器创建独立的 Debug、Release RSA 4096 / PKCS12 密钥库，有效期 10000 天，分别导出公开证书及 SHA256 指纹。私钥、密码与生成结果保存在忽略 Git 的 signing/ 和 signing.properties；生成器遇到已有文件必须拒绝覆盖。固定两套签名使本机与 CI 使用相同更新身份，原 Android 默认 Debug 密钥不被修改。
 
 Gradle 从本地 signing.properties 读取各变体配置，DEBUG_* / RELEASE_* 环境变量优先，signingPropertiesFile 可切换本地配置文件。配置自定义 Debug 证书时使用固定开发签名；没有私有配置的普通源码克隆仍可使用 Android 默认 Debug 签名。Release 构建缺少签名时明确失败，不能静默生成未签名包或回退 Debug 证书。密码经环境变量传给 keytool，生成与验签脚本不打印密码或私钥。

@@ -6,6 +6,9 @@ from pathlib import Path
 import re
 
 
+RELEASE_ABI = "arm64-v8a"
+
+
 @dataclass(frozen=True)
 class ReleaseVersion:
     name: str
@@ -13,7 +16,7 @@ class ReleaseVersion:
 
     @property
     def apk_name(self) -> str:
-        return f"Kudo-{self.name}-release.apk"
+        return f"kodo_{self.name}_release_{RELEASE_ABI}.apk"
 
 
 def parse_tag(tag: str) -> ReleaseVersion:

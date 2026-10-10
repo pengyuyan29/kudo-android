@@ -10,7 +10,7 @@ import re
 import subprocess
 
 from generate_signing import keytool_path, write_new
-from release_version import ReleaseVersion, parse_tag
+from release_version import RELEASE_ABI, ReleaseVersion, parse_tag
 
 
 def required_environment(name: str) -> str:
@@ -67,6 +67,13 @@ def validate_manifest(report: str, version: ReleaseVersion) -> None:
         raise ValueError("APK package/version does not match com.kudo.android and the release tag.")
     if re.search(r"^application-debuggable(?:\s|$)", report, re.MULTILINE):
         raise ValueError("Refusing to publish a debuggable APK.")
+    native_abis = [
+        abi
+        for line in re.findall(r"^native-code:\s*(.*)$", report, re.MULTILINE)
+        for abi in re.findall(r"'([^']+)'", line)
+    ]
+    if native_abis != [RELEASE_ABI]:
+        raise ValueError(f"APK native ABI must be exactly {RELEASE_ABI}.")
 
 
 def package_release(apk: Path, version: ReleaseVersion, destination: Path, build_tools: Path) -> tuple[Path, Path]:
