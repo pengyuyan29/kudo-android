@@ -55,16 +55,21 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
             .then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)
             .focusProperties { onEnter = { if (showing) cancelFocusChange() } }.focusGroup()) {
             PageTopBar("设置", back)
-            LazyColumn(contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
+            LazyColumn(contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item { SectionLabel("界面显示") }
                 item {
                     Column(Modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface)) {
                         SettingRow("主题风格", settings.theme.label, !showing) { show("theme") }
+                        SettingsDivider()
                         SettingRow("界面材质效果", settings.glass.label, !showing) { show("glass") }
+                        SettingsDivider()
                         SettingRow("字体大小", if (settings.fontScale == 1f) "跟随系统" else "${(settings.fontScale * 100).toInt()}%", !showing) { show("font") }
+                        SettingsDivider()
                         SettingRow("主题列表样式", settings.topicListStyle.label, !showing) { show("list") }
+                        SettingsDivider()
                         SettingRow("底栏中间按钮", settings.navigationAction.label, !showing) { show("navigation") }
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        SettingsDivider()
+                        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 18.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("显示用户签名", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                             CommunitySwitch(settings.showSignatures, { update(settings.copy(showSignatures = it)) }, enabled = !showing,
                                 modifier = Modifier.testTag("show-signatures"))
@@ -161,12 +166,17 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
 
 @Composable
 internal fun SettingRow(title: String, value: String, enabled: Boolean, action: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = action).heightIn(min = 68.dp).padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = action).heightIn(min = 52.dp).padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
         Text(value, Modifier.weight(1.1f).padding(start = 12.dp), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.End)
         Icon(Icons.Rounded.ChevronRight, null, Modifier.padding(start = 5.dp).size(18.dp), MaterialTheme.colorScheme.outline)
     }
+}
+
+@Composable
+private fun SettingsDivider() {
+    HorizontalDivider(Modifier.padding(horizontal = 18.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .06f))
 }
 
 @Composable

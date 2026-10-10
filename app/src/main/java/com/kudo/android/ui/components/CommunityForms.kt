@@ -1,6 +1,7 @@
 package com.kudo.android.ui.components
 
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
@@ -74,11 +75,15 @@ internal fun CommunityCheckbox(checked: Boolean, change: (Boolean) -> Unit, enab
 
 @Composable
 internal fun CommunitySwitch(checked: Boolean, change: (Boolean) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
-    val x by animateDpAsState(if (checked) 23.dp else 3.dp, label = "switch-thumb")
+    val progress by animateFloatAsState(if (checked) 1f else 0f, tween(200), label = "switch-progress")
     val neutral = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)
-    Box(modifier.size(54.dp, 48.dp).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = change), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(50.dp, 30.dp).clip(RoundedCornerShape(50)).background(if (checked) LogoYellow.copy(alpha = if (enabled) 1f else .4f) else neutral)) {
-            Box(Modifier.offset { IntOffset(x.roundToPx(), 3.dp.roundToPx()) }.size(24.dp).background(Color.White, RoundedCornerShape(50)))
+    Box(modifier.size(48.dp).toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = change), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(42.dp, 26.dp)) {
+            val opacity = if (enabled) 1f else .4f
+            drawRoundRect(lerp(neutral, LogoYellow, progress).copy(alpha = lerp(neutral, LogoYellow, progress).alpha * opacity),
+                cornerRadius = CornerRadius(13.dp.toPx()))
+            drawCircle(Color.White.copy(alpha = opacity), radius = (7.dp + 4.dp * progress).toPx(),
+                center = Offset((13.dp + 16.dp * progress).toPx(), 13.dp.toPx()))
         }
     }
 }
