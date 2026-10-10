@@ -7,7 +7,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 class CommunityRepository(val client: DiscourseClient) {
     suspend fun topics(filter: String = "latest", categoryId: Int? = null, next: String? = null): TopicPage {
         require(FeedFilter.entries.any { it.value == filter })
-        // Website label ???? links to unseen; keep the existing UI/cache key stable.
+        // The website's Unseen tab uses this endpoint; keep the existing UI/cache key stable.
         val endpoint = if (filter == FeedFilter.UNREAD.value) "unseen" else filter
         val path = next ?: if (categoryId == null) "/$endpoint.json" else "/c/$categoryId/l/$endpoint.json"
         return DiscourseParser.topicPage(client.get(path))
