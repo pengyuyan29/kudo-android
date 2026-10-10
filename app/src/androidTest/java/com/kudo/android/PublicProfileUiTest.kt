@@ -37,7 +37,8 @@ class PublicProfileUiTest {
         bio = "真诚、友善，一起探索有趣的技术。", canFollow = true, profileBackground = "https://profile.test/wrong-profile.png")
     private val profile = PublicProfile(member, 15, 8, "2026-10-10T10:00:00Z", "2024-01-01T00:00:00Z", "", "", "成员", true)
     private val summary = ProfileSummary(mapOf("likes_received" to 2394, "days_visited" to 77, "topic_count" to 12, "post_count" to 58,
-        "posts_read_count" to 3700), listOf(ProfileEntry("top", 9, null, "热门主题")),
+        "posts_read_count" to 3700), listOf(ProfileEntry("top", 9, null, "热门主题", category = Category(4, "开发调优", "dev", "35a9b7", "", 2),
+            tags = listOf(TopicTag("Android")), image = "https://profile.test/topic.png")),
         listOf(ProfileEntry("reply", 9, 8, "热门回复原楼层")), emptyList(), emptyMap(), emptyList(), emptyList())
     private val feeds = ProfileTab.entries.filter { it != ProfileTab.SUMMARY }.associateWith { tab ->
         ProfileFeedState(listOf(ProfileEntry("${tab.name}-8", 9, 8, "${tab.label}记录", "内容摘要")), loaded = true)
@@ -91,6 +92,8 @@ class PublicProfileUiTest {
         compose.onNodeWithText("个人主页测试").assertIsDisplayed()
         compose.onNodeWithText("2394").assertIsDisplayed()
         compose.onNodeWithTag("profile-follow").assertIsDisplayed()
+        compose.onNodeWithTag("topic-tag-Android", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("profile-entry-image-top", useUnmergedTree = true).assertIsDisplayed()
         compose.runOnIdle { assertTrue(fetched.any { it.endsWith("card.png") }); assertFalse(fetched.any { it.endsWith("wrong-profile.png") }) }
         screenshot("public-profile-light.png")
     }

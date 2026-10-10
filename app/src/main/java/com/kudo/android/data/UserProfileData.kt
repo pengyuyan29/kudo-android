@@ -12,7 +12,8 @@ enum class ProfileTab(val label: String, val filter: String = "") {
 }
 
 data class ProfileEntry(val key: String, val topicId: Int, val number: Int?, val title: String,
-    val excerpt: String = "", val time: String = "", val annotation: String = "", val count: Int? = null) {
+    val excerpt: String = "", val time: String = "", val annotation: String = "", val count: Int? = null,
+    val category: Category? = null, val tags: List<TopicTag> = emptyList(), val image: String = "") {
     val url get() = "https://linux.do/t/topic/$topicId" + (number?.takeIf { it > 1 }?.let { "/$it" } ?: "")
 }
 data class ProfilePage(val entries: List<ProfileEntry>, val next: String?)
@@ -34,14 +35,21 @@ internal fun parsePublicProfile(json: JSONObject): PublicProfile {
 internal fun parseProfileSummary(json: JSONObject): ProfileSummary {
     val summary = json.optJSONObject("user_summary") ?: throw ApiFailure(FailureKind.SERVER, "暂时无法读取个人统计")
     val topics = json.optJSONArray("topics").objects().associateBy { it.optInt("id") }
+    val categoryRows = summary.optJSONArray("top_categories") ?: json.optJSONArray("top_categories")
+    val categories = DiscourseParser.categories(JSONObject().put("categories", categoryRows))
+        .associateBy(Category::id)
     fun entry(item: JSONObject, reply: Boolean): ProfileEntry? {
         val nested = item.optJSONObject("topic")
         val id = if (reply) item.positiveInt("topic_id") ?: nested?.positiveInt("id") else item.positiveInt("id")
         id ?: return null
         val topic = nested ?: topics[id] ?: item
         val number = if (reply) item.positiveInt("post_number") else null
+        val category = topic.positiveInt("category_id")?.let(categories::get)
+        val tags = (topic.optJSONArray("tags") ?: item.optJSONArray("tags")).topicTags()
+        val image = topic.stringField("image_url").ifBlank { item.stringField("image_url") }
         return ProfileEntry("summary-$id-${number ?: 1}", id, number, topic.stringField("title").ifBlank { "话题 #$id" },
-            plainText(item.stringField("excerpt")), item.stringField("created_at"), count = item.profileCount("like_count"))
+            plainText(item.stringField("excerpt")), item.stringField("created_at"), count = item.profileCount("like_count"),
+            category = category, tags = tags, image = image)
     }
     val topIds = summary.optJSONArray("topics").objects()
     val references = summary.optJSONArray("topic_ids")
@@ -65,7 +73,7 @@ internal fun parseProfileSummary(json: JSONObject): ProfileSummary {
         topTopics, summary.optJSONArray("replies").objects().mapNotNull { entry(it, true) },
         summary.optJSONArray("links").objects().map { ProfileLink(it.stringField("title").ifBlank { it.stringField("url") },
             it.stringField("url"), it.profileCount("clicks")) }.filter { it.url.isNotBlank() }, userGroups,
-        DiscourseParser.categories(JSONObject().put("categories", summary.optJSONArray("top_categories"))), badges)
+        categories.values.toList(), badges)
 }
 
 internal fun parseProfilePage(json: JSONObject, tab: ProfileTab, cursor: String?): ProfilePage {

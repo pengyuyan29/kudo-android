@@ -29,4 +29,6 @@ UserProfileDataTest 验证未知统计、侧载关联、重复行分页、Boost�
 
 ## Consequences
 
+Summary topic and reply entries preserve optional category metadata, topic tags, and `image_url` from the existing summary payload. Presentation can show these fields without adding network requests; missing fields remain absent.
+
 保留网站独立数据与原楼层跳转，代价是维护插件分页格式；缺少插件集合时明确报错而非显示空成功。UI 的取消与账户隔离另由公开主页状态管理负责。

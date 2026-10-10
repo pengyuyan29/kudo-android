@@ -35,6 +35,14 @@ class UserProfileDataTest {
         assertTrue(result.replies.single().url.endsWith("/9/8"))
         assertEquals(7, result.users["most_liked_users"]!!.single().count)
     }
+    @Test fun summaryEntriesKeepAvailableCategoryTagsAndCover() {
+        val result = parseProfileSummary(JSONObject("""{"user_summary":{"topic_ids":[10],"replies":[{"topic_id":10,"post_number":3}]},"topics":[{"id":10,"title":"带封面的主题","category_id":4,"tags":[{"name":"Android","slug":"android"}],"image_url":"https://cdn.test/topic.png"}],"top_categories":[{"id":4,"name":"开发调优","slug":"dev","color":"35a9b7","description_text":"","topic_count":2}]}"""))
+        assertEquals(4, result.topics.single().category?.id)
+        assertEquals(listOf("Android"), result.topics.single().tags.map(TopicTag::name))
+        assertEquals("https://cdn.test/topic.png", result.topics.single().image)
+        assertEquals(4, result.replies.single().category?.id)
+        assertEquals("Android", result.replies.single().tags.single().name)
+    }
     @Test fun offsetAdvancesByRawRowsEvenWhenInvalidOrDuplicateRowsAreRemoved() {
         val rows = (1..30).joinToString(",") { """{"topic_id":1,"post_number":2,"action_type":5}""" }
         val result = parseProfilePage(JSONObject("""{"user_actions":[$rows]}"""), ProfileTab.REPLIES, "30")
