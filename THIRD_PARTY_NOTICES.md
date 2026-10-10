@@ -16,7 +16,7 @@
 
 接口行为研究参考 [FluxDO](https://github.com/Lingyan000/fluxdo)（GPL-3.0），没有复制其 Flutter 实现。酷安 16.6.4 仅作为界面比例和交互研究参考，没有复制其图标、图片或反编译实现。应用图标使用本项目绘制的黄色 K 标记。
 
-底部导航与详情操作栏改编自 [AndroidLiquidGlass catalog 的 Android 1.0.6 版本](https://github.com/Kyant0/AndroidLiquidGlass/tree/896a94a3ade1cc1a940b92365f942a34971fecda/catalog/src/main/java/com/kyant/backdrop/catalog)。接入 LiquidBottomTabs、LiquidBottomTab、LiquidButton、DampedDragAnimation、InteractiveHighlight、DragGestureInspector 六份源码，作者为 Kyant0，许可为 Apache-2.0；修改包名、主题与尺寸、兼容材质、滑动预选、发布隔离和采样层语义，按钮增加禁用状态与独立子操作容器。Surface Liquid Button 为官方 LiquidButton 的30%表面色样式。源码位于 `app/src/main/java/com/kudo/android/ui/components/liquid/`，文件头保留来源版本和修改说明；[完整许可](app/src/main/assets/licenses/backdrop-demo-LICENSE.txt) 随 APK 放入 `assets/licenses/`。
+底部导航与详情操作栏改编自 [AndroidLiquidGlass catalog 的 Android 1.0.6 版本](https://github.com/Kyant0/AndroidLiquidGlass/tree/896a94a3ade1cc1a940b92365f942a34971fecda/catalog/src/main/java/com/kyant/backdrop/catalog)。接入 LiquidBottomTabs、LiquidBottomTab、LiquidButton、DampedDragAnimation、InteractiveHighlight、DragGestureInspector 六份源码，作者为 Kyant0，许可为 Apache-2.0；修改包名、主题与尺寸、兼容材质、滑动预选、发布隔离和采样层语义，高频拖动直接跟随触点并保留点击弹性与停顿速度复位，按钮增加禁用状态与独立子操作容器。Surface Liquid Button 为官方 LiquidButton 的30%表面色样式。源码位于 `app/src/main/java/com/kudo/android/ui/components/liquid/`，文件头保留来源版本和修改说明；[完整许可](app/src/main/assets/licenses/backdrop-demo-LICENSE.txt) 随 APK 放入 `assets/licenses/`。
 
 设置页的 LiquidModal 材质另外改编自同一版本 `destinations/DialogContent.kt`，保留色彩控制、模糊、深度折射与Plain高光；增加同窗口模态关闭、焦点和背景可访问隔离、底部ActionSheet、主题与兼容材质、安全区及内容滚动。来源与修改说明保留在文件头，使用上述完整Apache-2.0许可。
 

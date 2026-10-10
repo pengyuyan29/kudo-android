@@ -3,7 +3,8 @@
  * Source revision: 896a94a3ade1cc1a940b92365f942a34971fecda (Android 1.0.6).
  * https://github.com/Kyant0/AndroidLiquidGlass
  * Changes: Kudo theme/dimensions, material fallback, fixed gesture area,
- * independent preview/selection, cancel/publish handling and sampling semantics.
+ * independent preview/selection, cancel/publish handling, sampling semantics
+ * and separate pressed/dragged position updates.
  * Full license: app/src/main/assets/licenses/backdrop-demo-LICENSE.txt
  */
 package com.kudo.android.ui.components.liquid
@@ -126,7 +127,7 @@ internal fun LiquidBottomTabs(
                     val physicalIndex = (position.x - with(density) { 4.dp.toPx() }) / tabWidth - 0.5f
                     dragPosition = (if (isLtr) physicalIndex else tabsCount - 1 - physicalIndex)
                         .fastCoerceIn(0f, (tabsCount - 1).toFloat())
-                    updateValue(dragPosition!!)
+                    animatePressedValue(dragPosition!!)
                 },
                 onDragStopped = {
                     val candidate = (dragPosition ?: targetValue).fastRoundToInt().fastCoerceIn(0, tabsCount - 1)
@@ -141,7 +142,9 @@ internal fun LiquidBottomTabs(
                     animateToValue(selectedIndex().toFloat())
                     restorePanel()
                 },
-                onDrag = { _, dragAmount ->
+                onDrag = drag@ { _, dragAmount ->
+                    // The inspector emits a zero delta on down; keep the initial press spring.
+                    if (dragAmount.x == 0f) return@drag
                     dragDistance += abs(dragAmount.x)
                     val target = ((dragPosition ?: targetValue) + dragAmount.x / tabWidth * if (isLtr) 1f else -1f)
                         .fastCoerceIn(0f, (tabsCount - 1).toFloat())

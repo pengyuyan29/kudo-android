@@ -2,7 +2,8 @@
  * Adapted from Kyant0/AndroidLiquidGlass catalog (Apache License 2.0).
  * Source revision: 896a94a3ade1cc1a940b92365f942a34971fecda (Android 1.0.6).
  * https://github.com/Kyant0/AndroidLiquidGlass
- * Changes: package/internal visibility; drag consumption and separate cancellation.
+ * Changes: package/internal visibility; drag consumption, separate cancellation,
+ * immediate pointer tracking and idle velocity reset.
  * Full license: app/src/main/assets/licenses/backdrop-demo-LICENSE.txt
  */
 package com.kudo.android.ui.components.liquid
@@ -18,7 +19,9 @@ import androidx.compose.ui.unit.IntSize
 import android.os.SystemClock
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.android.awaitFrame
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -134,20 +137,27 @@ internal class DampedDragAnimation(
     fun updateValue(value: Float) {
         val target = value.coerceIn(valueRange)
         positionJob?.cancel()
-        positionJob = animationScope.launch {
-            valueAnimation.animateTo(target, valueAnimationSpec) {
-                if (pointerPressed && trackingDrag) updateVelocity()
-            }
-            // The finger may remain down after movement stops; keep the pressed lens but clear stretch.
+        // Input can arrive several times per frame. A restarted spring may never advance;
+        // snap without waiting for a frame and reserve the position spring for settling.
+        positionJob = animationScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            valueAnimation.snapTo(target)
+            if (pointerPressed && trackingDrag) updateVelocity()
+            // No position animation remains to signal idle. Clear stretch after input stops,
+            // while preserving the pressed lens; the next sample cancels this pending reset.
+            delay(100)
             settleVelocity()
         }
     }
 
     fun animateToValue(value: Float) {
+        animatePressedValue(value)
+        release()
+    }
+
+    fun animatePressedValue(value: Float) {
         val target = value.coerceIn(valueRange)
         positionJob?.cancel()
         positionJob = animationScope.launch { valueAnimation.animateTo(target, valueAnimationSpec) }
-        release()
     }
 
     private fun settleVelocity() {

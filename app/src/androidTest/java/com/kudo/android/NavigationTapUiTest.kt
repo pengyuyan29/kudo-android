@@ -28,6 +28,118 @@ import org.junit.Test
 class NavigationTapUiTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun highFrequencyTargetsReachTheLensBeforeTheFingerStops() {
+        lateinit var animation: DampedDragAnimation
+        compose.setContent {
+            val scope = rememberCoroutineScope()
+            animation = remember { DampedDragAnimation(scope, 0f, 0f..4f, .001f, 1f, 78f / 56f,
+                {}, {}, { _, _ -> }) }
+        }
+        compose.mainClock.autoAdvance = false
+        try {
+            compose.runOnIdle { animation.press() }
+            for (frame in 1..24) {
+                // Four input samples per display frame model 250Hz input on a 60Hz display.
+                compose.runOnIdle {
+                    repeat(4) { sample -> animation.updateValue((4 * (frame - 1) + sample + 1) / 24f) }
+                }
+                compose.mainClock.advanceTimeByFrame()
+                SystemClock.sleep(16)
+                compose.runOnIdle {
+                    assertEquals("持续输入第 $frame 帧仍应跟随最新触点", frame / 6f, animation.value, .06f)
+                }
+            }
+        } finally {
+            compose.runOnIdle { animation.animateToValue(0f) }
+            compose.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test fun movingPointerKeepsLensAlignedAtDifferentInputRates() {
+        var selected by mutableIntStateOf(0)
+        var actions = 0
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            val backdrop = rememberLayerBackdrop()
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(Color.White))
+                GlassNavigation(selected, { selected = it }, { actions++ }, backdrop, GlassMode.LIQUID,
+                    Modifier.align(Alignment.Center).padding(20.dp).fillMaxWidth().testTag("tracking-navigation"))
+            }
+        } }
+        compose.waitForIdle()
+        val navigation = compose.onNodeWithTag("tracking-navigation")
+        val navigationBounds = navigation.fetchSemanticsNode().boundsInRoot
+        val resting = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
+        val tabWidth = resting.width
+        val firstX = resting.center.x - navigationBounds.left
+        compose.mainClock.autoAdvance = false
+        var pointerDown = false
+        fun frame() { compose.mainClock.advanceTimeByFrame(); SystemClock.sleep(16) }
+        try {
+            for (samplePeriod in listOf(4L, 8L, 16L)) {
+                navigation.performTouchInput { down(Offset(firstX, centerY)) }
+                pointerDown = true
+                for (direction in listOf(1, -1)) {
+                    for (step in 1..24) {
+                        val progress = if (direction == 1) step / 24f else 1f - step / 24f
+                        val targetX = firstX + tabWidth * 4f * progress
+                        navigation.performTouchInput {
+                            val startX = requireNotNull(currentPosition()).x
+                            val samples = (16L / samplePeriod).toInt()
+                            repeat(samples) { sample ->
+                                moveTo(Offset(startX + (targetX - startX) * (sample + 1) / samples, centerY),
+                                    delayMillis = samplePeriod)
+                            }
+                        }
+                        frame()
+                        val lens = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
+                        assertEquals("${samplePeriod}ms 输入移动中镜片应跟手：方向 $direction / 帧 $step",
+                            navigationBounds.left + targetX, lens.center.x, tabWidth * .15f)
+                        compose.runOnIdle { assertEquals("松手前不能切页", 0, selected); assertEquals(0, actions) }
+                    }
+                }
+                navigation.performTouchInput { cancel() }
+                pointerDown = false
+                repeat(60) { frame() }
+            }
+        } finally {
+            if (pointerDown) navigation.performTouchInput { cancel() }
+            compose.mainClock.autoAdvance = true
+        }
+    }
+
+    @Test fun pressingAnotherTabStillUsesAnElasticTransition() {
+        var selected by mutableIntStateOf(0)
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            val backdrop = rememberLayerBackdrop()
+            Box(Modifier.fillMaxSize()) {
+                Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(Color.White))
+                GlassNavigation(selected, { selected = it }, {}, backdrop, GlassMode.LIQUID,
+                    Modifier.align(Alignment.Center).padding(20.dp).fillMaxWidth().testTag("press-navigation"))
+            }
+        } }
+        compose.waitForIdle()
+        val navigation = compose.onNodeWithTag("press-navigation")
+        val navigationBounds = navigation.fetchSemanticsNode().boundsInRoot
+        val initial = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
+        val targetX = initial.center.x + initial.width * 4f
+        compose.mainClock.autoAdvance = false
+        try {
+            navigation.performTouchInput { down(Offset(targetX - navigationBounds.left, centerY)) }
+            repeat(2) { compose.mainClock.advanceTimeByFrame(); SystemClock.sleep(16) }
+            val pressed = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
+            assertTrue("普通按下另一标签应有过渡，不能瞬移到目标", pressed.center.x < targetX - initial.width * .1f)
+            compose.runOnIdle { assertEquals(0, selected) }
+            navigation.performTouchInput { up() }
+            repeat(100) { compose.mainClock.advanceTimeByFrame(); SystemClock.sleep(16) }
+            compose.runOnIdle { assertEquals(4, selected) }
+            val settled = compose.onNodeWithTag("navigation-selection").fetchSemanticsNode().boundsInRoot
+            assertEquals(targetX, settled.center.x, 1.5f)
+        } finally {
+            compose.mainClock.autoAdvance = true
+        }
+    }
+
     @Test fun releaseWhilePositionIsMovingClearsVelocityAndScale() {
         lateinit var animation: DampedDragAnimation
         compose.setContent {
