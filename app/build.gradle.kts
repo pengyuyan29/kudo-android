@@ -56,6 +56,7 @@ android {
             .toIntOrNull()?.takeIf { it in 1..2_100_000_000 }
             ?: throw GradleException("versionCode must be an integer between 1 and 2100000000.")
         versionName = providers.gradleProperty("versionName").orElse("0.1.0").get()
+        ndk { abiFilters += "arm64-v8a" }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     signingConfigs {
