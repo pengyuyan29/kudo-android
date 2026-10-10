@@ -70,11 +70,13 @@ class ConnectRepository(private val cookies: SessionCookies, private val userAge
         }
         response.use {
             it.headers("Set-Cookie").forEach { cookie -> cookies.set(endpoint.toString(), cookie) }
-            if (it.isRedirect || it.code == 401) throw ApiFailure(FailureKind.SIGN_IN, "等级页面需要认证，请先在应用内网页打开")
-            if (!it.isSuccessful) throw ApiFailure(FailureKind.SERVER, "等级页面暂时不可用（${it.code}）")
             val source = it.body?.source() ?: throw ApiFailure(FailureKind.SERVER, "等级页面没有返回数据")
             if (source.request(2L * 1024 * 1024 + 1)) throw ApiFailure(FailureKind.SERVER, "等级页面返回的数据过大")
-            return parseTrustReport(source.readUtf8())
+            val html = source.readUtf8()
+            if (isCloudflareChallenge(it, html)) throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage)
+            if (it.isRedirect || it.code == 401) throw ApiFailure(FailureKind.SIGN_IN, "等级页面需要认证，请先在应用内网页打开")
+            if (!it.isSuccessful) throw ApiFailure(FailureKind.SERVER, "等级页面暂时不可用（${it.code}）")
+            return parseTrustReport(html)
         }
     }
 }

@@ -43,4 +43,20 @@ class ConnectDataTest {
             assertEquals(listOf(server.url("/").toString()), origins)
         } finally { server.shutdown() }
     }
+
+    @Test fun cloudflareChallengeRequiresManualWebVerification() = runBlocking {
+        val server = MockWebServer()
+        try {
+            server.enqueue(MockResponse().setResponseCode(403)
+                .setHeader("cf-mitigated", "challenge")
+                .setBody("<html>Just a moment...</html>"))
+            try {
+                ConnectRepository(NoCookies, "fixture", server.url("/")).load()
+                fail("Cloudflare challenge must not be parsed as a server error")
+            } catch (e: ApiFailure) {
+                assertEquals(FailureKind.VERIFICATION, e.kind)
+                assertTrue(e.message.contains("手动完成验证"))
+            }
+        } finally { server.shutdown() }
+    }
 }
