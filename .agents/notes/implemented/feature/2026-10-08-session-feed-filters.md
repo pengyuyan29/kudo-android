@@ -12,7 +12,7 @@ Status: implemented
 
 访客按最新、热门、排行榜、类别显示；账号按未读、最新、新、热门、排行榜、我的帖子、已读、书签、类别显示。首页登录默认未读、退出默认最新；分类详情保留最新默认，只提供适用于分类的筛选。类别复用底部分类入口，个人标签直接更新首页列表。
 
-列表使用 Discourse 的 latest / hot / top / unread / new / posted / read / bookmarks 过滤接口，保留服务端分页链接。FeedFilter 统一接口许可、登录要求和显示顺序，类别作为单独页面动作。新话题数量使用 /u/{username}/topic-tracking-state.json 的跟踪结果，按 topic_id 去重；created_in_new_period 为真、last_read_post_number 为空、notification_level 为空或至少为2，且未看、未删除才计入新话题。账号启用 unified_new_enabled 时按官网约定同时计入跟踪中的未读话题。分类页不显示首页全站计数。数量与分类元数据均为辅助请求，失败不得覆盖成功的话题；数量未知时只显示“新”。
+列表使用 Discourse 的 latest / hot / top / unseen / new / posted / read / bookmarks 过滤接口，保留服务端分页链接。FeedFilter 统一接口许可、登录要求和显示顺序，类别作为单独页面动作。新话题数量使用 /u/{username}/topic-tracking-state.json 的跟踪结果，按 topic_id 去重；created_in_new_period 为真、last_read_post_number 为空、notification_level 为空或至少为2，且未看、未删除才计入新话题。账号启用 unified_new_enabled 时按官网约定同时计入跟踪中的未读话题。分类页不显示首页全站计数。数量与分类元数据均为辅助请求，失败不得覆盖成功的话题；数量未知时只显示“新”。
 
 FeedViewModel 持有账号身份，会话切换立即取消旧请求并清空结果、计数和分页。界面只呈现当前账号对应的 FeedState，防止 LaunchedEffect 尚未同步时短暂显示旧账号数据。私有筛选在状态层再次校验；退出不能请求个人列表。刷新、分页和切换使用同一状态边界。
 
@@ -43,3 +43,7 @@ FeedHeaderUiTest 检查两组标签、每项点击与横向滚动、类别回调
 ## Consequences
 
 访客只看到公共列表，账号得到完整个人筛选，退出不会保留个人内容。每次首页刷新增加一次跟踪请求；顶部数量仍为刷新时快照，[独立的更新订阅](2026-10-08-home-live-refresh.md)只驱动底栏刷新提示。真实个人接口需要账号及站点验证，模拟契约不能证明真实登录链路可用；“已读”依赖服务器已有阅读记录，本次不新增阅读进度写入。
+
+## ??????
+
+??????????? /unseen?/latest?/new?/hot?/top?/posted?/read?/bookmarks??????????????????????expected /unseen.json, actual /unread.json?artifacts/feed-endpoints-repro.txt????????????????????????????????????????????????????????????????????

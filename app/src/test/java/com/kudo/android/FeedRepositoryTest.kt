@@ -8,6 +8,27 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class FeedRepositoryTest {
+    @Test fun homeFiltersMatchWebsiteAndKeepServerOrderAndPagination() = runBlocking {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val repository = CommunityRepository(DiscourseClient(NoCookies, server.url("/")))
+            for (filter in FeedFilter.entries) {
+                val endpoint = if (filter == FeedFilter.UNREAD) "unseen" else filter.value
+                server.enqueue(MockResponse().setBody("""{"topic_list":{"topics":[{"id":22,"title":"服务器首项","pinned":true},{"id":11,"title":"服务器次项"}],"more_topics_url":"/$endpoint.json?page=1&order=activity"}}"""))
+                val page = repository.topics(filter.value)
+                assertEquals("/$endpoint.json", server.takeRequest().path)
+                assertEquals(listOf(22, 11), page.topics.map { it.id })
+                server.enqueue(MockResponse().setBody("""{"topic_list":{"topics":[]}}"""))
+                repository.topics(filter.value, next = page.next)
+                assertEquals("/$endpoint.json?page=1&order=activity", server.takeRequest().path)
+            }
+            server.enqueue(MockResponse().setBody("""{"topic_list":{"topics":[]}}"""))
+            repository.topics("unread", categoryId = 7)
+            assertEquals("/c/7/l/unseen.json", server.takeRequest().path)
+        } finally { server.shutdown() }
+    }
+
     @Test fun newCountUsesTrackingStatesAndPreservesArrayRedirectsAndFailures() = runBlocking {
         val server = MockWebServer()
         server.start()
