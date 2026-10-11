@@ -220,8 +220,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                         if (hasPrevious) item("previous-posts") {
                             Box(Modifier.fillMaxWidth().heightIn(min = 64.dp), contentAlignment = Alignment.Center) {
                             when {
-                                state.loadingPrevious -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp,
-                                    color = com.kudo.android.ui.theme.LogoYellow)
+                                state.loadingPrevious -> CommunityLoadingIndicator(Modifier.size(24.dp))
                                 state.previousError != null -> ErrorState(state.previousError, ::loadPreviousPage, login)
                                 else -> Text("下拉加载前面的楼层", Modifier.fillMaxWidth().padding(20.dp),
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

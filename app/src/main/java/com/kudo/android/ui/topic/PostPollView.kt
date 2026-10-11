@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.kudo.android.data.*
+import com.kudo.android.ui.components.CommunityLoadingIndicator
 import com.kudo.android.ui.theme.Ink
 import com.kudo.android.ui.theme.LogoYellow
 import kotlin.math.roundToInt
@@ -62,7 +63,7 @@ internal fun PostPollView(poll: PostPoll, saved: List<String>, owner: Boolean, l
         if (poll.type == "multiple" && !closed && !showResults) Text("请选择 ${poll.min} 至 ${poll.max} 项", style = MaterialTheme.typography.bodySmall)
         if (!poll.supported || poll.results == "staff_only") PollTextAction("在网页查看投票", !busy, web)
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (busy) CircularProgressIndicator(Modifier.size(18.dp), color = LogoYellow, strokeWidth = 2.dp)
+            if (busy) CommunityLoadingIndicator(Modifier.size(18.dp))
             if (resultsAllowed && !closed) PollTextAction(if (showResults) "返回投票" else "查看结果", !busy) { results = !results }
             if (poll.type == "multiple" && !closed && !showResults && poll.supported) {
                 val valid = poll.validSelection(selected) && selected.toSet() != saved.toSet()
