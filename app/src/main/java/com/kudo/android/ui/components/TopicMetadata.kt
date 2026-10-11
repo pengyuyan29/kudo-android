@@ -1,6 +1,7 @@
 package com.kudo.android.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -10,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.kudo.android.data.*
@@ -55,11 +57,13 @@ private fun iconColor(value: String): Color = runCatching {
 }.getOrDefault(MaterialTheme.colorScheme.onSurfaceVariant)
 
 @Composable
-internal fun CategoryInline(category: Category, modifier: Modifier = Modifier) {
+internal fun CategoryInline(category: Category, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = modifier.testTag("category-inline-${category.id}")) {
+        modifier = modifier
+            .then(if (onClick == null) Modifier else Modifier.clickable(role = Role.Button, onClick = onClick))
+            .testTag("category-inline-${category.id}")) {
         Icon(CategoryIcons.get(category.icon), "分类图标：${category.name}", Modifier.size(12.dp), iconColor(category.color))
-        Text(category.name, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Text(category.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
@@ -88,9 +92,10 @@ internal fun TopicAuthorMetadata(time: String, category: Category?, edited: Bool
 private fun MetadataSeparator() { Text("·", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline) }
 
 @Composable
-internal fun TopicTagChip(tag: TopicTag) {
+internal fun TopicTagChip(tag: TopicTag, onClick: (() -> Unit)? = null) {
     val style = tag.iconStyle(LocalTopicPresentation.current.tagIcons)
     Row(Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surfaceVariant)
+        .then(if (onClick == null) Modifier else Modifier.clickable(role = Role.Button, onClick = onClick))
         .testTag("topic-tag-${tag.name}").padding(horizontal = 8.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         style?.let { Icon(CategoryIcons.get(it.icon), "标签图标：${tag.name}", Modifier.size(13.dp), iconColor(it.color)) }
@@ -100,8 +105,8 @@ internal fun TopicTagChip(tag: TopicTag) {
 }
 
 @Composable
-internal fun TopicTags(tags: List<TopicTag>, modifier: Modifier = Modifier) {
+internal fun TopicTags(tags: List<TopicTag>, modifier: Modifier = Modifier, onTagClick: ((TopicTag) -> Unit)? = null) {
     FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        tags.forEach { TopicTagChip(it) }
+        tags.forEach { tag -> TopicTagChip(tag, onClick = onTagClick?.let { click -> { click(tag) } }) }
     }
 }

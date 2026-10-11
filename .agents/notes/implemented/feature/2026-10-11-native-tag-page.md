@@ -18,6 +18,8 @@ Parse a tag slug with an optional positive numeric ID and route it to a native t
 
 ## Consequences
 
+Topic detail tag chips reuse the native tag destination and preserve the existing back stack.
+
 Supported tag links now open a native page and return through the normal navigation stack. The title is the URL slug until a separate tag metadata endpoint is available. The API path is covered by MockWebServer tests; live endpoint verification was unavailable in this environment because Linux.do returned a Cloudflare challenge to direct requests.
 
 ## Testing

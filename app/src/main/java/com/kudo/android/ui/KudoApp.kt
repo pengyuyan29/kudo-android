@@ -299,7 +299,12 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             follow = { authenticated { vm.follow() } }, react = { post, reaction -> authenticated { vm.react(post, reaction) } }, openBrowser = ::openBrowser, loadReplies = vm::loadReplies, resolveContext = vm::resolveContext,
                             readingEnabled = !replyShowing, onReadingBatch = { readingSync.submit(state.viewerId, it) }, onPostsRead = vm::markRead,
                             loadBoostRules = vm::loadBoostRules, boost = vm::boost, jumpTo = vm::jumpTo,
-                            vote = { post, name, options -> authenticated { vm.vote(post, name, options) } })
+                            vote = { post, name, options -> authenticated { vm.vote(post, name, options) } },
+                            openCategory = { categoryId -> if (categoryId > 0) nav.navigate("category/$categoryId") { launchSingleTop = true } },
+                            openTag = { tag ->
+                                val slug = tag.slug.ifBlank { tag.name }
+                                if (slug.isNotBlank()) nav.navigate("tag/${Uri.encode(slug)}?id=0") { launchSingleTop = true }
+                            })
                         }
                         val currentUser = account.user
                         val target = replyTarget

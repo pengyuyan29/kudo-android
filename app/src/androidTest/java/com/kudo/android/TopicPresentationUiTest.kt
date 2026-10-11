@@ -48,7 +48,7 @@ class TopicPresentationUiTest {
         capture("presentation-feed-light.png")
     }
 
-    @Test fun detailHeaderShowsRealEditStateAndReplyMetadataUsesSameCategory() {
+    @Test fun detailHeaderShowsRealEditStateAndRepliesHideCategoryMetadata() {
         var post by mutableStateOf(first)
         val reply = first.copy(id = 11, number = 2, author = author.copy(id = 2, username = "reply", name = "回复者"), version = 1)
         compose.setContent {
@@ -65,6 +65,29 @@ class TopicPresentationUiTest {
         capture("presentation-detail-light.png")
         compose.runOnIdle { post = first.copy(version = 1) }
         compose.onNodeWithText("已编辑").assertDoesNotExist()
+    }
+
+    @Test fun detailMetadataOrdersAndNavigatesCategoryAndTags() {
+        var categoryId = 0
+        var openedTag = ""
+        compose.setContent {
+            KudoTheme(DisplaySettings(theme = ThemeMode.LIGHT)) {
+                CompositionLocalProvider(LocalTopicPresentation provides metadata) {
+                    TopicScreen(TopicState(detail, false, viewerId = 1), GlassMode.TRANSLUCENT,
+                        {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+                        openCategory = { categoryId = it }, openTag = { openedTag = it.slug })
+                }
+            }
+        }
+        val category = compose.onNodeWithTag("topic-detail-category", useUnmergedTree = true).assertIsDisplayed()
+        val firstTag = compose.onNodeWithTag("topic-tag-纯水", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
+        assertTrue(category.fetchSemanticsNode().boundsInRoot.right <= firstTag.fetchSemanticsNode().boundsInRoot.left)
+        category.performClick()
+        firstTag.performClick()
+        compose.runOnIdle {
+            assertEquals(4, categoryId)
+            assertEquals("1461-tag", openedTag)
+        }
     }
 
     @Test fun floorLinkLocatesRequestedReplyInsteadOfStartOfReturnedChunk() {

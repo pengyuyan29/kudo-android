@@ -46,4 +46,6 @@ RMX2202 / Android13 的46项集中界面回归全部通过（85.265秒），日�
 
 ## Consequences
 
+Topic detail metadata now renders the resolved category before tag chips. Category and tag chips expose native navigation callbacks, while reply author rows omit the topic category.
+
 列表保留真实活动时间和分类，但不会显示主帖编辑状态。详情以服务端版本为准，自动处理和用户编辑是否增加版本由站点决定。启动多两项有时限的辅助读取，失败仍显示内容及内置标签图标；新图标名在本地目录更新前使用通用 Tag 图形。未知分类元数据不编造分类名，读取成功后补入。
