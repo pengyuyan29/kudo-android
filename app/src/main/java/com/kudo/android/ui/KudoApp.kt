@@ -51,13 +51,10 @@ import kotlinx.coroutines.launch
 private inline fun <reified T : ViewModel> model(key: String, noinline create: () -> T): T = viewModel(key = key, factory = viewModelFactory { initializer { create() } })
 
 @Composable
-private fun RefreshFeedOnResume(feed: FeedViewModel, user: Member?) {
-    var resumed by rememberSaveable { mutableStateOf(false) }
+internal fun RefreshFeedOnResume(feed: FeedViewModel, user: Member?) {
     LaunchedEffect(user?.id, user?.unifiedNew) { feed.setUser(user) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        val changedAccount = feed.setUser(user)
-        if (resumed && !changedAccount) feed.refresh()
-        resumed = true
+        feed.setUser(user)
     }
 }
 

@@ -35,3 +35,5 @@ Status: proposed
 FeedPageCacheTest先在原逻辑复现“阅读确认不能触发返回后的刷新动画”失败（artifacts/feed-return-state-repro.txt），再将当前阅读筛选改为hasUpdates提示，保留其他阅读列表失效和独立计数请求。
 
 FeedPageCacheTest、FeedSessionTest、FeedUpdatesTest关联回归通过（artifacts/feed-return-state-fixed.txt）。追加分页用例通过（artifacts/feed-return-pagination-fixed.txt），验证已加载两页保留next与回顶请求，用户点击刷新后才替换第一页并清除提示。
+
+真实NavHost加离线OkHttp拦截的分类/标签返回用例，以及保存列表恢复的折叠页头断言，先在旧实现复现3项失败（artifacts/feed-return-ui-repro.txt）。恢复回调改为幂等同步账号，不再刷新，页头在下一个小单元修复。
