@@ -12,6 +12,7 @@ class UnavailableTopicTest {
     private fun check(response: MockResponse, second: MockResponse? = null, expected: String = "NOT_FOUND") = runBlocking {
         MockWebServer().use { server ->
             server.start(); server.enqueue(response); second?.let(server::enqueue)
+            if (second == null && expected == "VERIFICATION") server.enqueue(response.clone())
             val client = DiscourseClient(NoCookies, server.url("/"))
             val failure = runCatching { client.get("/t/9.json") }.exceptionOrNull() as ApiFailure
             assertEquals(expected, failure.kind.name)
