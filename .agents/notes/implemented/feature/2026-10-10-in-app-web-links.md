@@ -29,7 +29,9 @@ WebView 原生布局使用[有界视口](../bug-fix/2026-10-10-webview-viewport.
 
 ## Testing
 
-网页首屏loading改动先用可控制的主文档响应闸门复现初始加载与刷新两项缺少web-loading失败（artifacts/web-loading-repro-feed-fixed-ui.txt）。同批5项返回列表用例通过。修复后7项WebScreenUiTest全部通过（artifacts/ui-polish-final-ui.txt），包含进度先到100仍显示loading、内容可见后收起、失败/刷新与恢复历史。截图改用UiAutomation实际屏幕，避免Compose离屏截图无法同时合成原生WebView和Compose标题栏。
+网页首屏loading改动先用可控制的主文档响应闸门复现初始加载与刷新两项缺少web-loading失败（artifacts/web-loading-repro-feed-fixed-ui.txt）。同批5项返回列表用例通过。修复后7项WebScreenUiTest全部通过（artifacts/ui-polish-final-ui.txt），包含进度先到100仍显示loading、内容可见后收起、失败/刷新与恢复历史。最终重新构建后的初始加载用例也通过（artifacts/ui-polish-touch-final-ui.txt）。UiAutomation取得的ui-polish-web-loading.png和ui-polish-web-loaded.png已检查黄色等待提示及内容切换，但测试窗口截图未完整呈现标题栏，不作为顶部控件视觉证据。
+
+真实指南页ui-polish-web-live-loaded.png已人工查看：顶部只显示页面标题、刷新、网格地球和关闭，域名副标题已移除，内容保持在原WebView。真实站点未刻意制造延迟，等待时机通过离线闸门用例验证。最终构建保持0.1.7/1008并通过签名、ABI和16KB对齐校验，产物和校验值见[回顶验证记录](2026-10-11-quick-scroll-to-top.md)。
 
 分类链接先由失败单测复现错误回首页，日志 artifacts/category-link-repro.txt；修复后精确断言 ID。LinuxDoLinkTest 增加正文路由与网页地址校验，涵盖相对 URL、查询/片段、不支持协议、凭据地址及相似域名。131项 JVM 测试、Debug/测试 APK 构建通过，Lint 为0错误、30条现有警告和1条提示，日志 artifacts/in-app-web-build.txt。
 

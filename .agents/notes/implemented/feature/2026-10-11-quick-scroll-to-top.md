@@ -30,7 +30,9 @@ showScrollToTop在设置中默认打开，开关即时生效；回复底部只�
 
 ## Testing
 
-缩小后的首轮35项相关UI回归有34项通过（artifacts/ui-polish-final-ui.txt），新增实际点击圆面外4px用例复现32dp玻璃子层未响应自动触摸扩展。使用独立48dp点击层修复，避免假设复杂pointerInput组合自动提供扩大命中范围；后续针对公共回顶重新验证。离线详情截图ui-polish-topic-actions.png已检查未点赞爱心/计数与Boost同灰、32dp圆面和12dp操作栏间距。
+缩小后的首轮35项相关UI回归有34项通过（artifacts/ui-polish-final-ui.txt），新增实际点击圆面外4px用例复现32dp玻璃子层未响应自动触摸扩展。使用独立48dp点击层修复，避免假设复杂pointerInput组合自动提供扩大命中范围。最终补测12项全部通过（artifacts/ui-polish-touch-final-ui.txt）：公共回顶9项、网页初始等待1项、Boost灰色与已点赞红色2项；合并首轮未改区域，共37个不同UI用例通过。离线详情截图ui-polish-topic-actions.png已检查未点赞爱心/计数与Boost同灰、32dp圆面和12dp操作栏间距。
+
+缩小后的Debug、测试APK、Lint构建通过（artifacts/ui-polish-touch-final-build.txt），Lint保持0错误、38既有警告和1提示。最终在同机重新查看quick-top-material-LIQUID/BLUR/TRANSLUCENT.png，检查三种材质、图标和底部避让。真实首页只读滑动截图ui-polish-home-scrolled.png检查32dp圆面及tabbar约12dp可见间隙；按实际图标中心[540,2088]点击后的ui-polish-home-returned.png检查第一页首条可见、搜索页头展开、回顶按钮收起。真实详情动作使用离线夹具检查，不提交真实阅读计时。
 
 最终Debug、AndroidTest和Lint构建通过（artifacts/quick-top-final-build.txt），Lint为0错误、38既有警告、1提示。27项JVM关联回归全部通过：ReplyRulesTest 3、TopicFloorNavigationTest 12、TopicResumeReadingTest 12。
 
@@ -42,7 +44,7 @@ showScrollToTop在设置中默认打开，开关即时生效；回复底部只�
 
 同机深色130%字号的LIQUID/BLUR/TRANSLUCENT静止截图分别为artifacts/quick-top-material-*.png，已人工检查按钮居中和底栏间距，液态边缘采样真实双色内容，模糊/半透明遵循既有兼容效果。色块夹具用于材质检查，真实首页截图用于导航避让与页头恢复检查；未将两者表述为所有页面或旧系统运行验收。
 
-Release构建通过（artifacts/quick-top-release-build.txt），版本通过参数保持0.1.7/1008，仅arm64-v8a。正式包artifacts/release/0.1.7/kodo_0.1.7_release_arm64-v8a.apk已验证正式签名、非debuggable、包名/版本/ABI和16KB对齐；SHA256为4ce2d60a0169d288017eb5c91246e6af18e51c1f3ff492754b5b049ec07a5fbd。
+包含缩小、独立点击范围、间距、灰色点赞、列表返回稳定和网页加载改动的Release构建通过（artifacts/ui-polish-release-final-build.txt），版本通过参数保持0.1.7/1008，仅arm64-v8a。正式包artifacts/release/0.1.7/kodo_0.1.7_release_arm64-v8a.apk已验证正式签名、非debuggable、包名/版本/ABI和16KB对齐（artifacts/ui-polish-release-verification.txt）；SHA256为d998ffd920e205007ebfdedd87e7f799614008166c00a6b5f8bf84da328a52a9。真机沿用Debug签名install -r覆盖，未卸载或清数据；正式包保留供用户安装，没有覆盖手机现有开发版。
 
 ## Integration boundaries
 
