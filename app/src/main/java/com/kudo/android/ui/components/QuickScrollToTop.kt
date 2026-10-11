@@ -7,13 +7,15 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -34,6 +36,14 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 internal val LocalQuickScrollBottomPadding = staticCompositionLocalOf { 12.dp }
+private val QuickScrollButtonSize = 32.dp
+private val ScrollTopIcon = ImageVector.Builder("ScrollTop", 24.dp, 24.dp, 24f, 24f).apply {
+    path(fill = SolidColor(Color.Black)) {
+        moveTo(5f, 4f); lineTo(19f, 4f); lineTo(19f, 6f); lineTo(5f, 6f); close()
+        moveTo(5f, 14f); lineTo(7f, 16f); lineTo(12f, 11f)
+        lineTo(17f, 16f); lineTo(19f, 14f); lineTo(12f, 7f); close()
+    }
+}.build()
 private val LocalQuickScrollTargets = staticCompositionLocalOf<MutableList<QuickScrollTarget>?> { null }
 
 private class QuickScrollTarget {
@@ -62,7 +72,7 @@ internal fun QuickScrollToTopHost(content: @Composable () -> Unit) {
         if (target != null) key(target) {
             val scope = rememberCoroutineScope()
             var scrolling by remember { mutableStateOf(false) }
-            val size = with(density) { 48.dp.toPx() }
+            val size = with(density) { QuickScrollButtonSize.toPx() }
             val bottom = minOf(target.bounds.bottom - with(density) { target.bottomPadding.toPx() },
                 bounds.bottom - navigation - with(density) { 12.dp.toPx() })
             val x = target.bounds.center.x - bounds.left - size / 2
@@ -78,8 +88,8 @@ internal fun QuickScrollToTopHost(content: @Composable () -> Unit) {
                 }, backdrop = backdrop, mode = settings.glass, enabled = !scrolling,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = .3f),
-                    contentPadding = PaddingValues(0.dp), modifier = Modifier.size(48.dp).testTag("quick-scroll-to-top")) {
-                    Icon(Icons.Rounded.KeyboardArrowUp, "回到顶部", Modifier.size(24.dp))
+                    contentPadding = PaddingValues(0.dp), modifier = Modifier.size(QuickScrollButtonSize).testTag("quick-scroll-to-top")) {
+                    Icon(ScrollTopIcon, "回到顶部", Modifier.size(18.dp))
                 }
             }
         }

@@ -12,6 +12,8 @@ Status: implemented
 
 按钮位于当前视口底部中央，给系统导航、首页导航和话题操作栏留出距离，键盘显示时隐藏。页面在顶部时隐藏；列表或折叠页头有偏移时淡入，点击平滑回顶并展开页头。操作期间防重复，离开页面取消旧操作。菜单/面板覆盖时禁用底层目标。话题远楼层复用跳转窗口读取1楼，不补齐中间楼层；读取成功后定位标题，失败保留原内容并允许重试。
 
+回顶样式按同机酷安实测：480dpi设备的可见圆为[492,2067][588,2163]，直径96px即32dp；图形为顶部横线加向上折角，自绘18dp矢量替代普通KeyboardArrowUp。来源截图artifacts/coolapk-quick-top-reference.png及局部icon-reference.png，布局coolapk-quick-top-layout.xml；液态材质和默认开关保留。Compose clickable继续提供最小触摸范围，视觉尺寸不再按48dp放大。
+
 showScrollToTop在设置中默认打开，开关即时生效；回复底部只保留计数，不足服务端最低字数时显示“当前 / 最低 字”，达标后显示“当前 字”，校验与上传/发布状态不变。
 
 ## Related decisions
