@@ -120,13 +120,71 @@ class TopicDetailUiTest {
         compose.onNodeWithText(author.displayName).assertIsDisplayed()
     }
 
-    @Test fun authorDecorationsAppearAfterTheNickname() {
+    @Test fun authorKeepsFlairOnAvatarAndOtherDecorationsAfterTheNickname() {
         compose.setContent { Screen(initial) }
-        compose.onNodeWithContentDescription("${author.displayName}的资质：测试资质", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithContentDescription("${author.displayName}的状态：测试状态", useUnmergedTree = true).assertIsDisplayed()
-        val name = compose.onNodeWithText(author.displayName, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        val flair = compose.onNodeWithContentDescription("${author.displayName}\u7684\u8d44\u8d28\uff1a\u6d4b\u8bd5\u8d44\u8d28", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        assertTrue("author decorations should follow the nickname", flair.left >= name.right && flair.left - name.right < 40f)
+        assertPublicAuthorDecorations(author)
+        capture("topic-avatar-and-name-light.png")
+    }
+
+    @Test fun replyKeepsFlairOnAvatarAndOtherDecorationsAfterTheNickname() {
+        compose.setContent { Screen(initial) }
+        compose.onNodeWithTag("topic-posts").performScrollToNode(hasText(reply.author.displayName))
+        assertPublicAuthorDecorations(reply.author)
+        capture("topic-reply-avatar-and-name-light.png")
+    }
+
+    @Test fun statusOnlyStaysOnAvatarWithoutADuplicateAfterTheNickname() {
+        val member = author.copy(flair = null)
+        val post = first.copy(author = member)
+        compose.setContent { Screen(initial.copy(detail = detail.copy(posts = listOf(post), author = member), authorProfile = member)) }
+        compose.onNodeWithContentDescription("${member.displayName}的状态：测试状态", useUnmergedTree = true)
+            .assertIsDisplayed().assert(hasAnyAncestor(hasContentDescription("${member.displayName}的头像")))
+        compose.onAllNodesWithContentDescription("${member.displayName}的状态：测试状态", useUnmergedTree = true).assertCountEquals(1)
+        compose.onNodeWithTag("member-name-decorations-${member.id}", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun flairOnlyStaysOnAvatarWithoutAnEmptyNameDecorationRow() {
+        val member = author.copy(status = null)
+        val post = first.copy(author = member)
+        compose.setContent { Screen(initial.copy(detail = detail.copy(posts = listOf(post), author = member), authorProfile = member)) }
+        compose.onNodeWithContentDescription("${member.displayName}的资质：测试资质", useUnmergedTree = true)
+            .assertIsDisplayed().assert(hasAnyAncestor(hasContentDescription("${member.displayName}的头像")))
+        compose.onAllNodesWithContentDescription("${member.displayName}的资质：测试资质", useUnmergedTree = true).assertCountEquals(1)
+        compose.onNodeWithTag("member-name-decorations-${member.id}", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test fun longNicknameKeepsItsAvatarAndInlineIconsInDarkLargeText() {
+        val member = author.copy(name = "这是一个用于检查头像挂件和昵称图标的很长昵称")
+        val post = first.copy(author = member)
+        compose.setContent {
+            Screen(initial.copy(detail = detail.copy(posts = listOf(post), author = member), authorProfile = member),
+                DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f))
+        }
+        assertPublicAuthorDecorations(member)
+        val layouts = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithText(member.displayName, useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals("长昵称应保持单行", 1, layouts.single().lineCount)
+        compose.onNodeWithText("关注").assertIsDisplayed()
+        compose.onNodeWithContentDescription("更多").assertIsDisplayed()
+        capture("topic-avatar-and-name-dark-large.png")
+    }
+
+    private fun assertPublicAuthorDecorations(member: Member) {
+        val avatar = compose.onNodeWithContentDescription("${member.displayName}的头像", useUnmergedTree = true)
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val flair = compose.onNodeWithContentDescription("${member.displayName}的资质：测试资质", useUnmergedTree = true)
+            .assertIsDisplayed().assert(hasAnyAncestor(hasContentDescription("${member.displayName}的头像")))
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("挂件应位于头像右下角", flair.center.x >= avatar.center.x && flair.center.x <= avatar.right &&
+            flair.center.y >= avatar.center.y && flair.center.y <= avatar.bottom)
+        val name = compose.onNodeWithText(member.displayName, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val status = compose.onNodeWithContentDescription("${member.displayName}的状态：测试状态", useUnmergedTree = true)
+            .assertIsDisplayed().assert(hasAnyAncestor(hasTestTag("member-name-decorations-${member.id}")))
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue("其他图标应紧跟昵称", status.left >= name.right && status.left - name.right < 40f)
+        compose.onAllNodesWithContentDescription("${member.displayName}的资质：测试资质", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("${member.displayName}的状态：测试状态", useUnmergedTree = true).assertCountEquals(1)
     }
 
     @Test fun topicAuthorDecorationsAreNotDuplicatedByAvatarBadges() {

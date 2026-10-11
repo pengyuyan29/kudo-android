@@ -54,6 +54,14 @@ internal fun avatarDecoration(member: Member?, presentation: AvatarPresentation,
     return member.status?.takeIf { it.isActive(now) }?.let(AvatarDecoration::Status)
 }
 
+internal fun memberNameDecorations(member: Member, now: Instant): List<AvatarDecoration> {
+    val onAvatar = avatarDecoration(member, AvatarPresentation.PUBLIC, now)
+    return listOfNotNull(
+        member.flair?.let(AvatarDecoration::Flair),
+        member.status?.takeIf { it.isActive(now) }?.let(AvatarDecoration::Status),
+    ).filterNot { it == onAvatar }
+}
+
 internal val LocalAvatarMetadata = staticCompositionLocalOf<AvatarMetadataCache?> { null }
 
 @Composable
@@ -128,10 +136,11 @@ internal fun MemberNameDecorations(member: Member, modifier: Modifier = Modifier
             now = Instant.now()
         }
     }
+    val decorations = memberNameDecorations(member, now)
+    if (decorations.isEmpty()) return
     Row(modifier.testTag("member-name-decorations-${member.id}"), horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        member.flair?.let { AvatarBadge(member.displayName, AvatarDecoration.Flair(it), 16.dp, true, Modifier) }
-        member.status?.takeIf { it.isActive(now) }?.let { AvatarBadge(member.displayName, AvatarDecoration.Status(it), 16.dp, true, Modifier) }
+        decorations.forEach { AvatarBadge(member.displayName, it, 16.dp, true, Modifier) }
     }
 }
 

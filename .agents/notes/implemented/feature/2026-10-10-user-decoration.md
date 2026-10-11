@@ -40,9 +40,7 @@ Post 读取 user_signature（图片 URL 或 cooked HTML），Member 读取 profi
 
 ## Consequences
 
-Topic detail avatars use the inline name decoration as the single flair/status cue, removing the duplicate overlay while keeping the icon directly after the nickname.
-
-Public contexts outside topic detail retain the avatar badge; topic detail uses the inline name decoration as the single cue. Both author rows keep their metadata to one line with ellipsis.
+详情全部装饰迁移到昵称后的旧约定由[头像挂件与昵称图标分工](../bug-fix/2026-10-11-topic-avatar-name-decorations.md)取代：头像与列表一致保留 PUBLIC 挂件，昵称后只显示其余有效图标，不重复头像已经显示的部分。两处作者栏的昵称与元信息仍保持单行并在超长时省略；本篇签名和背景图约定继续有效。
 
 正文解析的[引用分组](../bug-fix/2026-10-10-discourse-quotes.md)也可用于签名；签名递归渲染其内容，遵循独立满宽尺寸、默认关闭和SVG生命周期规则。
 

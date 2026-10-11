@@ -27,6 +27,20 @@ class AvatarPresentationTest {
         assertNull(avatarDecoration(null, AvatarPresentation.PUBLIC, now))
     }
 
+    @Test fun nicknameKeepsOnlyDecorationsNotAlreadyShownOnThePublicAvatar() {
+        assertEquals(listOf(AvatarDecoration.Status(status)), memberNameDecorations(user, now))
+        assertTrue(memberNameDecorations(user.copy(status = null), now).isEmpty())
+        assertTrue(memberNameDecorations(user.copy(flair = null), now).isEmpty())
+        assertTrue(memberNameDecorations(user.copy(flair = null, status = null), now).isEmpty())
+    }
+
+    @Test fun expiredStatusIsNotKeptAfterTheNicknameWhileFlairStaysOnTheAvatar() {
+        val expired = now.plusSeconds(30)
+        assertEquals(AvatarDecoration.Flair(flair), avatarDecoration(user, AvatarPresentation.PUBLIC, expired))
+        assertTrue(memberNameDecorations(user, expired).isEmpty())
+        assertTrue(memberNameDecorations(user.copy(flair = null), expired).isEmpty())
+    }
+
     @Test fun websiteColorsSupportWhiteShorthandAndCssAlphaOrder() {
         assertEquals(Color.White, avatarColor("fff"))
         assertEquals(Color(0xff00aeff), avatarColor("#00aeff"))

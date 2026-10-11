@@ -171,7 +171,11 @@ class AvatarUiTest {
         }
         compose.runOnIdle { page = 2 }
         compose.onNodeWithContentDescription("当前用户的资质：测试资质", useUnmergedTree = true).assertExists()
-        compose.onNodeWithContentDescription("当前用户的状态：测试状态", useUnmergedTree = true).assertDoesNotExist()
+            .assert(hasAnyAncestor(hasContentDescription("当前用户的头像")))
+        compose.onNodeWithContentDescription("当前用户的状态：测试状态", useUnmergedTree = true).assertExists()
+            .assert(hasAnyAncestor(hasTestTag("member-name-decorations-${member.id}")))
+        compose.onAllNodesWithContentDescription("当前用户的资质：测试资质", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("当前用户的状态：测试状态", useUnmergedTree = true).assertCountEquals(1)
     }
 
     @Test fun brokenOriginalFallsBackToStaticAvatarAndExpiredStatusDisappears() {

@@ -40,7 +40,7 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
             if (post.number != 1) Box(Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f).clickable(enabled = enabled) { user(post.author.username) }, verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(post.author, 32.dp, presentation = AvatarPresentation.PLAIN)
+                    Avatar(post.author, 32.dp, presentation = AvatarPresentation.PUBLIC)
                     Column(Modifier.weight(1f).padding(start = 10.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(post.author.displayName, Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis,
