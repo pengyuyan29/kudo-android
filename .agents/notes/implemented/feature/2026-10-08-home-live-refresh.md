@@ -18,6 +18,8 @@ Linux.do 使用 ping.ldstatic.com 的 HTTP MessageBus 长轮询，非 WebSocket�
 
 ## Related decisions
 
+[返回列表保持阅读现场](../bug-fix/2026-10-11-feed-return-stability.md)部分取代本篇保留的分类恢复自动刷新：分类和标签返回只同步账号，保留条目、分页和位置。首页的MessageBus、恢复差异检查与主动刷新提示继续沿用；本篇保留最初按页区分恢复策略的决定，新策略避免详情返回破坏分类阅读位置。
+
 检索 MessageBus、推送、订阅、FeedViewModel：与[会话筛选](../../implemented/feature/2026-10-08-session-feed-filters.md)部分重叠，替代首页恢复自动刷新但不改变分类恢复和新话题计数；与[请求契约](../../implemented/architecture/2026-10-07-discourse-data-contract.md)部分重叠，独立传输不放宽一般请求同源限制；客户端验证和液态UI记录属于验证背景，不重写其决定。无完全吸收或过时提案。
 
 ## Alternatives considered

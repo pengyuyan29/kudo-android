@@ -20,6 +20,8 @@ Status: implemented
 
 ## Related decisions
 
+[返回列表保持阅读现场](2026-10-11-feed-return-stability.md)部分取代本篇服务端确认后立即失效当前阅读筛选的策略：当前列表保留条目与分页并提示刷新，其他阅读筛选仍失效。这里的timings计时、服务端确认和账号隔离约束继续保留；避免返回时移除条目、重载第一页而破坏阅读位置。
+
 按阅读、timings、已读、缓存检索活跃笔记。[会话筛选](../../implemented/feature/2026-10-08-session-feed-filters.md)的“本次不新增阅读写入”被本篇部分取代，接口筛选与账号边界保留；[首页横向分页](../../implemented/feature/2026-10-10-home-pager.md)的缓存约束部分重叠；[更新提示](../../implemented/feature/2026-10-08-home-live-refresh.md)仍负责远端新内容提示，不因阅读更新扰动公共列表。无完全吸收或过时提案。
 
 ## Alternatives considered
