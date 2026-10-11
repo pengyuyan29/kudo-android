@@ -17,17 +17,21 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kudo.android.ui.theme.LogoYellow
 
 @Composable
-internal fun CommunityLoadingIndicator(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "community-loading")
-    val rotation by transition.animateFloat(0f, 360f,
-        infiniteRepeatable(tween(1333, easing = LinearEasing)), label = "rotation")
+internal fun CommunityLoadingIndicator(modifier: Modifier = Modifier, strokeWidth: Dp = 2.dp, rotating: Boolean = true) {
+    val rotation = if (rotating) {
+        val transition = rememberInfiniteTransition(label = "community-loading")
+        val angle by transition.animateFloat(0f, 360f,
+            infiniteRepeatable(tween(1333, easing = LinearEasing)), label = "rotation")
+        angle
+    } else 0f
     val outline = MaterialTheme.colorScheme.outline.copy(alpha = .5f)
     Canvas(modifier.size(26.dp).progressSemantics()) {
-        val stroke = 2.dp.toPx()
+        val stroke = strokeWidth.toPx()
         val outlineStroke = stroke + 1.dp.toPx()
         val radius = (size.minDimension - outlineStroke) / 2f
         if (radius <= 0f) return@Canvas

@@ -24,6 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -35,6 +37,10 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.layout.layout
@@ -146,7 +152,21 @@ internal fun FeedPage(state: FeedState, active: Boolean, scrollToTop: () -> Unit
         }
         val nearEnd by remember { derivedStateOf { val info = listState.layoutInfo; info.totalItemsCount > 3 && (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 3 } }
         LaunchedEffect(active, nearEnd, state.next) { if (active && nearEnd && state.next != null && state.moreError == null) more() }
-        PullToRefreshBox(isRefreshing = state.loading && state.topics.isNotEmpty(), onRefresh = { if (active) refresh() }, modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        val refreshing = state.loading && state.topics.isNotEmpty()
+        val pullState = rememberPullToRefreshState()
+        PullToRefreshBox(isRefreshing = refreshing, onRefresh = { if (active) refresh() }, state = pullState,
+            modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), indicator = {
+                PullToRefreshDefaults.IndicatorBox(state = pullState, isRefreshing = refreshing,
+                    modifier = Modifier.align(Alignment.TopCenter), containerColor = MaterialTheme.colorScheme.surface) {
+                    CommunityLoadingIndicator(Modifier.size(16.dp).graphicsLayer {
+                        rotationZ = if (refreshing) 0f else pullState.distanceFraction * 180f
+                    }.clearAndSetSemantics {
+                        if (refreshing) progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
+                        else if (pullState.distanceFraction > 0f) progressBarRangeInfo =
+                            ProgressBarRangeInfo(pullState.distanceFraction.coerceIn(0f, 1f), 0f..1f)
+                    }, strokeWidth = 2.5.dp, rotating = refreshing)
+                }
+            }) {
             val traditional = listStyle == TopicListStyle.TITLE
             LazyColumn(state = listState, contentPadding = if (traditional) PaddingValues(bottom = 112.dp) else PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(if (traditional) 0.dp else 8.dp), modifier = Modifier.fillMaxSize().then(if (nested != null) Modifier.nestedScroll(nested) else Modifier).testTag("feed-list-${state.filter}")
                 .quickScrollTarget(listState, enabled = active, extraScrolled = headerScrolled, expandHeader = expandHeader)) {
