@@ -1,6 +1,6 @@
-# Agent Note: DoH、ECH 与代理登录后的原生直连调研
+# Agent Note: DoH、ECH 与代理登录后的原生直连接入
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -8,11 +8,11 @@ Status: proposed
 
 当前 App 的原生请求使用 OkHttp 4.12.0，WebView 由 Android 系统提供。两者已经共享 CookieManager 和明确相同的 User-Agent，但 DNS、TLS、连接池和出口网络不是同一个概念。只替换 DNS 无法证明直连可用，也无法保证原来代理出口获得的过盾凭据在新出口继续有效。
 
-本篇保留完整功能的待落地方案。用户随后批准“开发验证看看”，并确认手机 Wi-Fi 已切到非代理网络；[原生直连技术验证](../../implemented/testing/2026-10-12-doh-ech-device-probe.md)已完成，DoH + ECH 可读取现有登录会话、列表和头像，未将网络层或 WebView 改造投入日常请求。
+本篇记录用户批准“按照 doh+ech 开发”后的正式设置与原生网络接入。[原生直连技术验证](../testing/2026-10-12-doh-ech-device-probe.md)提供先前的独立探针对照，生产客户端也在当前非代理 Wi-Fi 上验证了现有登录、列表和头像；WebView 继续使用系统网络。
 
-## Proposal
+## Decision
 
-用户已批准“按照 doh+ech 开发”。在已完成的真机验证基础上接入完整设置与原生网络；按配置持久化、Rust DNS/TLS、Android Socket 适配、VPN 策略、客户端接入、界面和真机验收拆分为小单元，每单元单独提交。纯 OkHttp DoH 继续仅作为对照。
+应用采用独立编写的 Rust DoH + ECH DNS/TLS 桥接，保留 OkHttp HTTP 与 Android WebView 的既有边界。配置持久化、原生 DNS/TLS、Socket 适配、VPN 策略、客户端接入与界面按小单元提交；纯 OkHttp DoH 仅作对照。
 
 生产接入保留 OkHttp 的 HTTP、连接池、Cookie 边界、流式请求/响应及取消机制，通过自定义 SocketFactory/SSLSocketFactory 将 DNS 与 TLS 交给独立编写的 Rust 模块。支持真实 ALPN 的 HTTP/2 与 HTTP/1.1；原生 Socket 的关闭必须可中断正在等待的读写，TLS 仍严格验证原域名及证书；`linux.do` 与子域、`ldstatic.com` 与子域必须真实接受 ECH，否则明确失败。
 
@@ -26,9 +26,9 @@ Socket/JNI 单元使用有界 64KB 读写块，不缓存完整上传或响应。
 
 生产构建由 Gradle `buildDoh` 调用 `scripts/build_doh.py`，使用 Rust、Android NDK 27 与 CMake/Ninja，仅生成 arm64-v8a，强制校验 16KB ELF 对齐；依赖锁定，输入未变复用生成库。生成文件均在忽略的 `app/build` 下；不将本机预编译二进制当作可复现源代码。
 
-随包 `assets/licenses/native-doh-NOTICES.txt` 保留锁定 Android 依赖图 118 个组件及相关构建依赖的完整许可/版权，包括 AWS-LC、BoringSSL、OpenSSL、Fiat。`native_notices.py --check` 在 Cargo 构建后执行，兼容 Windows CRLF；jni-sys-macros 发布包缺失的两份许可从其固定 VCS 提交补入源树。README 记录新增工具链要求；关于页补充解析隐私与许可入口。
+随包 `assets/licenses/native-doh-NOTICES.txt` 保留锁定 Android 依赖图 118 个组件及相关构建依赖的完整许可/版权，包括 AWS-LC、BoringSSL、OpenSSL、Fiat。`native_notices.py --check` 在 Cargo 构建后执行，兼容 Windows CRLF；jni-sys-macros 发布包缺失的两份许可从其固定 VCS 提交补入源树。构建与许可脚本明确使用 UTF-8，避免 Windows 默认编码影响 CMake 路径和 Cargo 元数据。
 
-Android 适配单元为 `network/DohTransport.kt` 与 `NativeDoh.kt`。原始 Socket 与 SSLSocket 共用同一个 Rust 句柄，提供 JNI InputStream/OutputStream、真实证书链和 TLS session，供 OkHttp 进行主机名复核与连接复用。配置关闭不创建原生 profile，不发 DNS。生产 arm64 库当前约 4.97MB，Kotlin 编译通过；实际 HTTP 语义与会话将在客户端接入后集中验收。
+Android 适配单元为 `network/DohTransport.kt` 与 `NativeDoh.kt`。原始 Socket 与 SSLSocket 共用同一个 Rust 句柄，提供 JNI InputStream/OutputStream、真实证书链和 TLS session，供 OkHttp 进行主机名复核与连接复用。配置关闭不创建原生 profile，不发 DNS。验收构建的 arm64 库为 4,979,856 字节（未压缩，不等于 APK 增量），HTTP 语义与现有会话通过下方定向验收。
 
 `NativeAlpnPlatform` 为当前固定的 OkHttp 4.12.0 内部 Platform 扩展，向自定义 Socket 传入协议并读取真实 ALPN；安装后所有普通 Android Socket、证书、明文策略与日志继续委托原平台，关闭功能无需恢复全局对象。该库没有公开的自定义 Socket ALPN 扩展点，因而使用其现有 Platform setter；升级 OkHttp 必须重新审核这份完整委托和原生/系统两路回归，不能视为普通依赖补丁。
 
@@ -44,7 +44,7 @@ AppContainer 持有统一 DohNetwork，并应用于主站、Connect、Coil 图�
 
 首页和账号通知创建的两处 MessageBus 均注入同一路由。切换时旧轮询被关闭，原有循环沿当前游标重连；不复用主站的 CookieJar 或会话拦截器。
 
-设置入口与 `DohSettingsScreen` 已接通，展示默认关闭开关、有效状态、内置/自定义服务器列表、选择、查看/编辑/删除和分层检测结果。编辑使用既有贴底可拖动面板、无描边字段与黄色选中态；自定义引导 IP 可留空，内置节点只读。编译通过，界面与网络行为进入集中验收。
+设置入口与 `DohSettingsScreen` 已接通，展示默认关闭开关、有效状态、内置/自定义服务器列表、选择、查看/编辑/删除和分层检测结果。编辑使用既有贴底可拖动面板、无描边字段与黄色选中态；自定义引导 IP 可留空，内置节点只读。界面 CRUD、校验及 VPN 暂停显示通过真机测试。
 
 检测结果同时核对响应正文：正常话题 JSON 才报告站点访问成功，HTML 挑战、非话题数据与 HTTP 错误分别显示；最多读取 2MiB，不存储检测 Cookie。两项检测分类测试与既有社区/Connect/消息/图片回归共 42 项 JVM 测试通过，Debug/AndroidTest/经 R8 的 Release 和 Lint 构建通过。
 
@@ -56,15 +56,15 @@ AppContainer 持有统一 DohNetwork，并应用于主站、Connect、Coil 图�
 
 - 设置提供“DNS over HTTPS”开关，首次安装默认关闭，关闭时不向第三方 DoH 服务发起预热查询。
 - 内置文章普通版 `https://edge.1molchuan.top/linuxdo`。文章明确说明旧 `/plus` 已回退普通版，因此不把两个路径当作两个独立节点，也不接入文章面向 AI 服务的中继能力。
-- 内置节点只供选择、查看和检测；自定义节点支持新增、列表查看、编辑、删除和选用。字段建议为稳定 ID、名称、HTTPS DoH URL、可选 bootstrap IP。
-- URL 保留服务路径，按标准 DNS wire format 支持 GET／POST；初期以 POST `application/dns-message` 为基线。仅有 JSON DNS 接口的服务不能默认为兼容。
+- 内置节点只供选择、查看和检测；自定义节点支持新增、列表查看、编辑、删除和选用。字段为稳定 ID、名称、HTTPS DoH URL、可选 bootstrap IP。
+- URL 保留服务路径，使用标准 DNS wire format POST `application/dns-message`；仅有 JSON DNS 接口的服务不兼容。
 - 自定义 URL 必须为合法 HTTPS 地址，拒绝 userinfo 和 fragment；bootstrap 只接受合法 IP，不替换上游的 Host 或证书校验名称。带私人标识的服务器地址不进入普通日志。
 - 编辑当前节点后使新配置生效；删除当前节点后回到有效内置节点。无效持久配置回到明确可用的选择，不保留悬空 ID。
 - 检测结果区分“DNS 查询成功”“有 ECH 配置”“实际 ECH 握手成功”“站点请求成功”。普通 DoH 节点可能没有 ECH，不能只显示一个绿色成功就承诺全部能力。
 
 ### VPN 自动暂停
 
-参考 FluxDO 的用户意图与生效状态分离：`effective = userEnabled && !vpnDetected`，初始化、切换中和错误状态另行显示。
+参考 FluxDO 的用户意图与生效状态分离：`effective = userEnabled && !vpnDetected && !systemProxyDetected`，初始化、切换中和错误状态另行显示。
 
 检测到 VPN 时暂停 DoH，显示“VPN 已开启，DoH 暂停”；不关闭用户的 VPN，不永久抹掉用户的开关选择。VPN 断开后按保存的选择恢复；暂停期间关闭开关则断开 VPN 后仍关闭。
 
@@ -88,7 +88,7 @@ Android 普通 App 不能保证感知其他 UID 的全部分应用 VPN、被排�
 
 当前 OkHttp 的 `Dns` 接口返回 IP 列表，4.12.0 的 `DnsOverHttps` 只读取 A／AAAA，不会把 HTTPS RR 中的 ECH 配置应用到 TLS。增加该依赖即可获得 DNS 替换，但不能自动获得 ECH。
 
-原生 ECH 候选为通过 JNI 接入支持 ECH 的 TLS／HTTP 传输，例如 rustls 0.23 的 ECH 能力。FluxDO 的 Rust 子模块可作为候选参考，最终库、HTTP 适配和依赖版本要在技术验证中确定。技术验证必须确认实际构建启用了 ECH feature，并观测握手的 ECH 接受状态，而非只检查解析响应有配置。
+正式方案通过 JNI 接入独立编写的 rustls 0.23 DNS／TLS 传输，依赖版本锁定于 Cargo.lock。FluxDO 的 Rust 子模块仅提供技术参考，没有复用其源码。构建启用 ECH／HPKE 能力，真机验收观测实际握手接受状态，而非只检查解析响应有配置。
 
 这会增加本地二进制、构建与维护成本，还必须适配取消、超时、流式上传下载、重定向、Cookie 和错误分类。不能把它当作仅增加一个 OkHttp DNS 对象的工作量。
 
@@ -127,7 +127,7 @@ Android WebView 没有可直接注入 `OkHttp.Dns` 的公共 API。`ProxyControl
 
 FluxDO 主项目为 GPL-3.0，本项目是 Apache-2.0；参考用户交互与设计，不能直接把 Flutter 代码复制过来而假设仍仅按本项目原许可分发。其独立 Rust 子模块 `fluxdo_doh` 固定为 `08d3468f0a1eb2858840c525d61f8aa888696522`，[README](https://github.com/Lingyan000/fluxdo_doh/blob/08d3468f0a1eb2858840c525d61f8aa888696522/README.md) 声明 MIT，但该提交的仓库树没有完整 LICENSE 文件，Cargo.toml 也没有 license 字段；正式复用前需补齐许可文本与版权归属核对。
 
-子模块使用 rustls 0.23，ECH feature 非默认开启；`with_ech` 配置受信任根证书，连接后读取 `ech_status()`。这提供了可行的技术参考，尚不等于 Kotlin／OkHttp 接入已经验证。
+子模块使用 rustls 0.23，ECH feature 非默认开启；`with_ech` 配置受信任根证书，连接后读取 `ech_status()`。这提供了可行的技术参考；本项目的 Kotlin／OkHttp 生产接入另由下方真机测试验证。
 
 ### 官方资料与 CF 风险依据
 
@@ -153,12 +153,12 @@ FluxDO 主项目为 GPL-3.0，本项目是 Apache-2.0；参考用户交互与设
 ## Alternatives considered
 
 1. **只添加 OkHttp DoH**：改动小、沿用成熟 HTTP 栈，较少改变 TLS 指纹，能改善 DNS 污染问题。但只消费 A／AAAA，无法利用文章 ECH 能力；线路若存在 SNI 或 IP 层阻断，不能满足最终目标。保留为对照和较窄能力，不能作为完整方案交付。
-2. **原生请求接入真正支持 ECH 的传输**：能使用文章提供的 HTTPS／ECH 配置，不必接管 WebView TLS，范围最接近用户“代理网页登录后原生直连”的流程。因此建议优先技术验证；代价是 JNI、本地库、HTTP 语义适配及 TLS 指纹变化，需要真机结果决定是否继续。
+2. **原生请求接入真正支持 ECH 的传输**：能使用文章提供的 HTTPS／ECH 配置，不必接管 WebView TLS，范围最接近用户“代理网页登录后原生直连”的流程。独立探针验证后采用此方案；代价是 JNI、本地库、HTTP 语义适配及 TLS 指纹变化，正式接入也需单独通过真机验证。
 3. **完整复刻 FluxDO 的 WebView MITM／网关**：网页和原生可统一解析与上游出口，覆盖重新过盾和外链浏览，闭环最完整。但新增证书信任、私钥、本地代理生命周期和网页兼容成本，且不能直接复制 GPL 主项目。当前用户只明确要求代理完成 WebView 登录后原生继续访问，不把此项并入首阶段；同出口验证成为阻塞时再单独评审。
 
-## Acceptance criteria
+## Verification
 
-当前交付了独立的原生技术验证，完整设置与日常网络接管仍未落地。后续按设置持久化、VPN 策略、DoH 解析、ECH 生产传输、客户端接入与验收拆成小单元；每个单元控制修改文件数，功能和相应笔记同批提交。
+RMX2202 / Android 13，当前用户确认的非代理 Wi-Fi：正式 DiscourseClient 读取现有会话、30 条话题与图片客户端同源头像成功，实际 ECH Accepted；没有为验证切换账号或发布真实内容。Debug 签名与原安装一致，采用 `adb install -r`，没有卸载或清数据。版本仍为 0.1.9 / 1010。
 
 | 验收场景 | 必须确认的结果 |
 | --- | --- |
@@ -174,11 +174,11 @@ FluxDO 主项目为 GPL-3.0，本项目是 Apache-2.0；参考用户交互与设
 | 配置变更与写操作 | 老缓存／闲置连接不使新配置假生效；长轮询重连；写结果未知不重发，草稿保留 |
 | 再次遇盾 | 只依据真实响应提示；保留登录状态；原生检查失败不假报验证成功；直连 WebView 不通时明确需要后续能力 |
 
-真机至少对 Wi-Fi 与蜂窝网络、IPv4／IPv6 可用性和后台恢复分别检查。目标流程只做用户授权的只读会话检查，不为测试发布真实内容或切换账号。不卸载或清数据；需要安装时核对签名并使用 `adb install -r`。
+Debug、AndroidTest、R8 Release 和 Lint 通过；Release APK 通过 `zipalign -P 16`，JNI 类及方法在 R8 后保留。原生依赖完整许可校验和 `npm run verify-notes` 通过。结果保存在忽略目录 `artifacts/doh-validation/production-final-device-tests.txt`、`production-final-build-checks.txt` 与设备私有目录的无身份结果 JSON。
 
-初始调研包括文章阅读、源码核对和五项桌面 DoH 查询。后续技术验证包括 8 项 Rust 边界测试、真机 JNI 检查及 12 条业务请求的线上对照，AndroidTest 构建、Lint 与 16KB 对齐检查通过；日常 App 代码未改，完整功能表中的设置、VPN 生命周期与生产传输仍需验收。笔记运行 `npm run verify-notes`，不以文档校验代替功能验收。
+验证范围限于当前 Wi-Fi 和现有登录。没有新走一次代理网页登录、切换真实 VPN App 或蜂窝线路；系统 VPN 监测使用公开回调，分应用 VPN 的 UID 可见性仍有上限。Connect/MessageBus 路由和来源边界有模拟回归，未为本次测试触发真实写操作。上表保留用户复验用例，不把未执行的网络场景记作通过。
 
-## Risks
+## Consequences
 
 | 风险 | 判断与处理 |
 | --- | --- |

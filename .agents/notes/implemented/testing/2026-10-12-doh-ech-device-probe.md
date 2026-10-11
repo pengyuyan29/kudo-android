@@ -4,7 +4,7 @@ Status: implemented
 
 ## Problem
 
-[DoH 功能调研](../../proposed/feature/2026-10-12-doh-network.md)已确认文章节点返回 ECH 配置，但桌面 DNS 查询不能证明手机能直连，也不能证明代理登录后的原生会话继续有效。用户批准开发验证，并说明手机 Wi-Fi 已切换为非代理网络。完整设置和网络接管应建立在可重复的技术结果上。
+[DoH 功能设计](../feature/2026-10-12-doh-network.md)确认文章节点返回 ECH 配置，但桌面 DNS 查询不能证明手机能直连，也不能证明代理登录后的原生会话继续有效。用户批准开发验证，并说明手机 Wi-Fi 已切换为非代理网络。本篇提供生产接入所依据的独立探针对照。
 
 ## Decision
 
@@ -20,7 +20,7 @@ Status: implemented
 
 ## Related decisions
 
-检索 DNS、ECH、JNI、只读探针及网络笔记。与[DoH 功能提案](../../proposed/feature/2026-10-12-doh-network.md)部分重叠并互链：本篇仅交付技术验证，功能提案继续保持 proposed。原有[数据契约](../../implemented/architecture/2026-10-07-discourse-data-contract.md)和[CF 恢复流程](../../implemented/bug-fix/2026-10-11-cloudflare-verification-flow.md)是实验必须保留的边界，不修改其生产实现。其他 UI、分页和通知笔记无关；没有完全吸收或过时提案。
+检索 DNS、ECH、JNI、只读探针及网络笔记。与[DoH 功能设计](../feature/2026-10-12-doh-network.md)部分重叠并互链：本篇保留独立技术验证及其结果，正式配置和生产网络由功能篇记录。原有[数据契约](../architecture/2026-10-07-discourse-data-contract.md)和[CF 恢复流程](../bug-fix/2026-10-11-cloudflare-verification-flow.md)是实验必须保留的边界。其他 UI、分页和通知笔记无关；没有完全吸收或过时提案。
 
 ## Native verification evidence
 

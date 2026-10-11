@@ -11,7 +11,7 @@ def main():
     args = parser.parse_args()
     repo = Path(__file__).resolve().parent.parent
     data = json.loads(subprocess.check_output(["cargo", "metadata", "--locked", "--offline", "--manifest-path",
-        str(repo / "native/doh/Cargo.toml"), "--filter-platform", "aarch64-linux-android", "--format-version", "1"], text=True))
+        str(repo / "native/doh/Cargo.toml"), "--filter-platform", "aarch64-linux-android", "--format-version", "1"], text=True, encoding="utf-8"))
     nodes = {n["id"]: n for n in data["resolve"]["nodes"]}
     root = data["resolve"]["root"]
     pending, reached = [root], set()

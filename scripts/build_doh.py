@@ -31,8 +31,8 @@ def main():
     content = ('set(ANDROID_ABI arm64-v8a CACHE STRING "" FORCE)\n'
                'set(ANDROID_PLATFORM android-26 CACHE STRING "" FORCE)\n'
                f'include("{(ndk / "build/cmake/android.toolchain.cmake").as_posix()}")\n')
-    if not cmake_file.exists() or cmake_file.read_text() != content:
-        cmake_file.write_text(content)
+    if not cmake_file.exists() or cmake_file.read_text(encoding="utf-8") != content:
+        cmake_file.write_text(content, encoding="utf-8")
     env = os.environ.copy()
     env.update({
         "PATH": os.pathsep.join([str(cmake_bin)] if cmake_bin else []) + os.pathsep + str(toolchain) + os.pathsep + env.get("PATH", ""),
@@ -46,6 +46,7 @@ def main():
     })
     subprocess.run(["cargo", "build", "--locked", "--manifest-path", str(repo / "native/doh/Cargo.toml"),
                     "--target", "aarch64-linux-android", "--target-dir", str(target), "--release", "--lib"], env=env, check=True)
+    subprocess.run([sys.executable, str(repo / "scripts/native_notices.py"), "--check"], check=True)
     library = target / "aarch64-linux-android/release/libkudo_doh.so"
     readelf = toolchain / ("llvm-readelf.exe" if sys.platform == "win32" else "llvm-readelf")
     segments = subprocess.check_output([str(readelf), "-lW", str(library)], text=True)

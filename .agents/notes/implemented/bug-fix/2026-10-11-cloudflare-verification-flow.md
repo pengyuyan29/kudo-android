@@ -20,7 +20,7 @@ App内全屏验证页直接打开https://linux.do/challenge，与原生请求共
 
 ## Related decisions
 
-[DoH 与 ECH 调研提案](../../proposed/feature/2026-10-12-doh-network.md)评估代理登录后切换为直连的可用性及再次过盾风险，尚未实现。共享 Cookie 不保证新出口继续放行，本篇的真实响应识别与原生读取确认规则继续成立。
+[DoH 与 ECH 接入](../feature/2026-10-12-doh-network.md)已验证当前非代理 Wi-Fi 上的现有原生会话。共享 Cookie 不保证新出口持续放行，WebView 不接管 ECH，本篇的真实响应识别与原生读取确认规则继续成立。
 
 检索Cloudflare、过盾、challenge、Cookie、User-Agent。[不可访问话题](../../implemented/bug-fix/2026-10-10-unavailable-topic.md)部分重叠并保留404/权限优先级；[账号与登录](../../implemented/feature/2026-10-07-account-and-composer.md)保留共享Cookie及只读会话检查；[应用内网页](../../implemented/feature/2026-10-10-in-app-web-links.md)保留网页内不跳原生的边界；[首页更新](../../implemented/feature/2026-10-08-home-live-refresh.md)与[运行通知](../../implemented/feature/2026-10-10-runtime-local-notifications.md)的后台验证提示由本篇部分更新。其他命中是资源加载或既有协议引用，与独立恢复入口无关。无完全吸收或过时提案。
 
