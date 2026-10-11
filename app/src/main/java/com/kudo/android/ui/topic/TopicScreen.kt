@@ -190,7 +190,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                 PostReadingViewport(110.dp) { viewport ->
                 LazyColumn(state = listState, modifier = Modifier.testTag("topic-posts").then(viewport)
                     .quickScrollTarget(scrolled = listMoved || hasPrevious, enabled = readingEnabled && !showing && !state.loading && !state.jumping,
-                        bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 96.dp) {
+                        bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 80.dp) {
                         previousAnchor = null
                         returnTopError = null
                         if (hasPrevious) { returningToTop = true; jumpTo(1) }

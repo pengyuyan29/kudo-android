@@ -14,6 +14,8 @@ Status: implemented
 
 回顶样式按同机酷安实测：480dpi设备的可见圆为[492,2067][588,2163]，直径96px即32dp；图形为顶部横线加向上折角，自绘18dp矢量替代普通KeyboardArrowUp。来源截图artifacts/coolapk-quick-top-reference.png及局部icon-reference.png，布局coolapk-quick-top-layout.xml；液态材质和默认开关保留。Compose clickable继续提供最小触摸范围，视觉尺寸不再按48dp放大。
 
+同机酷安按钮底部2163px，详情操作栏顶部2196px，间距33px约11dp，取12dp适配密度取整。首页tabbar高度56dp、底部外距20dp，回顶避让为系统导航+88dp；详情操作栏高度48dp、底部外距20dp，避让由+96dp改为+80dp，两处均保留12dp可见间隙。
+
 showScrollToTop在设置中默认打开，开关即时生效；回复底部只保留计数，不足服务端最低字数时显示“当前 / 最低 字”，达标后显示“当前 字”，校验与上传/发布状态不变。
 
 ## Related decisions
