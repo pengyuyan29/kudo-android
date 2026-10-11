@@ -1,6 +1,7 @@
 package com.kudo.android.data
 
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import okhttp3.Call
@@ -35,8 +36,11 @@ internal fun isHtmlResponse(response: Response, body: String): Boolean {
 internal fun isCloudflareChallenge(response: Response, body: String): Boolean {
     if (response.header("cf-mitigated")?.equals("challenge", ignoreCase = true) == true) return true
     if (!isHtmlResponse(response, body)) return false
-    return listOf("Just a moment...", "challenge-platform", "cf-chl-", "turnstile".lowercase())
-        .any { body.contains(it, ignoreCase = true) }
+    val page = Jsoup.parse(body)
+    val scripts = page.select("script")
+    val bootstrap = scripts.any { it.data().contains("window._cf_chl_opt", ignoreCase = true) }
+    val platform = scripts.any { it.attr("src").contains("/cdn-cgi/challenge-platform/", ignoreCase = true) }
+    return bootstrap || (platform && (page.title().equals("Just a moment...", ignoreCase = true) || page.getElementById("challenge-form") != null))
 }
 
 interface SessionCookies {
@@ -79,7 +83,7 @@ class DiscourseClient(
         return request(method, path, body = body ?: FormBody.Builder().apply { fields.forEach { (key, value) -> add(key, value) } }.build(), token = token)
     }
 
-    private suspend fun request(method: String, path: String, query: Map<String, String> = emptyMap(), body: RequestBody? = null, token: String? = null, redirects: Int = 0, arrayResponse: Boolean = false, htmlResponse: Boolean = false, collectionResponse: Boolean = false): JSONObject {
+    private suspend fun request(method: String, path: String, query: Map<String, String> = emptyMap(), body: RequestBody? = null, token: String? = null, redirects: Int = 0, arrayResponse: Boolean = false, htmlResponse: Boolean = false, collectionResponse: Boolean = false, verificationAttempt: Int = 0): JSONObject {
         val url = resolve(path).newBuilder().apply { query.forEach { (key, value) -> addQueryParameter(key, value) } }.build()
         val request = Request.Builder().url(url).method(method, body)
             .header("Accept", if (htmlResponse) "text/html" else "application/json")
@@ -100,7 +104,7 @@ class DiscourseClient(
                     resolve(target.toString())
                     if (target.encodedPath.trimEnd('/') == "/404") throw ApiFailure(FailureKind.NOT_FOUND, "内容不存在或暂无权限")
                     it.close()
-                    return request("GET", target.toString(), redirects = redirects + 1, arrayResponse = arrayResponse, htmlResponse = htmlResponse, collectionResponse = collectionResponse)
+                    return request("GET", target.toString(), redirects = redirects + 1, arrayResponse = arrayResponse, htmlResponse = htmlResponse, collectionResponse = collectionResponse, verificationAttempt = verificationAttempt)
                 }
             }
             val text = it.body?.string().orEmpty()
@@ -111,9 +115,16 @@ class DiscourseClient(
             when {
                 it.code == 401 || (it.code == 403 && json?.text("error_type") == "not_logged_in") -> throw ApiFailure(FailureKind.SIGN_IN, "请先登录 Linux.do")
                 it.code == 429 -> throw ApiFailure(FailureKind.RATE_LIMIT, reason ?: "请求较频繁，请稍后再试", it.header("Retry-After")?.toIntOrNull())
-                isCloudflareChallenge(it, text) -> throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage)
+                isCloudflareChallenge(it, text) -> {
+                    if (method == "GET" && verificationAttempt == 0) {
+                        it.close()
+                        delay(600)
+                        return request("GET", url.toString(), redirects = redirects, arrayResponse = arrayResponse,
+                            htmlResponse = htmlResponse, collectionResponse = collectionResponse, verificationAttempt = 1)
+                    }
+                    throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage)
+                }
                 notFound -> throw ApiFailure(FailureKind.NOT_FOUND, "内容不存在或暂无权限")
-                it.code == 403 && json == null && isHtmlResponse(it, text) -> throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage)
                 it.code == 403 -> { csrf = null; throw ApiFailure(FailureKind.FORBIDDEN, reason ?: "当前账号没有权限，或登录状态需要刷新") }
                 !it.isSuccessful -> throw ApiFailure(FailureKind.SERVER, reason ?: "社区暂时无法处理请求（${it.code}）")
                 htmlResponse -> return JSONObject().put("html", text)
@@ -124,8 +135,8 @@ class DiscourseClient(
                     return JSONObject().put("items", array)
                 }
                 json == null && collectionResponse -> return JSONObject().put("items", runCatching { JSONArray(text) }.getOrNull()
-                    ?: throw ApiFailure(FailureKind.VERIFICATION, "社区返回了网页，请完成验证后重试"))
-                json == null -> throw ApiFailure(FailureKind.VERIFICATION, "社区返回了网页，请完成验证后重试")
+                    ?: throw ApiFailure(FailureKind.SERVER, "社区返回的数据格式异常，请稍后重试"))
+                json == null -> throw ApiFailure(FailureKind.SERVER, "社区返回的数据格式异常，请稍后重试")
                 json.optBoolean("success", true).not() -> throw ApiFailure(FailureKind.SERVER, reason ?: "操作未成功，请稍后重试")
                 else -> return json
             }

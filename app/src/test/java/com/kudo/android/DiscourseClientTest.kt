@@ -34,13 +34,14 @@ class DiscourseClientTest {
         assertTrue(post.body.readUtf8().contains("raw="))
     }
     @Test fun challengeIsNotReportedAsEmptySuccessfulContent() = runBlocking {
-        server.enqueue(MockResponse().setResponseCode(403).setHeader("cf-mitigated", "challenge").setBody("<html>Verify</html>"))
+        repeat(2) { server.enqueue(MockResponse().setResponseCode(403).setHeader("cf-mitigated", "challenge").setBody("<html>Verify</html>")) }
         val failure = runCatching { client.get("/latest.json") }.exceptionOrNull() as ApiFailure
         assertEquals(FailureKind.VERIFICATION, failure.kind)
         assertTrue(failure.message.contains("Cloudflare"))
+        assertEquals(2, server.requestCount)
     }
     @Test fun htmlChallengeWithoutCloudflareHeaderIsReportedForManualVerification() = runBlocking {
-        server.enqueue(MockResponse().setBody("<html><title>Just a moment...</title><script src='/cdn-cgi/challenge-platform/a.js'></script></html>"))
+        repeat(2) { server.enqueue(MockResponse().setBody("<html><title>Just a moment...</title><script src='/cdn-cgi/challenge-platform/a.js'></script></html>")) }
         val failure = runCatching { client.get("/latest.json") }.exceptionOrNull() as ApiFailure
         assertEquals(FailureKind.VERIFICATION, failure.kind)
         assertTrue(failure.message.contains("手动完成验证"))
@@ -54,6 +55,44 @@ class DiscourseClientTest {
         server.enqueue(MockResponse().setResponseCode(403).setBody("forbidden"))
         val failure = runCatching { client.get("/latest") }.exceptionOrNull() as ApiFailure
         assertEquals(FailureKind.FORBIDDEN, failure.kind)
+    }
+    @Test fun ordinaryHtml403AndLoginTurnstileAreNotCloudflareChallenges() = runBlocking {
+        listOf("<html><title>Access denied</title></html>",
+            "<html><title>Log in</title><script src='https://challenges.cloudflare.com/turnstile/v0/api.js'></script></html>",
+            "<html><title>Article</title><pre>Just a moment... challenge-platform cf-chl-</pre></html>",
+            "<html><title>Forum</title><script src='/cdn-cgi/challenge-platform/scripts/jsd/main.js'></script></html>").forEach { body ->
+            server.enqueue(MockResponse().setResponseCode(403).setHeader("Content-Type", "text/html").setBody(body))
+            assertEquals(FailureKind.FORBIDDEN, (runCatching { client.get("/latest.json") }.exceptionOrNull() as ApiFailure).kind)
+        }
+        assertEquals(4, server.requestCount)
+    }
+    @Test fun malformedSuccessfulResponseIsAServerErrorInsteadOfVerification() = runBlocking {
+        server.enqueue(MockResponse().setBody("upstream response unavailable"))
+        assertEquals(FailureKind.SERVER, (runCatching { client.get("/latest.json") }.exceptionOrNull() as ApiFailure).kind)
+        assertEquals(1, server.requestCount)
+    }
+    @Test fun transientChallengeRetriesTheGetWithTheUpdatedCookie() = runBlocking {
+        var cookie = "initial=1"
+        val cookies = object : SessionCookies {
+            override fun get(url: String) = cookie
+            override fun set(url: String, value: String) { cookie = value.substringBefore(';') }
+        }
+        val sharedClient = DiscourseClient(cookies, server.url("/"))
+        server.enqueue(MockResponse().setResponseCode(403).setHeader("cf-mitigated", "challenge")
+            .addHeader("Set-Cookie", "cf_clearance=fresh; Path=/").setBody("<html>Verify</html>"))
+        server.enqueue(MockResponse().setBody("""{"ok":true}"""))
+        assertTrue(sharedClient.get("/latest.json").getBoolean("ok"))
+        assertEquals(2, server.requestCount)
+        assertEquals("initial=1", server.takeRequest().getHeader("Cookie"))
+        assertEquals("cf_clearance=fresh", server.takeRequest().getHeader("Cookie"))
+    }
+    @Test fun challengeOnAWriteDoesNotReplayTheMutation() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"csrf":"test-token"}"""))
+        server.enqueue(MockResponse().setResponseCode(403).setHeader("cf-mitigated", "challenge").setBody("<html>Verify</html>"))
+        assertEquals(FailureKind.VERIFICATION, (runCatching { client.write("POST", "/posts.json", mapOf("raw" to "body")) }.exceptionOrNull() as ApiFailure).kind)
+        assertEquals(2, server.requestCount)
+        assertEquals("GET", server.takeRequest().method)
+        assertEquals("POST", server.takeRequest().method)
     }
     @Test fun rateLimitPreservesRetryAfterAndDoesNotRetry() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "30").setBody("""{"errors":["慢一点"]}"""))
