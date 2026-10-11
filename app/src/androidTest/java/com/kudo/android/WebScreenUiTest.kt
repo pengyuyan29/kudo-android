@@ -9,6 +9,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.test.platform.app.InstrumentationRegistry
 import com.kudo.android.data.AndroidSessionCookies
 import com.kudo.android.data.DisplaySettings
 import com.kudo.android.data.ThemeMode
@@ -21,6 +22,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+import java.io.File
 
 class WebScreenUiTest {
     @get:Rule val compose = createComposeRule()
@@ -74,6 +76,7 @@ class WebScreenUiTest {
         try {
             compose.setContent { KudoTheme(DisplaySettings()) { WebScreen(start, {}, {}, ::create) } }
             compose.onNodeWithTag("web-loading").assertIsDisplayed()
+            capture("ui-polish-web-loading.png")
             compose.onNodeWithText("reader-fixture.test").assertDoesNotExist()
             compose.runOnUiThread { current().webChromeClient?.onProgressChanged(current(), 100) }
             compose.onNodeWithTag("web-loading").assertIsDisplayed()
@@ -81,7 +84,18 @@ class WebScreenUiTest {
             awaitPage("指南")
             compose.onNodeWithTag("web-loading").assertDoesNotExist()
             compose.onNodeWithText("reader-fixture.test").assertDoesNotExist()
+            capture("ui-polish-web-loaded.png")
         } finally { gate.countDown() }
+    }
+
+    private fun capture(name: String) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val context = instrumentation.targetContext
+        val bitmap = instrumentation.uiAutomation.takeScreenshot()
+        File(context.getExternalFilesDir(null), name).outputStream().use {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        bitmap.recycle()
     }
 
     @Test fun refreshingShowsLoadingAgainUntilContentAppears() {

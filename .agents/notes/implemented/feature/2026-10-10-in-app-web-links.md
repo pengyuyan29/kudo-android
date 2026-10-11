@@ -29,7 +29,7 @@ WebView 原生布局使用[有界视口](../bug-fix/2026-10-10-webview-viewport.
 
 ## Testing
 
-网页首屏loading改动先用可控制的主文档响应闸门复现初始加载与刷新两项缺少web-loading失败（artifacts/web-loading-repro-feed-fixed-ui.txt）。同批5项返回列表用例通过；网页网络和历史契约沿用原实现。最终验证需包含进度先到100仍显示loading、内容可见后收起、失败/刷新与恢复历史。
+网页首屏loading改动先用可控制的主文档响应闸门复现初始加载与刷新两项缺少web-loading失败（artifacts/web-loading-repro-feed-fixed-ui.txt）。同批5项返回列表用例通过。修复后7项WebScreenUiTest全部通过（artifacts/ui-polish-final-ui.txt），包含进度先到100仍显示loading、内容可见后收起、失败/刷新与恢复历史。截图改用UiAutomation实际屏幕，避免Compose离屏截图无法同时合成原生WebView和Compose标题栏。
 
 分类链接先由失败单测复现错误回首页，日志 artifacts/category-link-repro.txt；修复后精确断言 ID。LinuxDoLinkTest 增加正文路由与网页地址校验，涵盖相对 URL、查询/片段、不支持协议、凭据地址及相似域名。131项 JVM 测试、Debug/测试 APK 构建通过，Lint 为0错误、30条现有警告和1条提示，日志 artifacts/in-app-web-build.txt。
 
