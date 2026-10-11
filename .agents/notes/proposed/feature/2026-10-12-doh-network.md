@@ -18,6 +18,8 @@ Status: proposed
 
 配置单元位于 `DohSettings.kt`，与界面显示偏好分开持久化。自定义服务器拥有稳定 ID；删除选中节点回退内置，内置不可编辑/删除；非法持久数据过滤并修复选中 ID。URL 中的私人参数仅留在应用私有配置，不进入普通日志。
 
+Rust DNS 单元位于 `native/doh/src/dns.rs`：标准 POST 并行读取 A/AAAA/HTTPS，校验 ID/问题/rcode/截断，按域名合并在途查询并按最小 TTL 缓存，CNAME/HTTPS alias 限制 8 跳。HTTPS 查询失败与缺少 ECH 区分；DNS 引导仅解析服务器自身，不复用业务请求或凭据。依赖锁定于 Cargo.lock；6 项离线边界测试通过。
+
 第一阶段保留现有系统 WebView 登录、验证和 Cookie 存储。用户可通过自己的 VPN／代理完成网页登录；原生页面启用新的 DNS／TLS 通道。第一阶段不接管 WebView TLS，不新增用户证书信任，不改网页内的导航边界。
 
 若原生直连成功但 Cloudflare 必须在同一出口重新验证，而系统 WebView 在该线路仍无法直连，则本阶段无法保证完整闭环。届时应单独评审 WebView 同出口的 DoH + ECH 方案，或继续保持浏览器与原生请求使用一致的代理出口，不能用反复复制 Cookie 代替这个能力。
