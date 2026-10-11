@@ -25,6 +25,7 @@ private val CipherSuites = arrayOf("TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SH
     "TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256", "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256")
 
 internal class DohTransport(server: DohServer, private val handshake: (String, Boolean) -> Unit = { _, _ -> }) : Closeable {
+    init { NativeAlpnPlatform.install() }
     private val profile = NativeDoh.createProfile(JSONObject().put("url", server.url).put("bootstrap", JSONArray(server.bootstrap)).toString())
     private val lock = Any()
     private var closed = false
@@ -63,7 +64,7 @@ internal class DohTransport(server: DohServer, private val handshake: (String, B
         val managers = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply { init(null as KeyStore?) }.trustManagers
         val trust = managers.filterIsInstance<X509TrustManager>().single()
         return builder.dns(dns).socketFactory(socketFactory).sslSocketFactory(tlsFactory, trust)
-            .protocols(listOf(Protocol.HTTP_1_1)).connectionSpecs(listOf(ConnectionSpec.MODERN_TLS, ConnectionSpec.CLEARTEXT))
+            .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1)).connectionSpecs(listOf(ConnectionSpec.MODERN_TLS, ConnectionSpec.CLEARTEXT))
             .proxy(Proxy.NO_PROXY).retryOnConnectionFailure(false)
     }
     override fun close() {
@@ -133,19 +134,24 @@ private fun checkBounds(bytes: ByteArray, offset: Int, length: Int) {
 }
 
 private class RustTlsSocket(private val raw: RustSocket, private val host: String, private val remotePort: Int,
-    private val onHandshake: (String, Boolean) -> Unit) : SSLSocket() {
+    private val onHandshake: (String, Boolean) -> Unit) : SSLSocket(), NativeAlpnSocket {
+    private var offeredAlpn = listOf("h2", "http/1.1")
+    override var negotiatedProtocol: String? = null
+        private set
+    override fun configureAlpn(protocols: List<String>) { offeredAlpn = protocols }
     private var enabledProtocols = arrayOf("TLSv1.3", "TLSv1.2")
     private var enabledCiphers = CipherSuites.clone()
     private var activeSession: SSLSession? = null
     private val listeners = mutableSetOf<HandshakeCompletedListener>()
     override fun startHandshake() {
         if (activeSession != null) return
-        val metadata = JSONObject(NativeDoh.handshake(raw.handle, host))
+        val metadata = JSONObject(NativeDoh.handshake(raw.handle, host, offeredAlpn.joinToString(",")))
         val session = RustSession(metadata, host, remotePort)
         if (session.protocol !in enabledProtocols || session.cipherSuite !in enabledCiphers) {
             raw.close(); throw SSLHandshakeException("DoH: tls_negotiation_mismatch")
         }
         activeSession = session
+        negotiatedProtocol = metadata.getString("alpn")
         onHandshake(host, metadata.getString("ech") == "Accepted")
         listeners.toList().forEach { it.handshakeCompleted(HandshakeCompletedEvent(this, session)) }
     }

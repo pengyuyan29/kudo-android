@@ -11,7 +11,7 @@ internal object NativeDoh {
     @JvmStatic external fun lookup(id: Long, host: String): String
     @JvmStatic external fun openSocket(profile: Long): Long
     @JvmStatic external fun connect(id: Long, ip: String, port: Int, millis: Int)
-    @JvmStatic external fun handshake(id: Long, host: String): String
+    @JvmStatic external fun handshake(id: Long, host: String, alpn: String): String
     @JvmStatic external fun read(id: Long, bytes: ByteArray, offset: Int, length: Int): Int
     @JvmStatic external fun write(id: Long, bytes: ByteArray, offset: Int, length: Int)
     @JvmStatic external fun timeout(id: Long, millis: Int)

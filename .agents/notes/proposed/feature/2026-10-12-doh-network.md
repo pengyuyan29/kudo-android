@@ -28,6 +28,10 @@ Socket/JNI 单元使用有界 64KB 读写块，不缓存完整上传或响应。
 
 Android 适配单元为 `network/DohTransport.kt` 与 `NativeDoh.kt`。原始 Socket 与 SSLSocket 共用同一个 Rust 句柄，提供 JNI InputStream/OutputStream、真实证书链和 TLS session，供 OkHttp 进行主机名复核与连接复用。配置关闭不创建原生 profile，不发 DNS。生产 arm64 库当前约 4.97MB，Kotlin 编译通过；实际 HTTP 语义与会话将在客户端接入后集中验收。
 
+`NativeAlpnPlatform` 为当前固定的 OkHttp 4.12.0 内部 Platform 扩展，向自定义 Socket 传入协议并读取真实 ALPN；安装后所有普通 Android Socket、证书、明文策略与日志继续委托原平台，关闭功能无需恢复全局对象。该库没有公开的自定义 Socket ALPN 扩展点，因而使用其现有 Platform setter；升级 OkHttp 必须重新审核这份完整委托和原生/系统两路回归，不能视为普通依赖补丁。
+
+只使用 HTTP/1.1 的适配最简单且没有内部 API 耦合，但首次生产真机主站返回 CF 挑战，未满足目标；HTTP/2 修复后同机同会话的正式客户端返回登录有效、30 条话题和可解码头像，ECH Accepted。该对照支持采用 HTTP/2，不证明所有 CF 差异都由 HTTP 版本引起，更不能承诺免验证。
+
 运行策略位于 `network/DohNetwork.kt`：用户选择与有效状态分离，Android 可观察 VPN 或系统 HTTP 代理时暂停。监听包含 VPN 的网络请求、默认网络变化与 Activity 恢复，每次创建请求前复查；配置/网络变化关闭原生 Socket 并清理连接池，旧代回调不能覆盖新状态。主站实际 ECH 握手才显示已连接；检测仅发送无凭据 GET，可取消并随网络切换停止。配置与策略 6 项 JVM 测试通过。
 
 Discourse、Connect、MessageBus 通过构造参数注入 `(OkHttpClient) -> Call.Factory`，保留原客户端的 Cookie、来源、重定向和超时约束；默认是原客户端，既有测试和调用保持兼容。主站 GET 显示固定的 DoH 错误说明，写失败仍提示结果未知且禁止自动重放。
