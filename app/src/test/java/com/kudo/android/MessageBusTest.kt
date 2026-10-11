@@ -90,14 +90,33 @@ class MessageBusTest {
             server.enqueue(MockResponse().setResponseCode(403)
                 .setHeader("cf-mitigated", "challenge")
                 .setBody("<html>Just a moment...</html>"))
+            server.enqueue(MockResponse().setResponseCode(403)
+                .setHeader("cf-mitigated", "challenge")
+                .setBody("<html>Just a moment...</html>"))
             val failure = runCatching {
-                withTimeout(3000) {
+                withTimeout(8000) {
                     DiscourseMessageBus(DiscourseClient(NoCookies, server.url("/")), server.url("/")).observe(null).first()
                 }
             }.exceptionOrNull()
             assertTrue("challenge should be surfaced instead of retried forever", failure is ApiFailure)
             assertEquals(FailureKind.VERIFICATION, (failure as ApiFailure).kind)
-            assertEquals(1, server.requestCount)
+            assertEquals(2, server.requestCount)
+        } finally { server.shutdown() }
+    }
+
+    @Test fun transientCloudflareChallengeIsRetriedWithoutSurfacing() = runBlocking {
+        val server = MockWebServer()
+        server.start()
+        try {
+            server.enqueue(MockResponse().setResponseCode(403)
+                .setHeader("cf-mitigated", "challenge")
+                .setBody("<html>Just a moment...</html>"))
+            server.enqueue(MockResponse().setBody("[{\"channel\":\"/__status\",\"data\":{\"/latest\":12}}]"))
+            withTimeout(5000) {
+                DiscourseMessageBus(DiscourseClient(NoCookies, server.url("/")), server.url("/"))
+                    .observe(null).first()
+            }
+            assertEquals("a transient challenge should be retried", 2, server.requestCount)
         } finally { server.shutdown() }
     }
 

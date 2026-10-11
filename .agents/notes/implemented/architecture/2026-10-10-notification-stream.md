@@ -8,6 +8,8 @@ Status: implemented
 
 ## Decision
 
+Background MessageBus polling treats one Cloudflare challenge as transient: it backs off and retries silently, and only exposes the manual-verification event after two consecutive challenges. A successful response resets the consecutive-failure count, so a short-lived edge challenge does not interrupt an otherwise usable session.
+
 DiscourseMessageBus共享同一长轮询实现，FeedUpdates与NotificationUpdates各自拥有频道游标和取消作用域。通知订阅使用会话notification_channel_position，并订阅论坛及聊天提醒；NotificationCursors在游标之后解析计数、last_notification、recent与目标字段，忽略其他账号频道和重复游标，接受服务端重置头。首次成功轮询标记initial，重连保留游标并标记reconnect，供账号层建立历史基线和补齐状态。
 
 推送客户端仍无Cookie、不重定向、不共享主站拦截器，凭据只来自同源HTML的共享会话键。会话解析增加后台总未读和通知频道位置，Notice保留聊天频道与消息ID；缺失字段兼容旧接口和夹具。当前传输契约不改变首页可见性控制。
@@ -26,5 +28,7 @@ DiscourseMessageBus共享同一长轮询实现，FeedUpdates与NotificationUpdat
 通知协议可独立离线测试，不使用recent查询的last_seen副作用。首页与消息拥有各自长轮询，后台只保持消息订阅；未来如需减少连接数可合并传输，但不能混用业务可见性。
 
 ## Testing
+
+MessageBusTest covers transient recovery and the two-failure threshold; DiscourseClientTest covers HTML-only challenge markers and challenge-like text inside JSON.
 
 NotificationProtocolTest覆盖会话总数、三个频道、游标去重和重置、recent标读、聊天目标及跨域无Cookie。MessageBusTest保持原重连、取消与限流回归，执行日志artifacts/notification-protocol-tests.txt。

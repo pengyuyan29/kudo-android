@@ -30,6 +30,9 @@ class DiscourseMessageBus(
     private val endpoint: HttpUrl = "https://ping.ldstatic.com/".toHttpUrl(),
     private val userAgent: String = "Kudo/0.1 Android",
 ) : FeedUpdates, NotificationUpdates {
+    private companion object {
+        const val maxConsecutiveVerificationFailures = 2
+    }
     // Intentionally independent of the main-site cookie jar and interceptors.
     private val http = OkHttpClient.Builder().cookieJar(CookieJar.NO_COOKIES)
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
@@ -59,6 +62,7 @@ class DiscourseMessageBus(
         var failures = 0
         var first = true
         var reconnect = true
+        var verificationFailures = 0
         while (true) {
             try {
                 if (user != null && key == null) key = client.sharedSessionKey()
@@ -77,10 +81,14 @@ class DiscourseMessageBus(
                 first = false
                 reconnect = false
                 failures = 0
+                verificationFailures = 0
                 // A misconfigured server returning immediate empty bodies must not create a hot loop.
                 delay(1000)
             } catch (e: CancellationException) { throw e } catch (e: Exception) {
-                if (e is ApiFailure && e.kind == FailureKind.VERIFICATION) throw e
+                if (e is ApiFailure && e.kind == FailureKind.VERIFICATION) {
+                    verificationFailures++
+                    if (verificationFailures >= maxConsecutiveVerificationFailures) throw e
+                }
                 reconnect = true
                 if (e is ApiFailure && e.kind in setOf(FailureKind.SIGN_IN, FailureKind.FORBIDDEN)) key = null
                 val retrySeconds = (e as? ApiFailure)?.retryAfter?.coerceAtLeast(1)

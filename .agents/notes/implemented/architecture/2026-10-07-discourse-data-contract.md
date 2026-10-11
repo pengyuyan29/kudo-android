@@ -44,7 +44,7 @@ Discourse 的 JSON 403 若携带 `error_type: not_logged_in`，按未登录处�
 
 接口错误可以在原生界面提供具体恢复入口。直接 HTTP 仍可能遇到 Cloudflare 指纹限制，网页验证成功不保证 OkHttp 在所有网络可用。关注与回应采用已核实的站点插件契约，其他复杂插件正文保留网页入口。
 
-Cloudflare challenge is detected from the challenge response header and common challenge-page markers, including successful HTML responses that are not JSON. The client reports an explicit manual-verification message instead of treating the page as empty content; the WebView remains the recovery path because completing a browser challenge does not guarantee that every OkHttp request will pass.
+Cloudflare challenge is detected from the challenge response header and common challenge-page markers limited to HTML responses, including successful HTML responses that are not JSON. Markers inside normal JSON are not treated as a challenge, and a non-HTML 403 keeps its permission-error meaning. The client reports an explicit manual-verification message instead of treating the page as empty content; the WebView remains the recovery path because completing a browser challenge does not guarantee that every OkHttp request will pass.
 
 ## Verification
 

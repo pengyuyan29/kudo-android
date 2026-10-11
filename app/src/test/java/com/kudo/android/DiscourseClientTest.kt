@@ -45,6 +45,16 @@ class DiscourseClientTest {
         assertEquals(FailureKind.VERIFICATION, failure.kind)
         assertTrue(failure.message.contains("手动完成验证"))
     }
+    @Test fun challengeMarkersInsideJsonAreNotTreatedAsCloudflare() = runBlocking {
+        server.enqueue(MockResponse().setBody("{\"message\":\"turnstile challenge-platform\"}"))
+        val result = client.get("/latest")
+        assertEquals("turnstile challenge-platform", result.getString("message"))
+    }
+    @Test fun nonHtmlForbiddenResponseKeepsForbiddenMeaning() = runBlocking {
+        server.enqueue(MockResponse().setResponseCode(403).setBody("forbidden"))
+        val failure = runCatching { client.get("/latest") }.exceptionOrNull() as ApiFailure
+        assertEquals(FailureKind.FORBIDDEN, failure.kind)
+    }
     @Test fun rateLimitPreservesRetryAfterAndDoesNotRetry() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(429).setHeader("Retry-After", "30").setBody("""{"errors":["慢一点"]}"""))
         val failure = runCatching { client.get("/latest.json") }.exceptionOrNull() as ApiFailure

@@ -25,8 +25,16 @@ class ApiFailure(val kind: FailureKind, override val message: String, val retryA
 
 internal const val CloudflareVerificationMessage = "检测到 Cloudflare 网页验证，请打开 Linux.do 手动完成验证后重试"
 
+internal fun isHtmlResponse(response: Response, body: String): Boolean {
+    val contentType = response.header("Content-Type").orEmpty()
+    val trimmed = body.trimStart()
+    return contentType.substringBefore(';').trim().equals("text/html", ignoreCase = true) ||
+        trimmed.startsWith("<!doctype html", ignoreCase = true) || trimmed.startsWith("<html", ignoreCase = true)
+}
+
 internal fun isCloudflareChallenge(response: Response, body: String): Boolean {
     if (response.header("cf-mitigated")?.equals("challenge", ignoreCase = true) == true) return true
+    if (!isHtmlResponse(response, body)) return false
     return listOf("Just a moment...", "challenge-platform", "cf-chl-", "turnstile".lowercase())
         .any { body.contains(it, ignoreCase = true) }
 }
@@ -105,7 +113,7 @@ class DiscourseClient(
                 it.code == 429 -> throw ApiFailure(FailureKind.RATE_LIMIT, reason ?: "请求较频繁，请稍后再试", it.header("Retry-After")?.toIntOrNull())
                 isCloudflareChallenge(it, text) -> throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage)
                 notFound -> throw ApiFailure(FailureKind.NOT_FOUND, "内容不存在或暂无权限")
-                it.code == 403 && json == null -> throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage)
+                it.code == 403 && json == null && isHtmlResponse(it, text) -> throw ApiFailure(FailureKind.VERIFICATION, CloudflareVerificationMessage)
                 it.code == 403 -> { csrf = null; throw ApiFailure(FailureKind.FORBIDDEN, reason ?: "当前账号没有权限，或登录状态需要刷新") }
                 !it.isSuccessful -> throw ApiFailure(FailureKind.SERVER, reason ?: "社区暂时无法处理请求（${it.code}）")
                 htmlResponse -> return JSONObject().put("html", text)
