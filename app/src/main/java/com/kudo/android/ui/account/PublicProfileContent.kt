@@ -54,7 +54,7 @@ internal fun LazyListScope.publicSummary(summary: ProfileSummary, open: (String)
     }
     if (summary.replies.isNotEmpty()) {
         item("popular-replies-title") { ProfileSectionTitle("热门回复") }
-        items(summary.replies, key = { "reply-${it.key}" }) { ProfileEntryRow(it, open) }
+        items(summary.replies, key = { "reply-${it.key}" }) { ProfileEntryRow(it, open, compactCategory = true) }
     }
     if (summary.links.isNotEmpty()) {
         item("popular-links-title") { ProfileSectionTitle("热门链接") }
@@ -121,14 +121,15 @@ internal fun ProfileSectionTitle(title: String) {
 }
 
 @Composable
-internal fun ProfileEntryRow(entry: ProfileEntry, open: (String) -> Unit) {
+internal fun ProfileEntryRow(entry: ProfileEntry, open: (String) -> Unit, compactCategory: Boolean = false) {
+    val compactCategoryValue = entry.category.takeIf { compactCategory }
     Column(Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp))
         .background(MaterialTheme.colorScheme.surface).clickable(role = Role.Button) { open(entry.url) }
         .testTag("profile-entry-${entry.key}").padding(horizontal = 14.dp, vertical = 13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(entry.title, Modifier.fillMaxWidth(), fontSize = 15.sp, lineHeight = 23.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                entry.category?.let { CategoryInline(it, Modifier.fillMaxWidth()) }
+                if (compactCategoryValue == null) entry.category?.let { CategoryInline(it, Modifier.fillMaxWidth()) }
                 if (entry.tags.isNotEmpty()) TopicTags(entry.tags)
                 if (entry.excerpt.isNotBlank()) Text(entry.excerpt, fontSize = 13.sp, lineHeight = 20.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -137,11 +138,17 @@ internal fun ProfileEntryRow(entry: ProfileEntry, open: (String) -> Unit) {
                 Modifier.size(width = 78.dp, height = 58.dp).clip(RoundedCornerShape(7.dp)).testTag("profile-entry-image-${entry.key}"),
                 contentScale = ContentScale.Crop)
         }
-        if (entry.annotation.isNotBlank() || entry.time.isNotBlank() || entry.number?.let { it > 1 } == true || entry.count != null) {
+        if (compactCategoryValue != null || entry.annotation.isNotBlank() || entry.time.isNotBlank() || entry.number?.let { it > 1 } == true || entry.count != null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (entry.annotation.isNotBlank()) Text(entry.annotation, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.weight(1f))
+                if (compactCategoryValue != null) {
+                    Box(Modifier.weight(1f).testTag("profile-entry-category-${entry.key}")) {
+                        CategoryInline(compactCategoryValue)
+                    }
+                } else {
+                    if (entry.annotation.isNotBlank()) Text(entry.annotation, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.weight(1f))
+                }
                 entry.number?.takeIf { it > 1 }?.let { Text("#$it", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline) }
                 entry.count?.let {
                     Icon(Icons.Rounded.FavoriteBorder, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.outline)

@@ -39,7 +39,8 @@ class PublicProfileUiTest {
     private val summary = ProfileSummary(mapOf("likes_received" to 2394, "days_visited" to 77, "topic_count" to 12, "post_count" to 58,
         "posts_read_count" to 3700), listOf(ProfileEntry("top", 9, null, "热门主题", category = Category(4, "开发调优", "dev", "35a9b7", "", 2),
             tags = listOf(TopicTag("Android")), image = "https://profile.test/topic.png")),
-        listOf(ProfileEntry("reply", 9, 8, "热门回复原楼层")), emptyList(), emptyMap(), emptyList(), emptyList())
+        listOf(ProfileEntry("reply", 9, 8, "热门回复原楼层", time = "2020-01-01T00:00:00Z", count = 128,
+            category = Category(4, "开发调优", "dev", "35a9b7", "", 2))), emptyList(), emptyMap(), emptyList(), emptyList())
     private val feeds = ProfileTab.entries.filter { it != ProfileTab.SUMMARY }.associateWith { tab ->
         ProfileFeedState(listOf(ProfileEntry("${tab.name}-8", 9, 8, "${tab.label}记录", "内容摘要")), loaded = true)
     }
@@ -96,6 +97,24 @@ class PublicProfileUiTest {
         compose.onNodeWithTag("profile-entry-image-top", useUnmergedTree = true).assertIsDisplayed()
         compose.runOnIdle { assertTrue(fetched.any { it.endsWith("card.png") }); assertFalse(fetched.any { it.endsWith("wrong-profile.png") }) }
         screenshot("public-profile-light.png")
+    }
+    @Test fun popularReplyMetadataKeepsCategoryLikesAndDateOnOneLine() {
+        show()
+        val reply = compose.onNodeWithTag("profile-entry-reply")
+        reply.performScrollTo().assertIsDisplayed()
+        val category = compose.onNodeWithTag("profile-entry-category-reply", useUnmergedTree = true)
+        val likes = compose.onNodeWithText("128", useUnmergedTree = true)
+        val date = compose.onNodeWithText("2020-01-01", useUnmergedTree = true)
+        category.assertIsDisplayed()
+        likes.assertIsDisplayed()
+        date.assertIsDisplayed()
+        val categoryBounds = category.fetchSemanticsNode().boundsInRoot
+        val likesBounds = likes.fetchSemanticsNode().boundsInRoot
+        val dateBounds = date.fetchSemanticsNode().boundsInRoot
+        assertEquals("分类、点赞和日期应垂直居中在同一行", categoryBounds.center.y, likesBounds.center.y, 3f)
+        assertEquals("分类、点赞和日期应垂直居中在同一行", likesBounds.center.y, dateBounds.center.y, 3f)
+        assertTrue("分类应位于元数据行左侧", categoryBounds.left < likesBounds.left)
+        assertTrue("日期应位于点赞信息右侧", likesBounds.left < dateBounds.left)
     }
     @Test fun expandedHeaderIsSquareAndCollapsedToolbarKeepsImageAndActions() {
         var style: Boolean? = null
