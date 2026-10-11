@@ -86,7 +86,7 @@ internal fun VerificationScreen(userAgent: String, back: () -> Unit, check: susp
                 Text(if (checking) "检查中…" else "完成验证")
             }
         }
-        Text("如果页面显示 404，请点击刷新，直到出现验证页面，再按提示完成验证。",
+        Text("如果页面显示不存在，请多刷新几次，直到出现验证页面；完成过盾后，再点击「完成验证」。",
             Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         message?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -97,6 +97,7 @@ internal fun VerificationScreen(userAgent: String, back: () -> Unit, check: susp
             settings.userAgentString = userAgent
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
+            settings.cacheMode = WebSettings.LOAD_NO_CACHE
             settings.allowFileAccess = false
             settings.allowContentAccess = false
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW

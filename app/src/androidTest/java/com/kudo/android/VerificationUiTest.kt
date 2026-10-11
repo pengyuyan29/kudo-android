@@ -2,6 +2,7 @@ package com.kudo.android
 
 import android.content.Context
 import android.webkit.WebView
+import android.webkit.WebSettings
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.kudo.android.data.*
@@ -23,25 +24,26 @@ class VerificationUiTest {
     private fun factory(context: Context): WebView = object : WebView(context) {
         override fun loadUrl(url: String) {
             loads += url
-            loadDataWithBaseURL("https://verification-fixture.test/", "<html><body>404 fixture</body></html>", "text/html", "UTF-8", null)
+            loadDataWithBaseURL("https://verification-fixture.test/", "<html><body>该页面不存在或者是一个不公开页面</body></html>", "text/html", "UTF-8", null)
         }
     }.also { web = it }
 
-    @Test fun refreshIsLeftOfCompletionAndReopensChallengeEvenAfterA404Redirect() {
+    @Test fun missingPagePromptsMoreRefreshesAndRefreshReopensChallengeWithoutCache() {
         compose.setContent { KudoTheme(DisplaySettings()) {
             VerificationScreen("fixture-agent", {}, {}, {}, ::factory)
         } }
-        compose.onNodeWithText("如果页面显示 404，请点击刷新，直到出现验证页面，再按提示完成验证。").assertIsDisplayed()
+        compose.onNodeWithText("如果页面显示不存在，请多刷新几次，直到出现验证页面；完成过盾后，再点击「完成验证」。").assertIsDisplayed()
         val refresh = compose.onNodeWithTag("verification-refresh").fetchSemanticsNode().boundsInRoot
         val complete = compose.onNodeWithTag("verification-complete").fetchSemanticsNode().boundsInRoot
         assertTrue(refresh.right <= complete.left)
         compose.runOnIdle {
             assertEquals(listOf("https://linux.do/challenge"), loads)
             assertEquals("fixture-agent", web.settings.userAgentString)
+            assertEquals(WebSettings.LOAD_NO_CACHE, web.settings.cacheMode)
             web.webViewClient.onPageFinished(web, "https://linux.do/404")
         }
-        compose.onNodeWithTag("verification-refresh").performClick()
-        compose.runOnIdle { assertEquals(List(2) { "https://linux.do/challenge" }, loads) }
+        repeat(3) { compose.onNodeWithTag("verification-refresh").performClick() }
+        compose.runOnIdle { assertEquals(List(4) { "https://linux.do/challenge" }, loads) }
     }
 
     @Test fun pageFinishDoesNotCompleteAndTheNativeCheckBlocksDuplicateCompletion() {

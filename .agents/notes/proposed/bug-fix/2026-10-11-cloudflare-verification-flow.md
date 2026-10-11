@@ -12,7 +12,7 @@ Status: proposed
 
 后台推送验证失败停止当前订阅，不覆盖正常列表或反复提示主站验证，现有重新激活/会话检查可以恢复订阅。主站实际读取失败仍保留验证入口。
 
-新增App内全屏验证页，直接打开https://linux.do/challenge，与原生请求共享Cookie和明确相同User-Agent。右上角依次“刷新”“完成验证”，下方提示“如果页面显示 404，请点击刷新，直到出现验证页面，再按提示完成验证。”刷新始终重新访问/challenge。网页404原样展示，工具栏始终可操作。完成按钮先flush Cookie，再检查原生/latest.json的真实话题列表结构；成功关闭验证页并调用原页面只读重试，游客同样可用。网页跳转、onPageFinished、Cookie存在均不单独判定成功；失败留在页面显示原因，不清会话。
+新增App内全屏验证页，直接打开https://linux.do/challenge，与原生请求共享Cookie和明确相同User-Agent。右上角依次“刷新”“完成验证”，下方提示“如果页面显示不存在，请多刷新几次，直到出现验证页面；完成过盾后，再点击「完成验证」。”按用户最终确认，页面显示不存在不能视为无需验证或验证成功。刷新使用LOAD_NO_CACHE并始终重新访问/challenge。网页不存在的内容原样展示，工具栏始终可操作。完成按钮先flush Cookie，再检查原生/latest.json的真实话题列表结构；成功关闭验证页并调用原页面只读重试，游客同样可用。网页跳转、onPageFinished、Cookie存在均不单独判定成功；失败留在页面显示原因，不清会话。
 
 错误入口使用统一CompositionLocal承载验证动作，避免逐个页面混用登录回调；验证页作为全屏窗口覆盖在当前导航上，保留原生页面及重试回调，不重放发帖等写入。登录入口及账号检查继续单独负责认证。
 
@@ -30,7 +30,7 @@ Status: proposed
 
 ## Acceptance criteria
 
-先编写复现用例验证普通403/格式错误不误报、一次短暂挑战恢复、连续挑战只请求两次、写请求不重放、重试读取新Cookie；确认后台错误不覆盖正常列表。验证入口不走/login，刷新位于完成左侧且重新请求/challenge，提示包含404；网页完成不自动退出，只有原生确认成功才触发一次重试，失败保留验证页，游客不要求登录。相关单测、界面夹具、构建、Lint和verify-notes通过。
+先编写复现用例验证普通403/格式错误不误报、一次短暂挑战恢复、连续挑战只请求两次、写请求不重放、重试读取新Cookie；确认后台错误不覆盖正常列表。验证入口不走/login，刷新位于完成左侧且不使用缓存重新请求/challenge，提示页面不存在时多刷新直到看到盾、完成后点击完成验证；网页完成不自动退出，只有原生确认成功才触发一次重试，失败保留验证页，游客不要求登录。相关单测、界面夹具、构建、Lint和verify-notes通过。
 
 ## Implementation progress
 
@@ -43,6 +43,8 @@ Status: proposed
 VerificationScreen及全屏VerificationHost已实现。新增界面契约最初因缺少该能力编译失败（artifacts/cloudflare-verification-ui-contract-20261011.txt）。同签名install -r安装后，4项离线界面用例中3项验证页用例通过：刷新位置及404提示、重定向后刷新回/challenge、UA一致、网页完成不自动成功、确认期间禁用按钮、失败留页可刷新；第4项统一入口用例在旧ErrorState上复现仍走登录、验证页未显示（artifacts/cloudflare-verification-ui-repro-20261011.txt）。入口接入在下一小单元修复，不将本次局部通过声称为整体验收。夹具仅使用本地静态HTML和OkHttp拦截器，不访问真实验证页或修改社区数据。
 
 统一入口接入后，ErrorState将主站验证交给VerificationHost，登录错误仍走登录回调。57项关联JVM用例、Debug/AndroidTest构建及Lint通过（artifacts/cloudflare-integration-build-20261011.txt，Lint为0错误、38警告、1提示）；10项离线界面回归全部通过（artifacts/cloudflare-verification-ui-fixed-20261011.txt），包含验证页4项、登录WebView1项、普通WebView5项。尚需按用户最终纠正将“404”改为页面显示“不存在”时多次刷新直到出现验证、完成后再点击完成验证，刷新绕过缓存，并保留Connect独立认证入口；这些收尾分别作为不超过3文件的小单元。
+
+更新提示契约后先在旧验证页复现提示不匹配（artifacts/cloudflare-guidance-repro-20261011.txt，1项失败）。对应界面用例同时检查禁用网页缓存，并连续刷新3次确认始终重新访问/challenge。静态夹具改为站点的“该页面不存在或者是一个不公开页面”，仅验证人工操作引导，不根据网页文字自动结束验证。修复后Debug/AndroidTest构建通过，核对现有手机签名一致并install -r后4项验证页用例全部通过（artifacts/cloudflare-guidance-fixed-20261011.txt），保留设备数据。
 
 ## Risks
 
