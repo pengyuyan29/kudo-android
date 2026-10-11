@@ -41,7 +41,11 @@ internal fun TrustScreen(member: Member, repository: ConnectRepository, back: ()
         LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item { Text("当前等级 Lv.${member.trustLevel}", fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold) }
             if (loading) item { LoadingRow() }
-            error?.let { item { ErrorState(it, { refresh++ }, website) } }
+            error?.let { item {
+                CompositionLocalProvider(LocalWebVerification provides null) {
+                    ErrorState(it, { refresh++ }, website)
+                }
+            } }
             if (error != null) item { CommunityButton("在应用内网页查看", website) }
             report?.let { data ->
                 item {

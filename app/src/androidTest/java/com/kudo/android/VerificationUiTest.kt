@@ -3,6 +3,7 @@ package com.kudo.android
 import android.content.Context
 import android.webkit.WebView
 import android.webkit.WebSettings
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.kudo.android.data.*
@@ -104,5 +105,27 @@ class VerificationUiTest {
         compose.waitUntil { retries == 1 }
         compose.onNodeWithTag("verification-page").assertDoesNotExist()
         compose.runOnIdle { assertEquals(1, nativeChecks); assertEquals(0, logins); assertEquals(1, retries) }
+    }
+
+    @Test fun connectChallengeKeepsItsOwnWebsiteActionInsteadOfOpeningTheMainSiteChallenge() {
+        var websiteOpens = 0
+        var mainSiteVerifications = 0
+        val http = OkHttpClient.Builder().addInterceptor { chain ->
+            assertEquals("connect.linux.do", chain.request().url.host)
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(403).message("Forbidden")
+                .header("cf-mitigated", "challenge").body("<html>Just a moment...</html>".toResponseBody("text/html".toMediaType())).build()
+        }.build()
+        val repository = ConnectRepository(object : SessionCookies {
+            override fun get(url: String) = ""
+            override fun set(url: String, cookie: String) = Unit
+        }, "fixture-agent", http = http)
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            CompositionLocalProvider(LocalWebVerification provides { _ -> mainSiteVerifications++ }) {
+                TrustScreen(Member(1, "fixture", "Fixture", ""), repository, {}, { websiteOpens++ })
+            }
+        } }
+        compose.waitUntil { compose.onAllNodesWithText("完成网页验证").fetchSemanticsNodes().size == 1 }
+        compose.onNodeWithText("完成网页验证").performClick()
+        compose.runOnIdle { assertEquals(1, websiteOpens); assertEquals(0, mainSiteVerifications) }
     }
 }
