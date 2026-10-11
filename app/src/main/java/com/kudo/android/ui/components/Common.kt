@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.kudo.android.data.*
+import com.kudo.android.ui.account.LocalWebVerification
 import com.kudo.android.ui.theme.Ink
 import com.kudo.android.ui.theme.LogoYellow
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -68,9 +69,15 @@ fun ErrorState(error: Throwable, retry: () -> Unit, login: () -> Unit, back: (()
         return
     }
     val auth = kind == FailureKind.SIGN_IN || kind == FailureKind.VERIFICATION
+    val verification = LocalWebVerification.current
+    val action = when (kind) {
+        FailureKind.VERIFICATION -> { { if (verification != null) verification(retry) else login() } }
+        FailureKind.SIGN_IN -> login
+        else -> retry
+    }
     EmptyState(if (kind == FailureKind.VERIFICATION) "和社区连接，只差一步" else if (kind == FailureKind.SIGN_IN) "登录后继续" else "暂时没能加载",
         error.message ?: "请稍后重试", if (auth) Icons.Rounded.VerifiedUser else Icons.Rounded.CloudOff,
-        if (kind == FailureKind.VERIFICATION) "完成网页验证" else if (auth) "登录 Linux.do" else "重新加载", if (auth) login else retry)
+        if (kind == FailureKind.VERIFICATION) "完成网页验证" else if (auth) "登录 Linux.do" else "重新加载", action)
 }
 
 @Composable

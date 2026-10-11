@@ -42,6 +42,8 @@ Status: proposed
 
 VerificationScreen及全屏VerificationHost已实现。新增界面契约最初因缺少该能力编译失败（artifacts/cloudflare-verification-ui-contract-20261011.txt）。同签名install -r安装后，4项离线界面用例中3项验证页用例通过：刷新位置及404提示、重定向后刷新回/challenge、UA一致、网页完成不自动成功、确认期间禁用按钮、失败留页可刷新；第4项统一入口用例在旧ErrorState上复现仍走登录、验证页未显示（artifacts/cloudflare-verification-ui-repro-20261011.txt）。入口接入在下一小单元修复，不将本次局部通过声称为整体验收。夹具仅使用本地静态HTML和OkHttp拦截器，不访问真实验证页或修改社区数据。
 
+统一入口接入后，ErrorState将主站验证交给VerificationHost，登录错误仍走登录回调。57项关联JVM用例、Debug/AndroidTest构建及Lint通过（artifacts/cloudflare-integration-build-20261011.txt，Lint为0错误、38警告、1提示）；10项离线界面回归全部通过（artifacts/cloudflare-verification-ui-fixed-20261011.txt），包含验证页4项、登录WebView1项、普通WebView5项。尚需按用户最终纠正将“404”改为页面显示“不存在”时多次刷新直到出现验证、完成后再点击完成验证，刷新绕过缓存，并保留Connect独立认证入口；这些收尾分别作为不超过3文件的小单元。
+
 ## Risks
 
 Cloudflare仍可能因出口IP或设备/客户端特征再次验证，修复误判和会话恢复不能保证站点永久放行。明确挑战最多增加600ms及一次GET；后台订阅暂停期间没有实时提示，重新激活后恢复。验证/latest.json确认主站原生读取恢复，具体受保护端点仍以原页面重试结果为准。全屏验证覆盖期间必须阻挡底层交互及阅读曝光，关闭后保留原导航和数据。

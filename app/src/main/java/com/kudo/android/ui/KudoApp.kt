@@ -77,6 +77,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
     val display by app.settings.display.collectAsStateWithLifecycle()
     var darkStatusIcons by remember { mutableStateOf<Boolean?>(null) }
     KudoTheme(display, darkStatusIcons) {
+        VerificationHost(app.client, app.userAgent) {
         val account = model("account") { AccountViewModel(app) }
         val nav = rememberNavController()
         val snackbar = remember { SnackbarHostState() }
@@ -379,6 +380,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
             }
             }
             }
+        }
         }
         }
     }
