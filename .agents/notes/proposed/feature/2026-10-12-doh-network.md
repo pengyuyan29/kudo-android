@@ -8,7 +8,7 @@ Status: proposed
 
 当前 App 的原生请求使用 OkHttp 4.12.0，WebView 由 Android 系统提供。两者已经共享 CookieManager 和明确相同的 User-Agent，但 DNS、TLS、连接池和出口网络不是同一个概念。只替换 DNS 无法证明直连可用，也无法保证原来代理出口获得的过盾凭据在新出口继续有效。
 
-本篇是调研与待评审方案，没有修改运行时代码，没有在手机上验证完整目标流程，也没有批准网络层或 WebView 改造。
+本篇保留完整功能的待评审方案。用户随后批准“开发验证看看”，并确认手机 Wi-Fi 已切到非代理网络；当前先进行[原生直连技术验证](../../proposed/testing/2026-10-12-doh-ech-device-probe.md)，未将网络层或 WebView 改造投入日常请求。
 
 ## Proposal
 
