@@ -22,6 +22,10 @@ Status: proposed
 
 检索 DNS、ECH、JNI、只读探针及网络笔记。与[DoH 功能提案](../feature/2026-10-12-doh-network.md)部分重叠并互链：本篇仅交付技术验证，功能提案继续保持 proposed。原有[数据契约](../../implemented/architecture/2026-10-07-discourse-data-contract.md)和[CF 恢复流程](../../implemented/bug-fix/2026-10-11-cloudflare-verification-flow.md)是实验必须保留的边界，不修改其生产实现。其他 UI、分页和通知笔记无关；没有完全吸收或过时提案。
 
+## Native verification evidence
+
+首批 5 项 Rust 离线边界测试通过。补充协议回归先复现 HTTP/1.1 直连误用完整 URL 而非 origin-form，7 项中 1 项失败，记录在 artifacts/doh-validation/native-repro.txt；修复将 HTTP/1.1 请求行与 HTTP/2 authority 分开处理后，7 项全部通过，记录在 native-fixed.txt。新增响应体上限测试检查超限拒绝和恰好达到上限的成功边界。DNS 各记录查询状态独立报告，全部失败保留实际底层阶段，不混成普通无地址。
+
 ## Alternatives considered
 
 - 直接上线设置和全局网络层：用户能立即体验开关、节点管理和所有页面，但会在 ECH／CF 尚未验证时扩大回归范围；先交付隔离的对照探针。
