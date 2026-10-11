@@ -16,7 +16,7 @@ Debug 依赖开发机器的默认证书，Release 没有签名配置，仓库没
 
 Gradle 从本地 signing.properties 读取各变体配置，DEBUG_* / RELEASE_* 环境变量优先，signingPropertiesFile 可切换本地配置文件。配置自定义 Debug 证书时使用固定开发签名；没有私有配置的普通源码克隆仍可使用 Android 默认 Debug 签名。Release 构建缺少签名时明确失败，不能静默生成未签名包或回退 Debug 证书。密码经环境变量传给 keytool，生成与验签脚本不打印密码或私钥。
 
-Tag 发布只接受 vMAJOR.MINOR.PATCH，版本名去掉 v，versionCode 使用 major×1000000 + minor×1000 + patch + 1；minor 与 patch 为 0 到 999，最终值不超过 Android 的 2100000000 上限。拒绝前导零、预发布后缀与其他 Tag 格式，避免不同 Tag 映射到同一版本号。普通本地构建保留 0.1.0 / 1 默认值，可用 versionName、versionCode Gradle 属性覆盖。Tag 通过环境变量进入带引号的 shell 参数，不能直接插入命令源码。
+Tag 发布只接受 vX.Y.Z，三位组件均为单个 0 到 9 的数字；版本名去掉 v，versionCode 使用 major×1000000 + minor×1000 + patch + 1。补丁位从 0.1.0 递增到 0.1.9 后进位为 0.2.0，大功能提升 minor 或 major 位。拒绝前导零、预发布后缀与其他 Tag 格式，避免不同 Tag 映射到同一版本号。普通本地构建保留 0.1.0 / 1 默认值，可用 versionName、versionCode Gradle 属性覆盖。Tag 通过环境变量进入带引号的 shell 参数，不能直接插入命令源码。
 
 GitHub Actions 在 v 开头的 Tag 推送时校验 Tag、执行脚本测试、笔记校验、JVM 测试及 Lint，然后从 GitHub Secrets 恢复 Release 密钥库，构建签名 APK。工具链为 Ubuntu 24.04、JDK 21、Node 22、Android SDK 36 和 Build Tools 35.0.0；外部 Action 固定为已向官方仓库核实的提交 SHA。Windows 的 gradlew.bat 与 Linux 的 bash ./gradlew 均可使用仓库 Wrapper。
 
@@ -61,7 +61,7 @@ Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移�
 
 ## Verification
 
-本次发布脚本测试覆盖 `v0.1.6` 到 `1007` 的映射、新小写 APK 名称，以及缺失、多 ABI 和非 `arm64-v8a` 清单的拒绝路径。
+本次发布脚本测试覆盖 `v0.1.6` 到 `1007`、`v0.1.7` 到 `1008` 的映射，覆盖 `0.1.9` 到 `0.2.0` 的进位、新小写 APK 名称，以及缺失、多 ABI 和非 `arm64-v8a` 清单的拒绝路径。
 
 2026-10-11：使用 `-PversionName=0.1.6 -PversionCode=1007` 完成正式 R8 构建，`prepare_release.py` 生成 `kodo_0.1.6_release_arm64-v8a.apk` 及校验文件。`aapt` 显示包版本为 `0.1.6/1007` 且只含 `arm64-v8a`；`apksigner` 显示单一签名者、V2 验签通过且没有 debuggable 标记。APK SHA256 为 `7e4898ae810ecd9d7ee6a6da278f9975024b8facb78808079200af3f4b9a7d7c`。
 

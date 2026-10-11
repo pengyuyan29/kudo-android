@@ -20,9 +20,9 @@ class ReleaseVersion:
 
 
 def parse_tag(tag: str) -> ReleaseVersion:
-    match = re.fullmatch(r"v(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})", tag)
+    match = re.fullmatch(r"v([0-9])\.([0-9])\.([0-9])", tag)
     if not match:
-        raise ValueError("Use vMAJOR.MINOR.PATCH with no leading zeros or suffixes; minor and patch must be 0..999.")
+        raise ValueError("Use vX.Y.Z with each component from 0 to 9 and no suffixes.")
     major, minor, patch = map(int, match.groups())
     code = major * 1_000_000 + minor * 1_000 + patch + 1
     if code > 2_100_000_000:

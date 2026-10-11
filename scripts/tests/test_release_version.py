@@ -14,8 +14,9 @@ class ReleaseVersionTest(unittest.TestCase):
             ("v0.0.0", "0.0.0", 1),
             ("v0.1.0", "0.1.0", 1001),
             ("v0.1.6", "0.1.6", 1007),
+            ("v0.1.7", "0.1.7", 1008),
             ("v1.2.3", "1.2.3", 1_002_004),
-            ("v2099.999.999", "2099.999.999", 2_100_000_000),
+            ("v9.9.9", "9.9.9", 9_009_010),
         ):
             with self.subTest(tag=tag):
                 version = parse_tag(tag)
@@ -23,14 +24,14 @@ class ReleaseVersionTest(unittest.TestCase):
                 self.assertEqual(f"kodo_{name}_release_arm64-v8a.apk", version.apk_name)
 
     def test_component_rollovers_preserve_upgrade_order(self):
-        tags = ("v0.0.999", "v0.1.0", "v0.999.999", "v1.0.0", "v1.999.999", "v2.0.0")
+        tags = ("v0.0.8", "v0.0.9", "v0.1.0", "v0.1.8", "v0.1.9", "v0.2.0", "v9.8.9", "v9.9.0", "v9.9.9")
         codes = [parse_tag(tag).code for tag in tags]
         self.assertTrue(all(left < right for left, right in zip(codes, codes[1:])))
 
     def test_invalid_ambiguous_and_unsafe_tags_are_rejected(self):
         for tag in (
             "1.2.3", "V1.2.3", "v1.2", "v1.2.3.4", "v01.2.3", "v1.02.3", "v1.2.03",
-            "v1.2.3-rc.1", "v1.2.3+build", "v1.1000.0", "v1.0.1000", "v2100.0.0",
+            "v1.2.3-rc.1", "v1.2.3+build", "v1.10.0", "v1.0.10", "v10.0.0", "v2100.0.0",
             "v-1.2.3", "v１.2.3", "v1.2.3 ", "v1.2.3\n", "v1.2.3\nversion_code=1",
             "v1.2.3;echo unsafe", "v$(echo 1).2.3", "v1/2/3", "v" + "9" * 5000 + ".0.0",
         ):
