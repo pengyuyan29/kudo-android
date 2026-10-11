@@ -69,7 +69,7 @@ Debug 与 Release 保持相同包名、使用不同签名，不能互相覆盖�
 
 ### Tag 自动发布
 
-[release.yml](.github/workflows/release.yml) 在推送 `vMAJOR.MINOR.PATCH` 时运行：脚本测试、笔记检查、JVM 测试和 Lint 通过后恢复正式签名，构建 Release，核对证书、包名、版本及不可调试标记，生成 SHA256 文件，再发布 GitHub Release。构建作业只有仓库读取权限；独立发布作业使用 `GITHUB_TOKEN` 写入 Release，无需额外的长期发布令牌。
+[release.yml](.github/workflows/release.yml) 在推送 `vX.Y.Z` 时运行：脚本测试、笔记检查、JVM 测试和 Lint 通过后恢复正式签名，构建 Release，核对证书、包名、版本及不可调试标记，生成 SHA256 文件，再发布 GitHub Release。构建作业只有仓库读取权限；独立发布作业使用 `GITHUB_TOKEN` 写入 Release，无需额外的长期发布令牌。
 
 仓库建好后，在 **Settings → Secrets and variables → Actions** 添加以下 Repository secrets；本地与 Actions 应使用同一套 Release 证书：
 
@@ -89,16 +89,16 @@ Windows 可将密钥库 Base64 直接复制到剪贴板，再粘贴到对应 Sec
 将包含工作流的代码推送到仓库、配置好 Secrets 后，推送新版本 Tag：
 
 ```powershell
-git tag -a v0.1.6 -m '发布 0.1.6'
-git push origin v0.1.6
+git tag -a v0.1.7 -m '发布 0.1.7'
+git push origin v0.1.7
 ```
 
-示例产物为 `kodo_0.1.6_release_arm64-v8a.apk` 和 `kodo_0.1.6_release_arm64-v8a.apk.sha256`，正式 Release 只包含 `arm64-v8a`。发布说明从上一个祖先正式版本到当前 Tag 的 commit 中筛选 App 运行时变化，整理为“新增、修复、调整”，去除文档、测试、工具链、CI、合并提交与重复标题；首次版本包含完整历史。新提交请使用 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:`、`chore:` 等前缀，冒号后写中文说明；只有 `feat:`、`fix:`、`perf:` 且实际修改 `app/src/main/` 的提交会进入更新日志。发布前请查看生成的日志。工作流把同一份 `release-notes.md` 写入 GitHub Release，App 的“关于酷DO → 检查更新”显示该正文。工作流先准备草稿、上传完整产物后再公开；上传失败留下的草稿可以重跑恢复，已经公开的同名 Release 不会被覆盖，应使用新版本 Tag。
+当前发布基线为 `v0.1.6` / `versionCode=1007`，本次升级使用 `v0.1.7` / `versionCode=1008`。示例产物为 `kodo_0.1.7_release_arm64-v8a.apk` 和 `kodo_0.1.7_release_arm64-v8a.apk.sha256`，正式 Release 只包含 `arm64-v8a`。发布说明从上一个祖先正式版本到当前 Tag 的 commit 中筛选 App 运行时变化，整理为“新增、修复、调整”，去除文档、测试、工具链、CI、合并提交与重复标题；首次版本包含完整历史。新提交请使用 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:`、`chore:` 等前缀，冒号后写中文说明；只有 `feat:`、`fix:`、`perf:` 且实际修改 `app/src/main/` 的提交会进入更新日志。发布前请查看生成的日志。工作流把同一份 `release-notes.md` 写入 GitHub Release，App 的“关于酷DO → 检查更新”显示该正文。工作流先准备草稿、上传完整产物后再公开；上传失败留下的草稿可以重跑恢复，已经公开的同名 Release 不会被覆盖，应使用新版本 Tag。
 
 已创建本地版本 Tag 后，可预览和人工整理日志：
 
 ```powershell
-python scripts/release_notes.py --tag v0.1.6 --output artifacts/release-notes.md
+python scripts/release_notes.py --tag v0.1.7 --output artifacts/release-notes.md
 ```
 
 手动发布时用 `gh release create <Tag> --notes-file artifacts/release-notes.md` 写入整理后的文件；自动 Tag 流程使用脚本生成的内容。检查更新只读取公开正式 Release，不使用私有仓库凭据；仓库私有或未发布时显示暂无公开版本。下载和查看源码使用外部浏览器。
@@ -113,13 +113,13 @@ git config core.hooksPath .githooks
 
 钩子会拒绝没有受支持前缀的提交；`scripts/check_commit_history.py` 还会在 CI 中检查本次推送或 Pull Request 的提交范围。历史提交不会被自动改写，发布日志仍只提取实际修改 `app/src/main/` 的 `feat:`、`fix:` 和 `perf:` 提交。
 
-版本名为 Tag 去掉 `v`；`versionCode = major × 1000000 + minor × 1000 + patch + 1`。例如 `v1.2.3` 对应 `1.2.3` / `1002004`，`v0.1.6` 对应 `0.1.6` / `1007`。minor、patch 限制为 0–999，总值不超过 2100000000；前导零、`-rc`、`-beta` 等格式会失败。每次升级请使用更大的版本号。
+版本名为 Tag 去掉 `v`，严格使用 `vX.Y.Z`，其中 `X`、`Y`、`Z` 各为 `0–9` 的一位数字；`versionCode = major × 1000000 + minor × 1000 + patch + 1`。例如 `v1.2.3` 对应 `1.2.3` / `1002004`，当前 `v0.1.6` 对应 `0.1.6` / `1007`，下一版 `v0.1.7` 对应 `0.1.7` / `1008`。补丁位从 `0.1.9` 进位到 `0.2.0`，大功能可提升 minor 或 major 位；前导零、`-rc`、`-beta` 等格式会失败。每次升级请使用更大的版本号。
 
 普通本地构建保留 `0.1.0` / `1` 默认值，也可按 Tag 值构建相同版本：
 
 ```powershell
-python scripts/release_version.py v0.1.6
-.\gradlew.bat :app:assembleRelease "-PversionName=0.1.6" "-PversionCode=1007"
+python scripts/release_version.py v0.1.7
+.\gradlew.bat :app:assembleRelease "-PversionName=0.1.7" "-PversionCode=1008"
 ```
 
 发布验收用例：有效 Tag 应产生版本和签名一致的 APK；非法 Tag、缺失 Secret、签名错误、APK 被修改或版本不符均应停止发布。仓库尚未连接时，可运行下方脚本测试，并在本地执行签名构建；线上 Tag 触发和 Release 上传需在仓库建立后验证。
