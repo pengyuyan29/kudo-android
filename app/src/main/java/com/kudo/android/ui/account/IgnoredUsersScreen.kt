@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,12 +17,13 @@ import kotlinx.coroutines.*
 @Composable
 fun IgnoredUsersScreen(viewer: Member?, repository: CommunityRepository, back: () -> Unit, login: () -> Unit, restored: (Int, String) -> Unit) {
     val scope = rememberCoroutineScope()
+    val scroll = rememberLazyListState()
     var busy by remember(viewer?.id) { mutableStateOf<String?>(null) }
     var error by remember(viewer?.id) { mutableStateOf<Throwable?>(null) }
     var uncertain by remember(viewer?.id) { mutableStateOf(setOf<String>()) }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         PageTopBar("已忽略用户", back)
-        LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(state = scroll, modifier = Modifier.quickScrollTarget(scroll), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { Text("与 Linux.do 账号同步。取消忽略后，恢复此用户的内容和正常通知。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (viewer == null) item { EmptyState("登录后管理忽略用户", "使用与社区相同的账号设置。", actionLabel = "登录", action = login) }
             else {
