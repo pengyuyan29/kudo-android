@@ -3,6 +3,7 @@ package com.kudo.android.ui.topic
 import android.graphics.drawable.Animatable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.animation.rememberSplineBasedDecay
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -48,10 +49,14 @@ internal fun GalleryImagePage(
     var loaded by remember(image.originalUrl) { mutableStateOf(false) }
     var retry by remember(image.originalUrl) { mutableIntStateOf(0) }
     var settling by remember { mutableStateOf<Job?>(null) }
+    var flinging by remember { mutableStateOf<Job?>(null) }
+    val decay = rememberSplineBasedDecay<Float>()
+    DisposableEffect(transform, enabled, active) { onDispose { flinging?.cancel(); settling?.cancel() } }
     DisposableEffect(image.originalUrl) { onDispose { animation?.stop(); onPainterDisposed() } }
     val currentClose by rememberUpdatedState(close)
     val currentInformation by rememberUpdatedState(information)
     val currentEnabled by rememberUpdatedState(enabled)
+    val currentActive by rememberUpdatedState(active)
     val flingVelocity = with(LocalDensity.current) { 1_000.dp.toPx() }
     val viewport = transform.viewport
     val request = remember(image.originalUrl, viewport, retry) {
@@ -74,17 +79,17 @@ internal fun GalleryImagePage(
             if (enabled) detectTapGestures(onTap = { currentClose() }, onLongPress = { currentInformation() })
         }
         .galleryGestures(transform, enabled, flingVelocity,
-            start = { settling?.cancel(); transform.dismissOffset = androidx.compose.ui.geometry.Offset.Zero },
+            start = { flinging?.cancel(); settling?.cancel(); transform.dismissOffset = androidx.compose.ui.geometry.Offset.Zero },
             finish = { dismiss ->
                 if (currentEnabled) {
                     if (dismiss) currentClose()
                     else if (galleryMotionEnabled(context)) settling = scope.launch { transform.restoreDismiss() }
                     else transform.dismissOffset = androidx.compose.ui.geometry.Offset.Zero
                 }
-            })
+            }, panFinished = { velocity -> if (currentEnabled && currentActive) flinging = scope.launch { transform.fling(velocity, decay) } })
         .semantics {
             contentDescription = "第 ${page + 1} 张图片"
-            stateDescription = if (transform.zoomed) "已放大 ${"%.1f".format(transform.scale)} 倍" else "可双指缩放，下拉或点按关闭"
+            stateDescription = transform.zoomDescription
             onClick("关闭图片") { if (enabled) currentClose(); enabled }
             onLongClick("图片操作") { if (enabled) currentInformation(); enabled }
             customActions = listOf(

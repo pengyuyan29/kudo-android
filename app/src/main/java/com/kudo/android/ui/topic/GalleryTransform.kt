@@ -3,6 +3,8 @@ package com.kudo.android.ui.topic
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.DecayAnimationSpec
+import androidx.compose.animation.core.animateDecay
 import androidx.compose.foundation.gestures.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -11,10 +13,13 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 internal fun fitGalleryImage(viewport: Size, ratio: Float?): Rect {
     if (viewport.isEmpty()) return Rect.Zero
@@ -42,7 +47,8 @@ internal class GalleryTransformState(initialRatio: Float? = null) {
     val fitBounds get() = fitGalleryImage(viewport, ratio)
     val longImage get() = ratio?.let { it.isFinite() && it > 0 && it <= 1f / 3f } == true
     val defaultScale get() = if (longImage && fitBounds.width > 0) viewport.width / fitBounds.width else 1f
-    val zoomed get() = scale > defaultScale + 0.001f
+    val zoomed by derivedStateOf { scale > defaultScale + 0.001f }
+    val zoomDescription by derivedStateOf { if (zoomed) "已放大 ${"%.1f".format(scale)} 倍" else "可双指缩放，下拉或点按关闭" }
     val maxScale get() = max(defaultScale * 2f,
         if (fitBounds.width > 0) (viewport.width / fitBounds.width * 2f).coerceIn(5f, 20f) else 5f)
     val dismissFraction get() = if (viewport.height > 0) (dismissOffset.y / viewport.height).coerceIn(0f, 1f) else 0f
@@ -90,6 +96,20 @@ internal class GalleryTransformState(initialRatio: Float? = null) {
         return if (deltaY < 0) bounds.bottom > viewport.height + 0.5f else deltaY > 0 && bounds.top < -0.5f
     }
     fun accessibleZoom() { transform(Offset(viewport.width / 2, viewport.height / 2), Offset.Zero, 2f) }
+    suspend fun fling(velocity: Offset, decay: DecayAnimationSpec<Float>) = coroutineScope {
+        suspend fun axis(horizontal: Boolean, speed: Float) {
+            if (!speed.isFinite() || abs(speed) < 1f) return
+            val initial = if (horizontal) offset.x else offset.y
+            androidx.compose.animation.core.AnimationState(initial, speed).animateDecay(decay) {
+                val requested = if (horizontal) offset.copy(x = value) else offset.copy(y = value)
+                val bounded = constrained(requested, scale)
+                offset = bounded
+                if (abs((if (horizontal) bounded.x else bounded.y) - value) > 0.01f) cancelAnimation()
+            }
+        }
+        launch { axis(true, velocity.x) }
+        launch { axis(false, velocity.y) }
+    }
     fun dragBy(delta: Offset) { dismissOffset = (dismissOffset + delta).let { Offset(it.x, max(0f, it.y)) } }
     fun shouldDismiss(velocityY: Float, flingVelocity: Float): Boolean =
         dismissFraction >= 0.18f || (dismissFraction >= 0.04f && velocityY >= flingVelocity)
@@ -113,22 +133,24 @@ private enum class GalleryGesture { UNDECIDED, PAGER, TRANSFORM, DISMISS, IGNORE
 
 internal fun Modifier.galleryGestures(
     state: GalleryTransformState, enabled: Boolean, flingVelocity: Float,
-    start: () -> Unit, finish: (Boolean) -> Unit,
+    start: () -> Unit, finish: (Boolean) -> Unit, panFinished: (Offset) -> Unit = {},
 ): Modifier = pointerInput(state, enabled) {
     if (!enabled) return@pointerInput
     awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false)
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         start()
         val tracker = VelocityTracker().apply { addPosition(down.uptimeMillis, down.position) }
         var mode = GalleryGesture.UNDECIDED
         var total = Offset.Zero
         var completed = false
+        var transformedWithMultiplePointers = false
         try {
             do {
                 val event = awaitPointerEvent()
                 val pointers = event.changes.count { it.pressed }
                 event.changes.firstOrNull { it.id == down.id }?.let { tracker.addPosition(it.uptimeMillis, it.position) }
                 if (pointers >= 2) {
+                    transformedWithMultiplePointers = true
                     mode = GalleryGesture.TRANSFORM
                     state.dismissOffset = Offset.Zero
                     state.dragging = false
@@ -163,6 +185,10 @@ internal fun Modifier.galleryGestures(
             } while (event.changes.any { it.pressed })
             completed = true
             if (mode == GalleryGesture.DISMISS) finish(state.shouldDismiss(tracker.calculateVelocity().y, flingVelocity))
+            else if (mode == GalleryGesture.TRANSFORM && !transformedWithMultiplePointers) {
+                val velocity = tracker.calculateVelocity()
+                panFinished(Offset(velocity.x, velocity.y))
+            }
         } finally {
             if (!completed && mode == GalleryGesture.DISMISS) finish(false)
             state.dragging = false
