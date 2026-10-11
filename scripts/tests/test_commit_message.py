@@ -1,10 +1,14 @@
 import unittest
 from pathlib import Path
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from check_commit_message import validate
-from check_commit_history import invalid_records, parse_records
+from check_commit_history import invalid_records, parse_records, read_records
 
 
 class CommitMessageTest(unittest.TestCase):
@@ -29,6 +33,44 @@ class CommitMessageTest(unittest.TestCase):
     def test_history_validator_reports_only_unprefixed_subjects(self):
         records = [("good", "docs: 更新说明"), ("bad", "修复旧问题"), ("merge", "Merge branch 'main'")]
         self.assertEqual([("bad", "修复旧问题")], invalid_records(records))
+
+    def test_workflow_tag_range_preserves_legacy_history_and_checks_every_new_commit(self):
+        bash = str(Path(r"C:\Program Files\Git\bin\bash.exe")) if os.name == "nt" else shutil.which("bash")
+        if not bash or not Path(bash).is_file():
+            self.skipTest("Bash is required for the workflow shell fixture")
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/commit-messages.yml").read_text(encoding="utf-8")
+        block = workflow.split("        run: |\n", 1)[1]
+        shell = "\n".join(line[10:] for line in block.splitlines())
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            def git(*args):
+                return subprocess.run(["git", *args], cwd=root, check=True, capture_output=True,
+                    encoding="utf-8", env={**os.environ, "GIT_CONFIG_NOSYSTEM": "1"}).stdout.strip()
+            git("init")
+            git("config", "user.name", "Fixture")
+            git("config", "user.email", "fixture@example.test")
+            git("config", "core.hooksPath", ".git/no-hooks")
+            git("commit", "--allow-empty", "-m", "旧版未规范提交")
+            legacy = git("rev-parse", "HEAD")
+            git("tag", "-a", "v0.1.0", "-m", "legacy")
+            git("commit", "--allow-empty", "-m", "fix: 修复当前功能")
+            good = git("rev-parse", "HEAD")
+            git("commit", "--allow-empty", "-m", "新增但没有前缀")
+            invalid = git("rev-parse", "HEAD")
+            git("commit", "--allow-empty", "-m", "doc: 记录发布")
+            latest = git("rev-parse", "HEAD")
+            (root / "validate.sh").write_text('set -euo pipefail\npython3() { printf "%s\\n" "$2" > revision.txt; }\n' + shell,
+                encoding="utf-8", newline="\n")
+            def selected(sha, ref_type="tag", before="0" * 40):
+                subprocess.run([bash, "validate.sh"], cwd=root, check=True, capture_output=True,
+                    env={**os.environ, "EVENT_NAME": "push", "REF_TYPE": ref_type, "BEFORE": before, "SHA": sha, "BASE_REF": ""})
+                return read_records((root / "revision.txt").read_text().strip(), root)
+            self.assertEqual([(good, "fix: 修复当前功能")], selected(good))
+            self.assertEqual([(invalid, "新增但没有前缀")], invalid_records(selected(latest)))
+            self.assertEqual([(invalid, "新增但没有前缀")], invalid_records(selected(latest, "branch", good)))
+            git("tag", "-d", "v0.1.0")
+            self.assertEqual([(good, "fix: 修复当前功能")], selected(good))
+            self.assertNotIn(legacy, [commit for commit, _ in selected(good)])
 
 
 if __name__ == "__main__":

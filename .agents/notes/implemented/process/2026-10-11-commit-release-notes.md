@@ -41,6 +41,10 @@ A versioned `.githooks/commit-msg` hook calls `scripts/check_commit_message.py` 
 
 The repository also provides `scripts/check_commit_history.py` for CI and release branches. It validates only the supplied revision range, so existing unprefixed history is not rewritten while every new pull request or push can be rejected before release. Clones must run `git config core.hooksPath .githooks` once to activate the local hook; the CI range check remains the shared enforcement point when a clone has not installed local hooks.
 
+Tag推送的before全零，不代表全部祖先都是新提交。Tag校验使用当前提交父历史中最近的稳定版本Tag到当前SHA的范围；没有旧Tag时仅检查当前提交，兼容规范生效前的旧历史。普通分支更新与PR仍检查完整新增范围，不放过范围中间的无前缀提交。实际工作流shell的临时Git夹具覆盖旧历史、有效增量、增量中的非法中间提交、普通分支范围与首次Tag。
+
+移除Tag校验可以完全消除重复检查，但会失去直接Tag发布的增量门禁；保留校验并修正范围。重写旧历史可以让全量校验通过，但会改变既有提交身份与Tag，违背只约束新提交的约定。
+
 ## Consequences
 
 日志只呈现App功能、修复和体验变化，首次版本与增量版本使用相同过滤规则，工程变更可从完整比较链接追溯。日志质量仍取决于commit标题；旧提交中混合功能与验收说明的标题不会自动改写，发布前需要查看预览。未来拆分运行时模块时必须同步文件范围。真实云端正文已验收，但私有仓库内认证访问不能证明App的匿名访问路径；本轮生成的v0.1.5预览不代表已发布正文已被修改。
