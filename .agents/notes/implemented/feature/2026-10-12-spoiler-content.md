@@ -27,7 +27,7 @@ Status: implemented
 
 RMX2202 / Android 13 上的 3 项剧透设备测试通过，验证混合文字/表情/图片的两次点击、链接与图片不误开、行内排版、状态恢复以及强制旧系统遮挡分支；与图片、引用、链接等回归共 39 项通过（`artifacts/image-spoiler-device.txt`，62.34 秒）。`artifacts/spoiler-hidden.png` 已实际查看，确认文字、表情和图片均被模糊；像素和可访问语义分别验收。
 
-最新高刷手势版的 39 项回归通过（`artifacts/image-spoiler-final-device-recheck.txt`，61.96 秒）。前一轮 AVIF 启动超时、独立复测只采到首帧，属于正文图片生命周期竞态，跟进记录归属[正文图片](../bug-fix/2026-10-09-article-image-layout.md)，不把重跑成功当作竞态已修复。
+最新高刷手势版的 39 项回归通过（`artifacts/image-spoiler-final-device-recheck.txt`，61.96 秒）。前一轮 AVIF 启动超时、独立复测只采到首帧，属于正文图片生命周期竞态；[正文图片](../bug-fix/2026-10-09-article-image-layout.md)记录稳定复现及修复。最终新增专项与原回归共 40 项全部通过（`artifacts/release-0.2.0-final-device.txt`，64.083 秒），没有以重跑成功代替修复。
 
 ## Consequences
 

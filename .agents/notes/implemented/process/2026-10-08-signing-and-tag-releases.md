@@ -8,7 +8,9 @@ Debug 依赖开发机器的默认证书，Release 没有签名配置，仓库没
 
 ## Decision
 
-当前正式版基线为 `0.1.9` / `1010`，下一版从 `0.2.0` / `2001` 开始。Release APK 只打包 `arm64-v8a`，发布脚本将验证 APK 的 `native-code` 清单只包含该 ABI；公开产物统一命名为 `kodo_<version>_release_arm64-v8a.apk` 及对应的 `.sha256` 文件。
+当前本地打包与 Tag 基线为 `0.2.0` / `2001`，下一版从 `0.2.1` / `2002` 开始。Release APK 只打包 `arm64-v8a`，发布脚本将验证 APK 的 `native-code` 清单只包含该 ABI；公开产物统一命名为 `kodo_<version>_release_arm64-v8a.apk` 及对应的 `.sha256` 文件。
+
+0.2.0 本地验收：使用 Gradle 参数 `-PversionName=0.2.0 -PversionCode=2001` 构建，默认版本不变。最终 APK 为 `artifacts/release/0.2.0/kodo_0.2.0_release_arm64-v8a.apk`，8.70 MiB，SHA256 为 `c36a8c4d2e458a90619729ce719f2921b64374242f5df243286175f1672c5bdd`；与 0.1.9 正式证书一致，版本、单 arm64-v8a、非 debuggable、16KB ZIP 对齐和三份 native ELF LOAD 对齐通过（同目录 `local-verification.txt`）。46 项相关 JVM 测试、最终 Release R8 / Lint、40 项 RMX2202 / Android 13 设备回归及两项图片帧探针通过。日志分别为 `artifacts/image-spoiler-final-build.txt`、`release-0.2.0-final-build.txt`、`release-0.2.0-final-device.txt`、`gallery-frame-probe-final-device.txt`；Lint 为 0 errors / 41 warnings / 1 hint。手机使用同签名开发包 `install -r`，不安装正式包、不卸载或清数据。GitHub 已公开正式版本经认证 API 核实仍为 v0.1.5，App 更新日志以此为基线；云端发布流程按用户要求暂不处理，本地 Tag 不代表已公开 Release。
 
 `release_version.py` 集中定义发布 ABI 并生成小写文件名，`prepare_release.py` 在复制 APK 前解析 `aapt dump badging`，缺少 native-code、包含多个 ABI 或出现其他 ABI 都会拒绝发布。
 
