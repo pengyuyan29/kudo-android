@@ -31,6 +31,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 @Composable
 fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}, onPostsRead: (Set<Int>) -> Unit = {}, loadBoostRules: () -> Unit = {}, boost: (Post, String, () -> Unit) -> Unit = { _, _, _ -> }, jumpTo: (Int) -> Unit = {}, vote: (Post, String, List<String>) -> Unit = { _, _, _ -> }, openCategory: (Int) -> Unit = {}, openTag: (TopicTag) -> Unit = {}, previous: () -> Unit = {}) {
@@ -104,18 +107,27 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         previousAnchor = visiblePostAnchor()
         previous()
     }
-    LaunchedEffect(state.loadingPrevious, state.targetRevision) {
-        if (!state.loadingPrevious) return@LaunchedEffect
+    LaunchedEffect(state.loadingPrevious, state.loadingMore, state.loading, state.jumping, state.previousError, state.targetRevision) {
+        if (!state.loadingPrevious) {
+            if (state.loadingMore || state.loading || state.jumping || state.previousError != null) previousAnchor = null
+            return@LaunchedEffect
+        }
         snapshotFlow { visiblePostAnchor() }.collect { anchor -> if (anchor != null) previousAnchor = anchor }
     }
-    LaunchedEffect(posts.firstOrNull()?.id) {
+    LaunchedEffect(posts.firstOrNull()?.id, detail?.stream, state.loadingPrevious) {
+        if (state.loadingPrevious) return@LaunchedEffect
         val anchor = previousAnchor ?: return@LaunchedEffect
         val index = posts.indexOfFirst { it.id == anchor.first }
         if (index >= 0) {
             val itemIndex = index + (if (!originalIgnored || revealOriginal) 1 else 0) + (if (hasPrevious) 1 else 0)
             snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > itemIndex }
             withFrameNanos { }
-            listState.scrollToItem(itemIndex, -anchor.second)
+            if (listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == anchor.first }?.offset != anchor.second) {
+                val layoutBeforeRestore = listState.layoutInfo
+                // A suspending scroll is rejected by an active drag and leaves the anchor stuck.
+                listState.requestScrollToItem(itemIndex, -anchor.second)
+                snapshotFlow { listState.layoutInfo }.first { it !== layoutBeforeRestore }
+            }
         }
         previousAnchor = null
     }
@@ -130,8 +142,13 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             val index = posts.indexOfFirst { it.number == state.targetNumber }
             if (index >= 0) {
                 threadVisibility.targetState = false
-                scrollToPost(index)
-                currentFloor = state.targetNumber
+                try {
+                    scrollToPost(index)
+                    currentFloor = state.targetNumber
+                } catch (e: CancellationException) {
+                    // A reader may interrupt the scroll without cancelling this navigation generation.
+                    currentCoroutineContext().ensureActive()
+                }
                 located = true
             }
         }
@@ -139,11 +156,14 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     val hasMore = state.pageIds(previous = false).isNotEmpty()
     val covered = LocalReadingBlocked.current
     AutomaticPostLoading(listState, "more-posts", detail?.stream to posts.map(Post::id),
-        hasMore && !showing && !covered && !state.loading && !state.jumping && !state.loadingMore && !state.loadingPrevious &&
+        hasMore && !showing && !covered && !state.loading && !state.jumping && !state.loadingMore && !state.loadingPrevious && previousAnchor == null &&
             state.error == null && state.moreError == null && (state.targetNumber == null || located), more)
-    AutomaticPreviousPostLoading(listState, posts.take(3).map(Post::id).toSet(), detail?.stream to posts.map(Post::id),
-        hasPrevious && !showing && !covered && !state.loading && !state.jumping && !state.loadingPrevious && !state.loadingMore &&
-            state.error == null && state.previousError == null && (state.targetNumber == null || located), ::loadPreviousPage)
+    AutomaticPreviousPostLoading(listState, "previous-posts", posts.take(3).map(Post::id).toSet(), detail?.stream to posts.map(Post::id),
+        hasPrevious && !showing && !covered && !state.loading && !state.jumping && !state.loadingPrevious && !state.loadingMore && previousAnchor == null &&
+            state.error == null && state.previousError == null && (state.targetNumber == null || located)) {
+        // A local function reference compares equal even when its captured loading state changes.
+        loadPreviousPage()
+    }
     TopicReadingEnvironment(detail?.id ?: 0, state.viewerId, readingEnabled && detail != null && !state.loading && !state.jumping &&
         !showing && (state.targetNumber == null || located), onReadingBatch, onPostsRead) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -282,14 +302,20 @@ private fun AutomaticPostLoading(list: LazyListState, footer: String, progress: 
 }
 
 @Composable
-private fun AutomaticPreviousPostLoading(list: LazyListState, firstPostIds: Set<Int>, progress: Any?, enabled: Boolean, load: () -> Unit) {
+private fun AutomaticPreviousPostLoading(list: LazyListState, header: String, firstPostIds: Set<Int>, progress: Any?, enabled: Boolean, load: () -> Unit) {
     val latestLoad by rememberUpdatedState(load)
-    LaunchedEffect(list, firstPostIds, progress, enabled) {
+    var headerConsumed by remember(list, header) { mutableStateOf(false) }
+    LaunchedEffect(list, header, firstPostIds, progress, enabled) {
         if (!enabled) return@LaunchedEffect
-        snapshotFlow {
+        val trigger = snapshotFlow {
             val layout = list.layoutInfo
-            layout.visibleItemsInfo.any { it.key in firstPostIds && it.offset < layout.viewportEndOffset && it.offset + it.size > layout.viewportStartOffset }
-        }.first { it }
+            val visible = layout.visibleItemsInfo.filter { it.offset < layout.viewportEndOffset && it.offset + it.size > layout.viewportStartOffset }
+            visible.any { it.key == header } to visible.any { it.key in firstPostIds }
+        }.first { (headerVisible, postVisible) ->
+            if (!headerVisible) headerConsumed = false
+            postVisible || (headerVisible && !headerConsumed)
+        }
+        headerConsumed = trigger.first
         latestLoad()
     }
 }
