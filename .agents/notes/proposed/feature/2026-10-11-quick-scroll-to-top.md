@@ -63,3 +63,5 @@ Status: proposed
 集中Debug、AndroidTest及Lint通过（artifacts/quick-top-tests-build.txt），Lint为0错误/38警告/1提示。27项JVM关联回归全部通过（ReplyRulesTest 3、TopicFloorNavigationTest 12、TopicResumeReadingTest 12）。核对已安装Debug签名一致后install -r保留数据覆盖，新增QuickScrollToTopUiTest的8项真机用例全部通过（artifacts/quick-top-ui-first.txt），覆盖独立测试配置持久化、开关即时生效、分页状态、覆盖和重复点击、公开主页展开、远楼层失败保留/成功回标题、三种材质避让及回复计数和发送阈值。
 
 同机深色130%字号的LIQUID/BLUR/TRANSLUCENT静止截图分别为artifacts/quick-top-material-*.png，已人工检查：按钮居中且在底栏上方，液态边缘采样到真实双色内容，模糊/半透明遵循既有兼容效果。这是固定离线色块夹具的材质检查，不能当作所有实景或旧系统运行验收。
+
+57项相关页面回归中55项通过，公开主页两个旧断言分别因昵称匹配展开/吸顶两个节点和固定两次滑动未定位目标失败（artifacts/quick-top-regression-ui.txt），改为限定展开节点和显式滚动到目标项。代码审查另发现外部回复面板仅通过readingEnabled传递遮挡，新增用例先复现回顶按钮未隐藏（artifacts/quick-top-reply-cover-repro.txt），话题目标同时遵守readingEnabled。

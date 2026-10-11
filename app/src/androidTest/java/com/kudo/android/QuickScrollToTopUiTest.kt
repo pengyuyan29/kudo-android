@@ -168,6 +168,19 @@ class QuickScrollToTopUiTest {
         button().assertDoesNotExist()
     }
 
+    @Test fun anExternalReplyPanelHidesTheUnderlyingTopicReturnButton() {
+        var replyShowing by mutableStateOf(false)
+        val posts = (1..40).map(::post)
+        val state = TopicState(TopicDetail(5, "回复面板覆盖", 1, posts, posts.map(Post::id), false), false)
+        compose.setContent { KudoTheme(DisplaySettings()) { QuickScrollToTopHost {
+            TopicScreen(state, GlassMode.LIQUID, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, readingEnabled = !replyShowing)
+        } } }
+        compose.onNodeWithTag("topic-posts").performScrollToIndex(8)
+        button().assertIsDisplayed()
+        compose.runOnIdle { replyShowing = true }
+        button().assertDoesNotExist()
+    }
+
     @Test fun threeMaterialsStayAboveTheBottomBarInDarkLargeText() {
         var mode by mutableStateOf(GlassMode.LIQUID)
         compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f, glass = mode)) {
