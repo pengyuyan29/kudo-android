@@ -64,6 +64,7 @@ internal class DohTransport(server: DohServer, private val handshake: (String, B
         val managers = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply { init(null as KeyStore?) }.trustManagers
         val trust = managers.filterIsInstance<X509TrustManager>().single()
         return builder.dns(dns).socketFactory(socketFactory).sslSocketFactory(tlsFactory, trust)
+            .addInterceptor { chain -> chain.proceed(dohRequestWithoutReplay(chain.request())) }
             .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1)).connectionSpecs(listOf(ConnectionSpec.MODERN_TLS, ConnectionSpec.CLEARTEXT))
             .proxy(Proxy.NO_PROXY).retryOnConnectionFailure(false)
     }

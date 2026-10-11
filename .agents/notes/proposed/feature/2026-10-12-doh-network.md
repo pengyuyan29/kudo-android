@@ -36,6 +36,8 @@ Android 适配单元为 `network/DohTransport.kt` 与 `NativeDoh.kt`。原始 So
 
 Discourse、Connect、MessageBus 通过构造参数注入 `(OkHttpClient) -> Call.Factory`，保留原客户端的 Cookie、来源、重定向和超时约束；默认是原客户端，既有测试和调用保持兼容。主站 GET 显示固定的 DoH 错误说明，写失败仍提示结果未知且禁止自动重放。
 
+写请求再由 `DohRequestPolicy` 标记一次性 body；关闭连接重试并不能阻止 OkHttp 对 `503 Retry-After:0` 的 HTTP follow-up。MockWebServer 先复现 POST 被发送两次，修复后原样返回 503，服务端只收一次；GET/HEAD 保留既有语义，上传仍流式写入。
+
 AppContainer 持有统一 DohNetwork，并应用于主站、Connect、Coil 图片及原图下载；图片凭据继续在每次真实网络请求处剔除/按 HTTPS 主站添加，跨源重定向不泄漏 Cookie。ImageDownloader 只依赖 Call.Factory，不持有固定路由客户端。GitHub 更新明确豁免，继续走独立系统网络且不携带社区凭据。
 
 首页和账号通知创建的两处 MessageBus 均注入同一路由。切换时旧轮询被关闭，原有循环沿当前游标重连；不复用主站的 CookieJar 或会话拦截器。
