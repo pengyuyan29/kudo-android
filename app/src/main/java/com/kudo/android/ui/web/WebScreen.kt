@@ -47,6 +47,7 @@ internal fun WebScreen(url: String, back: () -> Unit, openBrowser: (String) -> U
     var progress by remember(url) { mutableIntStateOf(0) }
     var error by remember(url) { mutableStateOf<String?>(null) }
     var message by remember(url) { mutableStateOf<String?>(null) }
+    var scrolled by remember(url) { mutableStateOf(false) }
     val currentBack by rememberUpdatedState(back)
     fun navigateBack() { val view = page.view; if (view?.canGoBack() == true) view.goBack() else currentBack() }
     fun retry() { error = null; message = null; page.view?.reload() }
@@ -75,7 +76,12 @@ internal fun WebScreen(url: String, back: () -> Unit, openBrowser: (String) -> U
             if (progress < 100) Box(Modifier.fillMaxWidth((progress / 100f).coerceIn(0f, 1f)).fillMaxHeight().background(LogoYellow))
         }
         message?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall) }
-        Box(Modifier.weight(1f).fillMaxWidth().navigationBarsPadding().imePadding()) {
+        Box(Modifier.weight(1f).fillMaxWidth().navigationBarsPadding().imePadding()
+            .quickScrollTarget(scrolled = scrolled, enabled = error == null) {
+                page.view?.let { view ->
+                    androidx.compose.animation.core.animate(view.scrollY.toFloat(), 0f) { value, _ -> view.scrollTo(0, value.toInt()) }
+                }
+            }) {
             AndroidView(factory = { context ->
                 webViewFactory(context).apply {
                     // Keep CSS viewport units bounded; AndroidView otherwise defaults to WRAP_CONTENT.
@@ -114,10 +120,12 @@ internal fun WebScreen(url: String, back: () -> Unit, openBrowser: (String) -> U
                     }
                     setDownloadListener { _, _, _, _, _ -> message = "下载文件请使用右上角的浏览器打开" }
                     page.view = this
+                    setOnScrollChangeListener { _, _, y, _, _ -> scrolled = y > 0 }
                     if (page.saved?.let { restoreState(it) } == null) loadUrl(url)
                 }
             }, onRelease = { view ->
                 page.view = null
+                view.setOnScrollChangeListener(null)
                 view.stopLoading(); view.removeAllViews(); view.destroy()
                 CookieManager.getInstance().flush()
             }, modifier = Modifier.fillMaxSize().testTag("web-content"))

@@ -108,6 +108,7 @@ internal fun ChatScreen(vm: ChatViewModel, member: Member, settings: AppSettings
     val draftKey = "${member.id}_chat_${vm.channelId}"
     var raw by remember(member.id, vm.channelId) { mutableStateOf(settings.draft(draftKey).raw) }
     val scroll = rememberLazyListState()
+    val awayFromTop by remember { derivedStateOf { scroll.canScrollBackward && scroll.canScrollForward } }
     var located by remember(vm) { mutableStateOf(false) }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val visibleId by remember(scroll) { derivedStateOf { scroll.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? Int }.maxOrNull() } }
@@ -132,7 +133,9 @@ internal fun ChatScreen(vm: ChatViewModel, member: Member, settings: AppSettings
             CommunityIconButton(Icons.Rounded.Refresh, "刷新聊天", { vm.load() }, enabled = !vm.loading)
             CommunityIconButton(Icons.Rounded.Language, "在应用内网页查看聊天", website)
         }
-        LazyColumn(Modifier.weight(1f), state = scroll, reverseLayout = true,
+        LazyColumn(Modifier.weight(1f).quickScrollTarget(scrolled = awayFromTop) {
+            scroll.animateScrollToItem((scroll.layoutInfo.totalItemsCount - 1).coerceAtLeast(0))
+        }, state = scroll, reverseLayout = true,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             items(vm.messages.asReversed(), key = { it.id }) { message ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
