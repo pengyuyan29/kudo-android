@@ -30,6 +30,10 @@ Windows 构建入口为 scripts/build_doh_probe.ps1，使用固定 Cargo.lock、
 
 首次真实构建复现 Windows PowerShell 5 将 Cargo stderr 进度文本当作终止错误，记录 android-native-build.txt；脚本改为归一化文本并以进程退出码判断后，Android arm64 release 构建成功（73 秒），库为 4,798,696 字节，ELF LOAD 对齐均为 16KB，记录 android-native-build-fixed.txt。
 
+Android 对照位于 DohEchDeviceProbeTest，编译时显式传入 -PdohProbe=true 才把生成库放进 androidTest APK。运行 JNI 边界检查需 dohNativeProbe=true，线上只读对照需 dohLiveProbe=true；不传参数不会联网。额外增加 Rust + DoH、不开 ECH 的对照，区分 TLS 栈变化与 ECH 的作用。
+
+AndroidTest 构建及 Lint 通过（27 秒，0 错误、38 警告，android-test-build-final.txt）。测试 APK 为 7,661,209 字节，签名 SHA256 与手机现有开发版相同（95f95aff266413e4c3fb431bf7ae96552d0e5e601b986e4a53d2a116b6623e4f），16KB zipalign 通过。仅使用 adb install -r 覆盖测试包，没有替换 App 主包、卸载或清数据。真机 JNI 凭据与白名单检查 1 项通过（device-native-boundaries.txt）。
+
 ## Alternatives considered
 
 - 直接上线设置和全局网络层：用户能立即体验开关、节点管理和所有页面，但会在 ECH／CF 尚未验证时扩大回归范围；先交付隔离的对照探针。
