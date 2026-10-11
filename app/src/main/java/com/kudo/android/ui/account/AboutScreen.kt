@@ -30,6 +30,7 @@ import com.kudo.android.data.GitHubRelease
 import com.kudo.android.data.KudoSourceUrl
 import com.kudo.android.ui.components.PageTopBar
 import com.kudo.android.ui.components.liquid.LiquidModal
+import com.kudo.android.ui.components.quickScrollTarget
 import com.kudo.android.ui.components.liquid.LiquidModalAction
 import com.kudo.android.ui.theme.LocalDisplaySettings
 import com.kyant.backdrop.backdrops.layerBackdrop
