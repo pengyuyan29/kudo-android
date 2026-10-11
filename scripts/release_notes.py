@@ -28,11 +28,18 @@ def git(*arguments: str, cwd: Path | None = None) -> str:
     return result.stdout.strip()
 
 
-def previous_tag(tag: str, cwd: Path | None = None) -> str | None:
+def previous_tag(tag: str, cwd: Path | None = None, published: str | None = None) -> str | None:
     current = parse_tag(tag)
     git("rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}", cwd=cwd)
+    merged = git("tag", "--merged", f"refs/tags/{tag}", cwd=cwd).splitlines()
+    if published is not None:
+        if not published:
+            return None
+        if parse_tag(published).code >= current.code or published not in merged:
+            raise ValueError("已发布基线必须是版本较小的祖先Tag。")
+        return published
     candidates = []
-    for candidate in git("tag", "--merged", f"refs/tags/{tag}", cwd=cwd).splitlines():
+    for candidate in merged:
         try:
             version = parse_tag(candidate)
         except ValueError:
@@ -102,8 +109,8 @@ def render_notes(tag: str, subjects: list[str | ReleaseCommit], repository: str,
     return "\n".join(lines)
 
 
-def generate_notes(tag: str, repository: str, cwd: Path | None = None) -> str:
-    previous = previous_tag(tag, cwd)
+def generate_notes(tag: str, repository: str, cwd: Path | None = None, previous: str | None = None) -> str:
+    previous = previous_tag(tag, cwd, published=previous)
     revision = f"refs/tags/{previous}..refs/tags/{tag}" if previous else f"refs/tags/{tag}"
     records = git("log", "--no-merges", "--reverse", "--format=%H%x00%s", revision, cwd=cwd).splitlines()
     commits = []
@@ -118,10 +125,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--repository", default="woliubang256/kudo-android")
+    parser.add_argument("--previous-tag", help="Previous published release tag; an empty value includes all history")
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
     try:
-        body = generate_notes(arguments.tag, arguments.repository)
+        body = generate_notes(arguments.tag, arguments.repository, previous=arguments.previous_tag)
         arguments.output.parent.mkdir(parents=True, exist_ok=True)
         arguments.output.write_text(body, encoding="utf-8", newline="\n")
     except (ValueError, OSError) as error:

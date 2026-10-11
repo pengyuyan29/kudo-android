@@ -80,6 +80,31 @@ class ReleaseNotesTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             generate_notes("v1.0.0", "owner/repo", self.root)
 
+    def test_published_baseline_keeps_changes_from_failed_tags_and_rejects_invalid_ranges(self):
+        self.commit("feat: 已发布功能")
+        self.git("tag", "v0.1.0")
+        self.commit("fix: 首次失败构建的修复")
+        self.git("tag", "v0.1.1")
+        self.commit("feat: 第二次失败构建的新功能")
+        self.git("tag", "v0.1.2")
+        self.commit("test: 修复发布检查", ("scripts/fixture.py",))
+        self.git("tag", "v0.1.3")
+        notes = generate_notes("v0.1.3", "owner/repo", self.root, previous="v0.1.0")
+        self.assertIn("首次失败构建的修复", notes)
+        self.assertIn("第二次失败构建的新功能", notes)
+        self.assertNotIn("已发布功能", notes)
+        self.assertNotIn("修复发布检查", notes)
+        self.assertIn("/compare/v0.1.0...v0.1.3", notes)
+        first = generate_notes("v0.1.3", "owner/repo", self.root, previous="")
+        self.assertIn("已发布功能", first)
+        self.assertIn("/commits/v0.1.3", first)
+        self.git("checkout", "--orphan", "other")
+        self.commit("feat: 无共同祖先的版本")
+        self.git("tag", "v0.0.9")
+        for previous in ("v0.1.3", "v0.1.4", "v0.0.9", "v0.1.0;unsafe"):
+            with self.subTest(previous=previous), self.assertRaises(ValueError):
+                generate_notes("v0.1.3", "owner/repo", self.root, previous=previous)
+
     def test_merge_commit_is_excluded_but_feature_is_kept(self):
         self.commit("初始提交")
         self.git("tag", "v0.1.0")
