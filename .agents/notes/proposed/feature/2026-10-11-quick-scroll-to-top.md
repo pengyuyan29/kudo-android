@@ -65,3 +65,5 @@ Status: proposed
 同机深色130%字号的LIQUID/BLUR/TRANSLUCENT静止截图分别为artifacts/quick-top-material-*.png，已人工检查：按钮居中且在底栏上方，液态边缘采样到真实双色内容，模糊/半透明遵循既有兼容效果。这是固定离线色块夹具的材质检查，不能当作所有实景或旧系统运行验收。
 
 57项相关页面回归中55项通过，公开主页两个旧断言分别因昵称匹配展开/吸顶两个节点和固定两次滑动未定位目标失败（artifacts/quick-top-regression-ui.txt），改为限定展开节点和显式滚动到目标项。代码审查另发现外部回复面板仅通过readingEnabled传递遮挡，新增用例先复现回顶按钮未隐藏（artifacts/quick-top-reply-cover-repro.txt），话题目标同时遵守readingEnabled。
+
+主页昵称断言限定public-profile-header祖先，保留展开昵称必须可见的检查；窄屏用例保留原手势、资料面板与匿名登录回调检查，再显式滚到热门主题，避免固定手势距离依赖设备。其余已通过页面不重复全量运行，最终重建后只复测公开主页及9项回顶用例。

@@ -92,7 +92,7 @@ class PublicProfileUiTest {
     }
     @Test fun cardBackgroundReplacesProfileTitleImageAndHeaderIsCompact() {
         show()
-        compose.onNodeWithText("个人主页测试").assertIsDisplayed()
+        compose.onNode(hasText("个人主页测试") and hasAnyAncestor(hasTestTag("public-profile-header"))).assertIsDisplayed()
         compose.onNodeWithText("2394").assertIsDisplayed()
         compose.onNodeWithTag("profile-follow").assertIsDisplayed()
         compose.onNodeWithTag("topic-tag-Android", useUnmergedTree = true).assertIsDisplayed()
@@ -299,6 +299,7 @@ class PublicProfileUiTest {
         compose.onNodeWithTag("profile-pager").assertIsDisplayed()
         compose.onNodeWithTag("profile-list-SUMMARY").performTouchInput { swipeUp() }
         compose.onNodeWithTag("profile-list-SUMMARY").performTouchInput { swipeUp() }
+        compose.onNodeWithTag("profile-list-SUMMARY").performScrollToNode(hasText("热门主题"))
         compose.onNodeWithText("热门主题").assertIsDisplayed()
         screenshot("public-profile-narrow-large.png")
     }
