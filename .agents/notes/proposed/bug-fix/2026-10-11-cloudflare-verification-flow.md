@@ -36,6 +36,8 @@ Status: proposed
 
 首个小单元完成网络识别与有限GET重试：DiscourseClientTest先复现17项中的4项失败（artifacts/cloudflare-client-repro-20261011.txt），修复后17项全部通过（artifacts/cloudflare-client-fixed-20261011.txt）。覆盖普通HTML403、登录Turnstile、文章引用及常规jsd脚本不误报；短暂挑战重试成功并读取新Cookie；持续挑战最多两次；POST遇盾不重放。其余网页入口及后台推送隔离仍在本篇提案范围内，不能将首个小单元通过称为整体完成。
 
+首页推送用例先复现正常列表被写入VERIFICATION错误（artifacts/cloudflare-feed-repro-20261011.txt）。接收独立推送失败时只暂停订阅，正常话题及分页不变，主站读取错误仍走既有错误状态。
+
 ## Risks
 
 Cloudflare仍可能因出口IP或设备/客户端特征再次验证，修复误判和会话恢复不能保证站点永久放行。明确挑战最多增加600ms及一次GET；后台订阅暂停期间没有实时提示，重新激活后恢复。验证/latest.json确认主站原生读取恢复，具体受保护端点仍以原页面重试结果为准。全屏验证覆盖期间必须阻挡底层交互及阅读曝光，关闭后保留原导航和数据。

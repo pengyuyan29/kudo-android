@@ -126,7 +126,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
                         throw e
                     } catch (e: ApiFailure) {
                         if (e.kind == FailureKind.VERIFICATION) {
-                            _state.update { it.copy(error = e) }
+                            // The independent push origin cannot diagnose main-site clearance.
                             updatesActive = false
                             updateJob?.cancel()
                         }

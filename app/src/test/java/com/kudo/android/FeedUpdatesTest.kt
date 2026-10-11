@@ -18,11 +18,11 @@ import java.util.concurrent.atomic.AtomicReference
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FeedUpdatesTest {
-    @Test fun verificationFailureFromBackgroundUpdatesIsShownInFeedState() = runBlocking {
+    @Test fun verificationFailureFromBackgroundUpdatesKeepsTheSuccessfulFeedAndCanResume() = runBlocking {
         Dispatchers.setMain(Dispatchers.Unconfined)
         val server = MockWebServer()
         server.start()
-        server.enqueue(MockResponse().setBody("""{"topic_list":{"topics":[]}}"""))
+        server.enqueue(MockResponse().setBody("""{"topic_list":{"topics":[{"id":11,"title":"正常话题"}]}}"""))
         val subscriptions = AtomicInteger()
         val vm = FeedViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))),
             updates = FeedUpdates {
@@ -32,8 +32,9 @@ class FeedUpdatesTest {
         try {
             withTimeout(5000) { while (vm.state.value.loading) delay(10) }
             vm.setUpdatesActive(true)
-            withTimeout(5000) { while (vm.state.value.error == null) delay(10) }
-            assertEquals(FailureKind.VERIFICATION, (vm.state.value.error as ApiFailure).kind)
+            assertEquals(1, subscriptions.get())
+            assertNull("独立推送过盾不能遮盖正常列表", vm.state.value.error)
+            assertEquals(listOf(11), vm.state.value.topics.map(Topic::id))
             vm.setUpdatesActive(true)
             withTimeout(5000) { while (subscriptions.get() < 2) delay(10) }
         } finally {
