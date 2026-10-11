@@ -28,6 +28,8 @@ L 站回应使用 PUT /discourse-reactions/posts/{post_id}/custom-reactions/{rea
 
 AndroidSessionCookies 与官网 WebView 共用 CookieManager。CSRF 通过互斥刷新；失败的写请求不自动重发。401、验证页、权限拒绝、429、服务端错误和网络错误分型。图片仅向 HTTPS linux.do 附加 Cookie，跨站图片不携带账号凭据。备份禁用，设置和草稿在应用私有目录；退出清除账号草稿。
 
+[DoH 与 ECH 调研提案](../../proposed/feature/2026-10-12-doh-network.md)评估统一 DNS／TLS 策略，不改变本篇已实现的同源、凭据隔离和写请求不重放契约；新传输尚未落地。
+
 Discourse 的 JSON 403 若携带 `error_type: not_logged_in`，按未登录处理，展示登录入口；其余 JSON 403 保持权限错误。不按中文错误文案猜测类型，避免翻译变化和权限不足被混淆。真机访客搜索会触发此边界。
 
 ## Alternatives considered
