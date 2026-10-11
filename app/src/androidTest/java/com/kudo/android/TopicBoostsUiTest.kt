@@ -187,6 +187,35 @@ class TopicBoostsUiTest {
             .outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
+    @Test fun compactCounterIncludesEmojiAndExplainsExceededLimits() {
+        var raw by mutableStateOf("")
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            BoostForm(raw, { raw = it }, TopicState(detail, false, boostEmojis = setOf("custom")),
+                false, {}, {}, {}, "author")
+        } }
+        compose.onNodeWithText("0/16字").assertIsDisplayed()
+        compose.onNodeWithText("表情", substring = true).assertDoesNotExist()
+        val input = compose.onNodeWithTag("boost-input")
+        input.performTextInput("加油😀:custom:")
+        compose.onNodeWithText("4/16字").assertIsDisplayed()
+        compose.onNodeWithText("发送").assertIsEnabled()
+        input.performTextReplacement("字".repeat(11) + "😀".repeat(5))
+        compose.onNodeWithText("16/16字").assertIsDisplayed()
+        compose.onNodeWithText("发送").assertIsEnabled()
+        input.performTextReplacement("😀".repeat(6))
+        compose.onNodeWithText("6/16字").assertIsDisplayed()
+        compose.onNodeWithText("Boost 最多 5 个表情").assertIsDisplayed()
+        compose.onNodeWithText("发送").assertIsNotEnabled()
+        input.performTextReplacement("字".repeat(17))
+        compose.onNodeWithText("17/16字").assertIsDisplayed()
+        compose.onNodeWithText("Boost 最多 16 字").assertIsDisplayed()
+        compose.onNodeWithText("发送").assertIsNotEnabled()
+        input.performTextReplacement("加油")
+        compose.onNodeWithText("2/16字").assertIsDisplayed()
+        compose.onNodeWithText("Boost 最多", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("发送").assertIsEnabled()
+    }
+
     @Test fun boostInputEnforcesBothLimitsAndOnlyClearsAfterConfirmation() {
         var state by mutableStateOf(TopicState(detail, false, viewerId = 9, boostEmojis = emptySet()))
         var requests = 0

@@ -12,6 +12,8 @@ Status: implemented
 
 Unicode序列表和有效shortcode表取自2026-10-10网站pretty-text/emoji/data，事实数据放在resources/emoji。最长序列匹配覆盖旗帜、ZWJ和肤色，其他字符仍按UTF-16；标准别名忽略大小写，自定义名称由/emojis.json补充。3418个序列均与网站emojiReplacementRegex比对为单一表情。可拖动输入面板采用CommunitySheet，发送中禁止关闭，确认后清空；主帖、回复与楼中楼复用头像加短内容胶囊，保留服务端表情图片。
 
+Boost输入底部只显示“当前/16字”，有效表情各计1字，合并在总数内。最多5个表情的校验继续执行，仅超限时显示明确原因，空输入不显示错误；规则读取中的状态继续保留，避免自定义表情规则未就绪时允许发送。
+
 主帖和回复都显示已有Boost，保留头像与服务端cooked的短内容；发送成功更新同一帖子在主列表、楼中楼和置顶原帖的副本。写操作复用Cookie、CSRF和逐帖互斥，不由UI乐观声称已发送。
 
 帖子操作栏移除左侧灰色“正文 / 回复”标记，保留右侧回复入口和楼层目标。Boost 在各楼层及底部主帖操作栏统一复用官网 Font Awesome rocket 矢量；官网插件 @icon=rocket 的只读证据位于 artifacts/boost-web-source.js。火箭分别为17dp和19dp，与爱心实际图形高度接近；使用主题 onSurfaceVariant 的75%灰色，并继续服从禁用透明度。列表点赞数量用空心爱心表示，帖子和底部已选爱心使用 Discourse love 红色（#FA6C8D），其他品牌选中色继续使用 LogoYellow。
@@ -22,11 +24,15 @@ Unicode序列表和有效shortcode表取自2026-10-10网站pretty-text/emoji/dat
 
 ## Alternatives considered
 
+- 并列展示字数和表情数能持续说明两种上限，但用户认为重复且占空间，使用总字数计数并在超限时说明具体限制。
+
 - 普通回帖固定16字实现最少，但网站可调整配置，使用服务端设置并在失败时明确提示。
 - Boost复用/posts发布链路可以复用草稿和刷新，但网页使用独立协议及权限，不能生成普通楼层。
 - 请求后立即乐观追加胶囊可以更快反馈，但网络结果不明会误报成功，采用确认后更新，发送期间展示忙碌状态。
 
 ## Verification
+
+精简计数先新增离线输入用例，在旧版因缺少“0/16字”失败（artifacts/boost-counter-repro-ui.txt）。修改后2项真机用例通过（boost-counter-fixed-ui.txt），覆盖文字与Unicode/自定义shortcode合计、16字含5表情可发送、6表情及17字明确提示、纠正后恢复发送，以及发送确认前保留内容。PostBoostsTest的3项JVM测试及Debug/AndroidTest构建通过（boost-counter-fixed-build.txt）；真机同签名install -r覆盖，保留账号数据。
 
 PostBoostsTest验证16/17字、5/6表情、旗帜/ZWJ/肤色、UTF-16普通补充字符、标准别名、自定义shortcode、CSRF独立接口及失败不重试。TopicViewModelTest验证仅确认后更新与回调、Boost和点赞共享逐帖互斥。真机夹具检查输入边界、忙碌禁用、失败保留与成功清理、主帖和楼中楼胶囊、深色大字、拖动关闭及各玻璃材质按钮。
 

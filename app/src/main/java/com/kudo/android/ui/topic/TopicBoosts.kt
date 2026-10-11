@@ -38,6 +38,7 @@ internal fun BoostForm(raw: String, change: (String) -> Unit, state: TopicState,
     val keyboard = LocalSoftwareKeyboardController.current
     val names = state.boostEmojis
     val count = remember(raw, names) { BoostRules.count(raw, names.orEmpty()) }
+    val limitError = count.problem.takeIf { count.length > 16 || count.emojis > 5 }
     val ready = names != null && count.problem == null && !sending
     LaunchedEffect(Unit) { withFrameNanos { }; focus.requestFocus(); keyboard?.show() }
     Column(Modifier.fillMaxWidth().testTag("boost-form"), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -54,11 +55,13 @@ internal fun BoostForm(raw: String, change: (String) -> Unit, state: TopicState,
             TextButton(onClick = retry) { Text("重试") }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(if (names == null) "正在读取表情规则…" else "${count.length} / 16 字 · ${count.emojis} / 5 表情",
+            Text(if (names == null) "正在读取表情规则…" else "${count.length}/16字",
                 Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
-                color = if (count.length > 16 || count.emojis > 5) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                color = if (limitError != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
             CommunityButton(if (sending) "发送中…" else "发送", send, enabled = ready, compact = true)
         }
+        if (names != null && limitError != null) Text(limitError, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error)
     }
 }
 
