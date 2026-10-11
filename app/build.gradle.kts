@@ -103,6 +103,9 @@ val buildDoh by tasks.registering(Exec::class) {
     description = "Builds the Rust arm64 DoH/ECH transport with 16KB alignment."
     inputs.files(rootProject.fileTree("native/doh") { include("Cargo.toml", "Cargo.lock", "src/**") })
     inputs.file(rootProject.file("scripts/build_doh.py"))
+    inputs.file(rootProject.file("scripts/native_notices.py"))
+    inputs.file(rootProject.file("app/src/main/assets/licenses/native-doh-NOTICES.txt"))
+    inputs.files(rootProject.fileTree("native/doh/licenses"))
     outputs.file(layout.buildDirectory.file("generated/dohJni/arm64-v8a/libkudo_doh.so"))
     commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
         rootProject.file("scripts/build_doh.py"), "--sdk", android.sdkDirectory.absolutePath)
@@ -151,5 +154,7 @@ dependencies {
     androidTestImplementation(platform("androidx.compose:compose-bom:2026.03.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    androidTestImplementation("com.squareup.okhttp3:okhttp-tls:4.12.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

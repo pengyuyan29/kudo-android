@@ -174,6 +174,10 @@ RMX2202 / Android 13，当前用户确认的非代理 Wi-Fi：正式 DiscourseCl
 | 配置变更与写操作 | 老缓存／闲置连接不使新配置假生效；长轮询重连；写结果未知不重发，草稿保留 |
 | 再次遇盾 | 只依据真实响应提示；保留登录状态；原生检查失败不假报验证成功；直连 WebView 不通时明确需要后续能力 |
 
+自动回归包括 11 项 Rust 测试、42 项相关 JVM 测试、9 项真机测试，均通过。真机覆盖 gzip/分块响应、连接复用、HTTP/2 双向流、512KB 流式上传断线不重发、请求取消、自签名证书拒绝、模拟 VPN 路由暂停/恢复、CRUD 与无效地址反馈；测试的 loopback IP 不经过第三方 DNS。UI 和路由夹具将配置存入测试 APK 私有目录，避免修改用户节点或开关。
+
+`dohProductionLive=true` 才启用线上只读会话测试，普通测试跳过该项。该项使用正式 AppContainer 的客户端，临时启用后恢复原配置，只写入登录有效性、话题数量、头像解码与 ECH 接受状态，不记录 Cookie 或用户身份。
+
 Debug、AndroidTest、R8 Release 和 Lint 通过；Release APK 通过 `zipalign -P 16`，JNI 类及方法在 R8 后保留。原生依赖完整许可校验和 `npm run verify-notes` 通过。结果保存在忽略目录 `artifacts/doh-validation/production-final-device-tests.txt`、`production-final-build-checks.txt` 与设备私有目录的无身份结果 JSON。
 
 验证范围限于当前 Wi-Fi 和现有登录。没有新走一次代理网页登录、切换真实 VPN App 或蜂窝线路；系统 VPN 监测使用公开回调，分应用 VPN 的 UID 可见性仍有上限。Connect/MessageBus 路由和来源边界有模拟回归，未为本次测试触发真实写操作。上表保留用户复验用例，不把未执行的网络场景记作通过。
