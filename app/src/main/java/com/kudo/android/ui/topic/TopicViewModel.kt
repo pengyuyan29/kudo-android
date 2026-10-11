@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.*
 
 data class ReplyCursor(val after: Int = 1, val complete: Boolean = false)
 data class ReplyLoad(val cursors: Map<Int, ReplyCursor> = emptyMap(), val loading: Boolean = false, val error: Throwable? = null)
+private data class JumpPage(val ids: List<Int>, val posts: List<Post> = emptyList(), val error: Exception? = null)
 
 data class TopicState(
     val detail: TopicDetail? = null, val loading: Boolean = true, val loadingMore: Boolean = false,
@@ -22,7 +23,18 @@ data class TopicState(
     val readNumbers: Set<Int> = emptySet(),
     val boostEmojis: Set<String>? = null, val boostRulesLoading: Boolean = false, val boostRulesError: String? = null,
     val jumping: Boolean = false, val jumpError: String? = null, val targetRevision: Long = 0,
+    val loadingPrevious: Boolean = false, val previousError: Throwable? = null,
 ) {
+    fun pageIds(previous: Boolean): List<Int> {
+        val detail = detail ?: return emptyList()
+        val edge = if (previous) detail.posts.minByOrNull(Post::number) else detail.posts.maxByOrNull(Post::number)
+        val index = detail.stream.indexOf(edge?.id)
+        val loaded = detail.posts.map(Post::id).toSet()
+        val candidates = if (previous) detail.stream.take(index.coerceAtLeast(0))
+            else detail.stream.drop(index + 1)
+        val missing = candidates.filterNot { it in loaded }
+        return if (previous) missing.takeLast(20) else missing.take(20)
+    }
     val allPosts get() = (detail?.posts.orEmpty() + related + listOfNotNull(detail?.originalPost)).distinctBy(Post::id)
     val threads get() = postThreads(detail?.posts.orEmpty() + related)
     fun hasMoreReplies(root: Post): Boolean {
@@ -40,6 +52,7 @@ class TopicViewModel(
     val state = _state.asStateFlow()
     private var refreshJob: Job? = null
     private var moreJob: Job? = null
+    private var previousJob: Job? = null
     private var authorJob: Job? = null
     private var originalJob: Job? = null
     private var contextJob: Job? = null
@@ -63,6 +76,7 @@ class TopicViewModel(
         if (_state.value.busy.isNotEmpty() || _state.value.followBusy) return
         refreshJob?.cancel()
         moreJob?.cancel()
+        previousJob?.cancel()
         authorJob?.cancel()
         originalJob?.cancel()
         contextJob?.cancel()
@@ -71,7 +85,7 @@ class TopicViewModel(
         generation++
         _state.update { it.copy(loading = true, loadingMore = false, error = null, moreError = null,
             authorLoading = false, originalLoading = false, contextLoading = false, contextError = null, replyLoads = emptyMap(),
-            jumping = false, jumpError = null) }
+            jumping = false, jumpError = null, loadingPrevious = false, previousError = null) }
         val target = _state.value.targetNumber
         refreshJob = viewModelScope.launch {
             try {
@@ -89,36 +103,39 @@ class TopicViewModel(
         }
     }
 
-    fun more() {
+    fun more() = loadPage(previous = false)
+    fun previous() = loadPage(previous = true)
+
+    private fun loadPage(previous: Boolean) {
         val snapshot = _state.value
-        val detail = snapshot.detail ?: return
-        if (snapshot.loadingMore || snapshot.loading || snapshot.jumping) return
-        val loaded = detail.posts.map { it.id }.toSet()
-        val orderedStream = if (snapshot.targetRevision == 0L || snapshot.targetNumber == null) detail.stream else {
-            val targetId = snapshot.allPosts.firstOrNull { it.number == snapshot.targetNumber }?.id
-            targetId?.let { id -> detail.stream.indexOf(id).takeIf { it >= 0 }?.let { detail.stream.drop(it + 1) } }
-                ?: detail.stream
-        }
-        val ids = orderedStream.filterNot { it in loaded }.take(20)
+        if (snapshot.detail == null || snapshot.loadingMore || snapshot.loadingPrevious || snapshot.loading || snapshot.jumping) return
+        val ids = snapshot.pageIds(previous)
         if (ids.isEmpty()) return
         val requestGeneration = generation
-        _state.update { it.copy(loadingMore = true, moreError = null) }
-        moreJob = viewModelScope.launch {
+        val navigationToken = jumpGeneration
+        _state.update { if (previous) it.copy(loadingPrevious = true, previousError = null) else it.copy(loadingMore = true, moreError = null) }
+        val job = viewModelScope.launch {
             try {
                 val posts = withContext(Dispatchers.IO) { repository.posts(topicId, ids) }
                 val available = posts.map { it.id }.toSet()
                 _state.update { current ->
                     val latest = current.detail
-                    if (requestGeneration != generation || latest == null) current else current.copy(
+                    if (requestGeneration != generation || navigationToken != jumpGeneration || latest == null) current else current.copy(
                         detail = latest.copy(posts = (latest.posts + posts.map { incoming ->
                             latest.pinnedOriginal?.takeIf { it.id == incoming.id }
                                 ?: current.related.firstOrNull { it.id == incoming.id } ?: incoming
                         }).distinctBy(Post::id).sortedBy(Post::number),
-                            stream = latest.stream.filter { id -> id !in ids || id in available }), loadingMore = false)
+                            stream = latest.stream.filter { id -> id !in ids || id in available }),
+                        loadingMore = false, loadingPrevious = false)
                 }
-                if (requestGeneration == generation) resolveContext()
-            } catch (e: CancellationException) { throw e } catch (e: Exception) { _state.update { it.copy(loadingMore = false, moreError = e) } }
+                if (requestGeneration == generation && navigationToken == jumpGeneration) resolveContext()
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { _state.update {
+                if (requestGeneration != generation || navigationToken != jumpGeneration) it
+                else if (previous) it.copy(loadingPrevious = false, previousError = e)
+                else it.copy(loadingMore = false, moreError = e)
+            } }
         }
+        if (previous) previousJob = job else moreJob = job
     }
 
     fun jumpTo(number: Int) {
@@ -129,23 +146,42 @@ class TopicViewModel(
             _state.update { it.copy(jumpError = "请输入 1 至 ${detail.highestPostNumber} 的楼层") }; return
         }
         jumpJob?.cancel()
+        moreJob?.cancel(); previousJob?.cancel()
         val token = ++jumpGeneration
-        _state.update { it.copy(jumping = true, jumpError = null) }
+        _state.update { it.copy(jumping = true, jumpError = null, loadingMore = false, loadingPrevious = false) }
         jumpJob = viewModelScope.launch {
             try {
-                val known = _state.value.allPosts.firstOrNull { it.number == number }
+                val known = _state.value.detail?.posts?.firstOrNull { it.number == number }
                 val window = if (known == null) withContext(Dispatchers.IO) { repository.detail(topicId, number) } else null
                 if (window != null && (window.id != topicId || window.posts.none { it.number == number })) {
                     throw ApiFailure(FailureKind.SERVER, "此楼层不存在或暂不可访问")
+                }
+                val adjacent = if (window == null) emptyList() else coroutineScope {
+                    val target = TopicState(detail = window.copy(stream = window.stream.ifEmpty { detail.stream }))
+                    listOf(true, false).map { previous -> async(Dispatchers.IO) {
+                        val ids = target.pageIds(previous)
+                        try {
+                            JumpPage(ids, if (ids.isEmpty()) emptyList() else repository.posts(topicId, ids).filter { it.id in ids })
+                        } catch (e: CancellationException) { throw e }
+                        catch (e: Exception) { JumpPage(ids, error = e) }
+                    } }.awaitAll()
                 }
                 if (token != jumpGeneration) return@launch
                 _state.update { current ->
                     val latest = current.detail ?: return@update current
                     val existing = current.allPosts.associateBy(Post::id)
-                    current.copy(detail = if (window == null) latest.copy(posts = (latest.posts + listOfNotNull(known)).distinctBy(Post::id).sortedBy(Post::number)) else latest.copy(
-                        posts = (latest.posts + window.posts.map { existing[it.id] ?: it }).distinctBy(Post::id).sortedBy(Post::number),
-                        stream = (latest.stream + window.stream).distinct(), highestPostNumber = maxOf(latest.highestPostNumber, window.highestPostNumber)),
-                        jumping = false, targetNumber = number, targetRevision = current.targetRevision + 1)
+                    val unavailable = adjacent.filter { it.error == null }.flatMap { page ->
+                        page.ids.filterNot { id -> page.posts.any { it.id == id } }
+                    }.toSet()
+                    current.copy(detail = if (window == null) latest else latest.copy(
+                        posts = (window.posts + adjacent.flatMap { it.posts }).map { existing[it.id] ?: it }
+                            .distinctBy(Post::id).sortedBy(Post::number),
+                        pinnedOriginal = latest.originalPost,
+                        stream = window.stream.ifEmpty { latest.stream }.filterNot { it in unavailable },
+                        highestPostNumber = maxOf(latest.highestPostNumber, window.highestPostNumber)),
+                        related = if (window == null) current.related else (current.related + latest.posts).distinctBy(Post::id),
+                        jumping = false, targetNumber = number, targetRevision = current.targetRevision + 1,
+                        previousError = adjacent.getOrNull(0)?.error, moreError = adjacent.getOrNull(1)?.error)
                 }
                 resolveContext()
             } catch (e: CancellationException) { throw e }

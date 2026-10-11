@@ -12,6 +12,8 @@ Status: implemented
 
 原父帖保留三条摘要，点击子回复直接定位其原楼层；查看更多仍打开讨论面板，面板只有作者、正文与跳到帖子入口，没有点赞、Boost、回复、收藏和更多操作。只有主时间线正文计读；楼中楼摘要和面板都是预览。跳到尚在缓存的回复复用 jumpTo 使其进入主时间线；未加载楼层按既有窗口请求补齐。
 
+缓存跳转最初省去额外读取，能立即定位已预取正文；远处缓存直接接入旧主列表会留下断层。这部分由[连续楼层窗口](../bug-fix/2026-10-11-topic-jump-window.md)取代：未在主列表中的目标统一读取目标窗口及前后页，再逐页补齐中间内容。保留缓存中的最新互动状态以及主时间线/只读预览的阅读边界。
+
 ## Related decisions
 
 检索楼中楼、reply_to、原楼层、timings：[楼中楼](../../implemented/feature/2026-10-10-nested-replies.md)的父链分组、服务器游标和祖先补齐保留，外层不重复及讨论内操作由本篇部分取代；[楼层导航](../../implemented/feature/2026-10-10-topic-floor-navigation.md)保留输入/滑块及请求校验，只更新定位表面；[阅读同步](../../implemented/bug-fix/2026-10-10-topic-reading-sync.md)保留时长/上传契约，讨论面板不再当正文计时。没有完全吸收的笔记或过时提案。
@@ -26,7 +28,7 @@ Status: implemented
 
 主分页漏楼先由 ThreadAndDecorationTest 复现（artifacts/reply-timeline-repro-build.txt）；ReplyTimelineUiTest 的4项真机测试分别复现原楼层缺失、摘要误开讨论、讨论存在操作和深链误开面板（reply-timeline-ui-repro.txt）。修复后7项父链/分页、6项跳楼、8项详情状态 JVM 通过（reply-final-build.txt）。
 
-4项原楼层与预览、4项自动续载真机测试通过（reply-timeline-device.txt）；更新旧展示约定后的4项楼层索引、7项阅读曝光、3项楼中楼测试全部通过（reply-final-device.txt），共22个不同用例。预览缓存不加入时间线、不被分页跳过，缓存楼层跳转无需额外读取；只读面板不计读，实际可见原楼层按曝光计读。更新旧“80楼只在弹窗存在”的断言，允许真正出现在主时间线视口中的80楼计读，不放宽遮挡和跳转加载期间零阅读的断言。
+4项原楼层与预览、4项自动续载真机测试通过（reply-timeline-device.txt）；更新旧展示约定后的4项楼层索引、7项阅读曝光、3项楼中楼测试全部通过（reply-final-device.txt），共22个不同用例。预览缓存不加入时间线、不被分页跳过；当时的缓存楼层零额外读取断言现由连续窗口读取测试取代。只读面板不计读，实际可见原楼层按曝光计读。更新旧“80楼只在弹窗存在”的断言，允许真正出现在主时间线视口中的80楼计读，不放宽遮挡和跳转加载期间零阅读的断言。
 
 ## Consequences
 

@@ -94,6 +94,30 @@ class TopicFloorNavigationUiTest {
         compose.onNodeWithText("80 / 100").assertIsDisplayed()
     }
 
+    @Test fun backwardContinuationKeepsTheVisibleFloorAndConnectsToItsNeighbors() {
+        var state by mutableStateOf(TopicState(detail.copy(posts = (98..117).map(::post), stream = (1..120).toList(), highestPostNumber = 120),
+            false, targetNumber = 108, targetRevision = 1))
+        var requests = 0
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, previous = {
+                requests++
+                state = state.copy(loadingPrevious = true)
+            })
+        } }
+        compose.onNodeWithTag("post-108").assertIsDisplayed()
+        compose.onNodeWithTag("post-20").assertDoesNotExist()
+        compose.onNodeWithTag("topic-posts").performScrollToIndex(1)
+        compose.waitUntil { requests == 1 }
+        val before = compose.onNodeWithTag("post-98").fetchSemanticsNode().boundsInRoot
+        compose.runOnIdle { state = state.copy(loadingPrevious = false, detail = state.detail!!.copy(posts = (78..117).map(::post))) }
+        compose.waitForIdle()
+        val after = compose.onNodeWithTag("post-98").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertEquals("前插分页不能跳走正在看的楼层", before.top, after.top, 3f)
+        compose.onNodeWithTag("topic-posts").performTouchInput { swipe(center, center + androidx.compose.ui.geometry.Offset(0f, 200f), durationMillis = 600) }
+        compose.onNodeWithTag("post-97").assertIsDisplayed()
+        capture("floor-backward-continuous.png")
+    }
+
     @Test fun narrowDarkLargeTextKeepsAllControlsAndFailureKeepsTheForm() {
         var state by mutableStateOf(TopicState(detail.copy(highestPostNumber = 120000), false))
         var mode by mutableStateOf(GlassMode.LIQUID)

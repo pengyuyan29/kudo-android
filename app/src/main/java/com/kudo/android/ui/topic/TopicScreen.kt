@@ -32,7 +32,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}, onPostsRead: (Set<Int>) -> Unit = {}, loadBoostRules: () -> Unit = {}, boost: (Post, String, () -> Unit) -> Unit = { _, _, _ -> }, jumpTo: (Int) -> Unit = {}, vote: (Post, String, List<String>) -> Unit = { _, _, _ -> }, openCategory: (Int) -> Unit = {}, openTag: (TopicTag) -> Unit = {}) {
+fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}, onPostsRead: (Set<Int>) -> Unit = {}, loadBoostRules: () -> Unit = {}, boost: (Post, String, () -> Unit) -> Unit = { _, _, _ -> }, jumpTo: (Int) -> Unit = {}, vote: (Post, String, List<String>) -> Unit = { _, _, _ -> }, openCategory: (Int) -> Unit = {}, openTag: (TopicTag) -> Unit = {}, previous: () -> Unit = {}) {
     val backdrop = rememberLayerBackdrop()
     val modalBackdrop = rememberLayerBackdrop()
     val visibility = remember { MutableTransitionState(false) }
@@ -72,10 +72,12 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     var revealOriginal by remember(detail?.id, ignoredUsers) { mutableStateOf(false) }
     val originalIgnored = detail?.author?.username?.lowercase(java.util.Locale.ROOT) in ignoredUsers
     val listState = rememberLazyListState()
+    val hasPrevious = state.pageIds(previous = true).isNotEmpty()
+    var previousAnchor by remember(detail?.id) { mutableStateOf<Pair<Int, Int>?>(null) }
     var currentFloor by rememberSaveable(detail?.id) { mutableIntStateOf(state.targetNumber ?: 1) }
     val scope = rememberCoroutineScope()
     suspend fun scrollToPost(index: Int) {
-        val itemIndex = index + if (!originalIgnored || revealOriginal) 1 else 0
+        val itemIndex = index + (if (!originalIgnored || revealOriginal) 1 else 0) + (if (hasPrevious) 1 else 0)
         snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > itemIndex }
         delay(16)
         listState.animateScrollToItem(itemIndex)
@@ -91,7 +93,25 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     }
     var located by remember(detail?.id, state.targetRevision) { mutableStateOf(false) }
     LaunchedEffect(state.targetRevision) {
+        previousAnchor = null
         if (state.targetRevision > 0) { floorVisibility.targetState = false; keyboard?.hide() }
+    }
+    fun loadPreviousPage() {
+        if (state.loadingPrevious || state.loadingMore || state.jumping || state.loading) return
+        previousAnchor = listState.layoutInfo.visibleItemsInfo.firstOrNull { item -> posts.any { it.id == item.key } }
+            ?.let { (it.key as Int) to it.offset }
+        previous()
+    }
+    LaunchedEffect(posts.firstOrNull()?.id) {
+        val anchor = previousAnchor ?: return@LaunchedEffect
+        val index = posts.indexOfFirst { it.id == anchor.first }
+        if (index >= 0) {
+            val itemIndex = index + (if (!originalIgnored || revealOriginal) 1 else 0) + (if (hasPrevious) 1 else 0)
+            snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > itemIndex }
+            withFrameNanos { }
+            listState.scrollToItem(itemIndex, -anchor.second)
+        }
+        previousAnchor = null
     }
     val mainVisible by remember(listState, posts) { derivedStateOf {
         listState.layoutInfo.visibleItemsInfo.firstNotNullOfOrNull { item -> posts.firstOrNull { it.id == item.key }?.number }
@@ -110,11 +130,14 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             }
         }
     }
-    val hasMore = detail?.stream?.any { id -> posts.none { it.id == id } } == true
+    val hasMore = state.pageIds(previous = false).isNotEmpty()
     val covered = LocalReadingBlocked.current
     AutomaticPostLoading(listState, "more-posts", detail?.stream to posts.map(Post::id),
-        hasMore && !showing && !covered && !state.loading && !state.jumping && !state.loadingMore && !state.contextLoading &&
+        hasMore && !showing && !covered && !state.loading && !state.jumping && !state.loadingMore && !state.loadingPrevious && !state.contextLoading &&
             state.error == null && state.moreError == null && (state.targetNumber == null || located), more)
+    AutomaticPostLoading(listState, "previous-posts", detail?.stream to posts.map(Post::id),
+        hasPrevious && !showing && !covered && !state.loading && !state.jumping && !state.loadingPrevious && !state.loadingMore &&
+            !state.contextLoading && state.error == null && state.previousError == null && (state.targetNumber == null || located), ::loadPreviousPage)
     TopicReadingEnvironment(detail?.id ?: 0, state.viewerId, readingEnabled && detail != null && !state.loading && !state.jumping &&
         !showing && (state.targetNumber == null || located), onReadingBatch, onPostsRead) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -144,6 +167,18 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                                     }
                                 }
                                 if (detail.closed) Text("话题已关闭", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        if (hasPrevious) item("previous-posts") {
+                            Box(Modifier.fillMaxWidth().heightIn(min = 64.dp), contentAlignment = Alignment.Center) {
+                            when {
+                                state.loadingPrevious -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp,
+                                    color = com.kudo.android.ui.theme.LogoYellow)
+                                state.previousError != null -> ErrorState(state.previousError, ::loadPreviousPage, login)
+                                else -> Text("下拉加载前面的楼层", Modifier.fillMaxWidth().padding(20.dp),
+                                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                            }
                             }
                         }
                         items(posts, key = { it.id }) { post ->

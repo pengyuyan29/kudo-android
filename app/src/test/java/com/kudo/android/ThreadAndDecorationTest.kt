@@ -21,6 +21,7 @@ class ThreadAndDecorationTest {
             when (request.path) {
                 "/t/5.json" -> topic(json(1), json(2, 1, 1))
                 "/posts/2/replies.json?after=1" -> "[${json(3, 2)}]"
+                "/t/5/3.json" -> topic(json(1), json(2, 1, 1), json(3, 2), json(4))
                 else -> null
             }
         }) { vm ->
@@ -30,8 +31,9 @@ class ThreadAndDecorationTest {
             val before = paths.size
             vm.jumpTo(3)
             val state = vm.await { it.targetNumber == 3 && !it.jumping }
-            assertEquals(listOf(1, 2, 3), state.detail!!.posts.map(Post::number))
-            assertEquals(before, paths.size)
+            assertEquals(listOf(1, 2, 3, 4), state.detail!!.posts.map(Post::number))
+            assertEquals(before + 1, paths.size)
+            assertTrue(paths.contains("/t/5/3.json"))
             assertEquals(1L, state.targetRevision)
         }
     }

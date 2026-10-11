@@ -12,7 +12,7 @@ Status: implemented
 
 最高楼层使用highest_post_number，缺字段时退回最大已加载楼层/stream长度。索引使用主时间线可见帖子的真实Post.number；正文标题与摘要不作为楼层，[只读楼中楼](2026-10-10-reply-timeline-and-preview.md)不更新原帖阅读位置。楼层按钮复用LiquidButton的真实Backdrop材质，黄色填充在胶囊surface内绘制；底栏两侧16dp、组间8dp，写回复与点赞/Boost按内容撑开，中央占余量。窄屏、大字号或长楼层号时写回复仅显示笔图标，仍保留语义，索引数字可适度缩小。
 
-已加载楼层直接定位主时间线；只在预览缓存的目标先纳入主列表，未加载目标通过带楼层的主题只读GET获取附近窗口，合并已加载状态并补齐父链。目标不存在、权限不足或网络失败保留当前内容并显示错误。跳转请求互斥/取消过期结果，不以网络加载或滑块预览上报阅读。
+已加载楼层直接定位主时间线。最初方案将预览缓存目标直接纳入主列表，以省去额外读取并立即定位；这会把远处楼层接到旧列表后，缓存跳转和窗口合并现由[连续楼层窗口](../bug-fix/2026-10-11-topic-jump-window.md)部分取代：目标页及前后各一页组成新主窗口，边翻边补中间页。目标不存在、权限不足或网络失败保留当前内容并显示错误。跳转请求互斥/取消过期结果，不以网络加载或滑块预览上报阅读。
 
 请求有独立代次，较新跳转取消旧请求，刷新也取消跳转；合并窗口保留已加载帖子上的确认写入状态。targetRevision确保重复跳同一楼层仍重新定位，刷新读取最新目标。跳转加载、面板遮挡和目标定位之前暂停阅读，不给中间加载窗口计时。到达末尾时视口可能同时显示较早的正文，这些实际曝光仍按既有阅读规则计时。
 
@@ -38,7 +38,7 @@ TopicFloorNavigationTest覆盖真实最高编号、已加载和重复目标零�
 
 ## Far jump continuation
 
-After an in-app jump completes (`targetRevision > 0`), automatic pagination must select missing stream IDs after the target post. Loading the first page again inserts posts before the target and shifts the visible floor back to the low twenties. Initial deep links keep the existing forward pagination so the original post can still be restored. If the target post is not present in the stream index, pagination falls back to the server order.
+此前在应用内跳转后仅选择目标后方的缺失ID，避免后续加载首批帖子使视口退回二十多楼；初始深链仍沿旧顺序恢复首楼。该单向特例现由[连续楼层窗口](../bug-fix/2026-10-11-topic-jump-window.md)的双向stream边界分页取代，首楼仍单独保留 pinnedOriginal，前插分页保持可见楼层位置。
 
 ## Consequences
 

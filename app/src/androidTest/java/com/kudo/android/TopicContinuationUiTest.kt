@@ -74,7 +74,10 @@ class TopicContinuationUiTest {
         compose.runOnIdle { assertEquals(1, requests) }
         compose.onNodeWithTag("thread-posts").performScrollToIndex(children.size + 1)
         compose.waitUntil { requests == 2 }
-        compose.onNodeWithText("关闭").performClick()
+        compose.onNodeWithTag("sheet-drag-handle").performTouchInput {
+            swipe(center, center + androidx.compose.ui.geometry.Offset(0f, 650f), durationMillis = 600)
+        }
+        compose.onNodeWithTag("thread-posts").assertDoesNotExist()
         compose.runOnIdle { state = state.copy(replyLoads = mapOf(2 to ReplyLoad(mapOf(2 to ReplyCursor(20))))) }
         compose.runOnIdle { assertEquals(2, requests) }
     }

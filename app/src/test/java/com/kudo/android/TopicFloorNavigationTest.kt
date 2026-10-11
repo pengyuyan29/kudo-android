@@ -82,6 +82,122 @@ class TopicFloorNavigationTest {
         }
     }
 
+    @Test fun jumpingToACachedPreviewLoadsAContinuousWindowInsteadOfAppendingOneFloor() = runTest {
+        withTopic({ request -> when {
+            request.path == "/t/5.json" -> MockResponse().setBody(streamedTopic((1..20).joinToString(",") {
+                if (it == 2) post(it).replace("\"cooked\"", "\"reply_count\":1,\"cooked\"") else post(it)
+            }))
+            request.path == "/posts/2/replies.json?after=1" -> MockResponse().setBody("[${post(108, 2)}]")
+            request.path == "/t/5/108.json" -> MockResponse().setBody(streamedTopic((98..117).joinToString(",") { post(it) }))
+            request.path?.startsWith("/t/5/posts.json") == true -> {
+                val ids = request.requestUrl!!.queryParameterValues("post_ids[]").orEmpty().map { it!!.toInt() }
+                MockResponse().setBody(streamedTopic(ids.joinToString(",") { post(it) }))
+            }
+            else -> null
+        } }) { vm, paths ->
+            val initial = vm.await { !it.loading }
+            vm.loadReplies(initial.detail!!.posts.first { it.number == 2 })
+            vm.await { it.related.any { post -> post.number == 108 } }
+            vm.jumpTo(108)
+            val result = vm.await { it.targetNumber == 108 && !it.jumping }
+            assertTrue(paths.contains("GET /t/5/108.json"))
+            assertEquals((78..120).toList(), result.detail!!.posts.map(Post::number))
+            assertTrue(result.allPosts.any { it.number == 2 })
+            val prefetchPaths = paths.filter { it.startsWith("GET /t/5/posts.json") }
+            assertEquals("jump only prefetches its two neighboring pages", 2, prefetchPaths.size)
+            assertFalse("jump must not download the entire skipped interval", result.detail.posts.any { it.number in 3..77 })
+            vm.previous()
+            val backward = vm.await { !it.loadingPrevious && it.detail!!.posts.first().number == 58 }
+            assertEquals((58..120).toList(), backward.detail!!.posts.map(Post::number))
+            assertTrue(backward.pageIds(previous = false).isEmpty())
+        }
+    }
+
+    @Test fun failedBackwardPageKeepsTheWindowAndRetrySkipsOnlyUnavailableIds() = runTest {
+        val pages = AtomicInteger()
+        withTopic({ request -> when {
+            request.path == "/t/5/100.json" -> MockResponse().setBody(streamedTopic((98..117).joinToString(",") { post(it) }))
+            request.path?.startsWith("/t/5/posts.json") == true -> {
+                val ids = request.requestUrl!!.queryParameterValues("post_ids[]").orEmpty().map { it!!.toInt() }
+                if (78 in ids && pages.incrementAndGet() == 1) MockResponse().setResponseCode(503).setBody("{}")
+                else MockResponse().setBody(streamedTopic(ids.filter { it != 90 }.joinToString(",") { post(it) }))
+            }
+            else -> null
+        } }) { vm, _ ->
+            vm.await { !it.loading }; vm.jumpTo(100)
+            val failed = vm.await { !it.jumping && it.targetNumber == 100 }
+            assertNotNull("neighbor failure is retryable without failing the jump", failed.previousError)
+            assertNull(failed.jumpError)
+            assertEquals((98..120).toList(), failed.detail!!.posts.map(Post::number))
+            vm.previous()
+            val retried = vm.await { !it.loadingPrevious && it.previousError == null && it.detail!!.posts.first().number == 78 }
+            assertFalse(retried.detail!!.stream.contains(90))
+            assertEquals((78..120).filter { it != 90 }, retried.detail.posts.map(Post::number))
+        }
+    }
+
+    @Test fun jumpPrefetchesBothNeighborsConcurrentlyAndThenLoadsOnePageAtATime() = runTest {
+        val started = CountDownLatch(2); val release = CountDownLatch(1)
+        val pages = CopyOnWriteArrayList<List<Int>>()
+        withTopic({ request -> when {
+            request.path == "/t/5.json" -> MockResponse().setBody(streamedTopic(post(1), 200))
+            request.path == "/t/5/108.json" -> MockResponse().setBody(streamedTopic((98..117).joinToString(",") { post(it) }, 200))
+            request.path?.startsWith("/t/5/posts.json") == true -> {
+                val ids = request.requestUrl!!.queryParameterValues("post_ids[]").orEmpty().map { it!!.toInt() }
+                pages += ids
+                started.countDown(); release.await(5, TimeUnit.SECONDS)
+                MockResponse().setBody(streamedTopic(ids.joinToString(",") { post(it) }, 200))
+            }
+            else -> null
+        } }) { vm, _ -> try {
+            vm.await { !it.loading }; vm.jumpTo(108)
+            assertTrue("both neighbor requests must start without waiting for the other", withContext(Dispatchers.IO) { started.await(3, TimeUnit.SECONDS) })
+            assertEquals(setOf((78..97).toList(), (118..137).toList()), pages.toSet())
+            assertTrue(vm.state.value.jumping)
+            release.countDown()
+            val jumped = vm.await { !it.jumping && it.targetNumber == 108 }
+            assertEquals((78..137).toList(), jumped.detail!!.posts.map(Post::number))
+            vm.more()
+            val forward = vm.await { !it.loadingMore && it.detail!!.posts.last().number == 157 }
+            assertEquals((138..157).toList(), pages.last())
+            assertEquals((78..157).toList(), forward.detail!!.posts.map(Post::number))
+            assertTrue(pages.all { it.size <= 20 })
+        } finally { release.countDown() } }
+    }
+
+    @Test fun laterBackwardPageFailureKeepsTheWindowAndCanBeRetried() = runTest {
+        val attempts = AtomicInteger()
+        withTopic({ request -> when {
+            request.path == "/t/5/100.json" -> MockResponse().setBody(streamedTopic((98..117).joinToString(",") { post(it) }))
+            request.path?.startsWith("/t/5/posts.json") == true -> {
+                val ids = request.requestUrl!!.queryParameterValues("post_ids[]").orEmpty().map { it!!.toInt() }
+                if (58 in ids && attempts.incrementAndGet() == 1) MockResponse().setResponseCode(503).setBody("{}")
+                else MockResponse().setBody(streamedTopic(ids.joinToString(",") { post(it) }))
+            }
+            else -> null
+        } }) { vm, _ ->
+            vm.await { !it.loading }; vm.jumpTo(100)
+            val initial = vm.await { !it.jumping && it.targetNumber == 100 }.detail!!
+            vm.previous()
+            val failed = vm.await { it.previousError != null && !it.loadingPrevious }
+            assertEquals(initial, failed.detail)
+            assertNull(failed.moreError)
+            vm.previous()
+            val retried = vm.await { !it.loadingPrevious && it.previousError == null && it.detail!!.posts.first().number == 58 }
+            assertEquals((58..120).toList(), retried.detail!!.posts.map(Post::number))
+        }
+    }
+
+    @Test fun neighborPagesUseStreamIdsRatherThanFloorNumbersOrCachedPreviews() {
+        val ids = (1..100).map { 5000 + it * 3 }
+        val loaded = (41..60).map { number -> DiscourseParser.post(JSONObject(post(number * 2)).put("id", ids[number - 1])) }
+        val detail = DiscourseParser.detail(JSONObject(streamedTopic(post(1))))
+            .copy(posts = loaded, stream = ids)
+        val state = TopicState(detail = detail, related = listOf(loaded.first().copy(id = ids[39], number = 80)))
+        assertEquals(ids.subList(20, 40), state.pageIds(previous = true))
+        assertEquals(ids.subList(60, 80), state.pageIds(previous = false))
+    }
+
     @Test fun missingAndForbiddenFloorsKeepTheCurrentContentAndExposeAnError() = runTest {
         withTopic({ request -> when (request.path) {
             "/t/5/80.json" -> MockResponse().setBody(topic(post(79)))

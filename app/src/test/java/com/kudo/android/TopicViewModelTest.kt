@@ -231,11 +231,11 @@ class TopicViewModelTest {
         }) { vm, _ ->
             try {
                 val post = vm.awaitState { it.detail?.originalPost != null }.detail!!.originalPost!!
-                vm.more()
+                vm.previous()
                 vm.like(post)
                 assertEquals(27, vm.awaitState { it.busy.isEmpty() }.detail!!.originalPost!!.likes)
                 releasePage.countDown()
-                val after = vm.awaitState { !it.loadingMore }.detail!!
+                val after = vm.awaitState { !it.loadingPrevious }.detail!!
                 assertEquals(27, after.originalPost!!.likes)
                 assertEquals("heart", after.posts.first { it.number == 1 }.activeReaction)
             } finally { releasePage.countDown() }
