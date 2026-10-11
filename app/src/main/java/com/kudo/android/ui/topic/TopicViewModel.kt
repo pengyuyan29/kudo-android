@@ -60,6 +60,7 @@ class TopicViewModel(
     private var jumpGeneration = 0L
     private val replyJobs = mutableMapOf<Int, Job>()
     private var generation = 0
+    private var initialLoadCompleted = false
     private val messages = Channel<String>(Channel.BUFFERED)
     val events = messages.receiveAsFlow()
     init { refresh() }
@@ -87,10 +88,44 @@ class TopicViewModel(
             authorLoading = false, originalLoading = false, contextLoading = false, contextError = null, replyLoads = emptyMap(),
             jumping = false, jumpError = null, loadingPrevious = false, previousError = null) }
         val target = _state.value.targetNumber
+        val restoreReading = !initialLoadCompleted && target == null && _state.value.viewerId != null
         refreshJob = viewModelScope.launch {
             try {
-                val detail = withContext(Dispatchers.IO) { repository.detail(topicId, target) }
-                _state.update { it.copy(detail = detail, related = emptyList(), loading = false, authorProfile = null, authorError = null, originalError = null) }
+                val first = withContext(Dispatchers.IO) { repository.detail(topicId, target) }
+                var detail = first
+                var resolvedTarget = target
+                var adjacent = emptyList<JumpPage>()
+                val resume = first.resumePostNumber?.takeIf { restoreReading && it > 1 }
+                if (resume != null) {
+                    try {
+                        val remote = first.posts.none { it.number == resume }
+                        val window = if (remote) withContext(Dispatchers.IO) { repository.detail(topicId, resume) } else first
+                        check(window.id == topicId) { "续读话题不匹配" }
+                        // Deleted floors can make the server return a nearby accessible window.
+                        val accessible = window.posts.filter { it.number > 0 }
+                            .minByOrNull { kotlin.math.abs(it.number.toLong() - resume) }
+                            ?: error("续读楼层暂不可访问")
+                        if (remote) {
+                            val continuous = window.copy(stream = window.stream.ifEmpty { first.stream })
+                            adjacent = adjacentPages(continuous)
+                            val unavailable = unavailableIds(adjacent)
+                            detail = continuous.copy(
+                                posts = (window.posts + adjacent.flatMap { it.posts }).distinctBy(Post::id).sortedBy(Post::number),
+                                stream = continuous.stream.filterNot { it in unavailable },
+                                pinnedOriginal = first.originalPost,
+                                highestPostNumber = maxOf(first.highestPostNumber, window.highestPostNumber))
+                        }
+                        resolvedTarget = accessible.number
+                    } catch (e: CancellationException) { throw e }
+                    catch (e: Exception) {
+                        val reason = (e as? ApiFailure)?.takeIf { it.kind in setOf(FailureKind.VERIFICATION, FailureKind.SIGN_IN) }?.message
+                        messages.trySend(reason ?: "续读位置加载失败，已从头显示")
+                    }
+                }
+                initialLoadCompleted = true
+                _state.update { it.copy(detail = detail, targetNumber = resolvedTarget, related = emptyList(), loading = false,
+                    authorProfile = null, authorError = null, originalError = null,
+                    previousError = adjacent.getOrNull(0)?.error, moreError = adjacent.getOrNull(1)?.error) }
                 loadAuthor()
                 loadOriginal()
                 resolveContext()
@@ -156,23 +191,12 @@ class TopicViewModel(
                 if (window != null && (window.id != topicId || window.posts.none { it.number == number })) {
                     throw ApiFailure(FailureKind.SERVER, "此楼层不存在或暂不可访问")
                 }
-                val adjacent = if (window == null) emptyList() else coroutineScope {
-                    val target = TopicState(detail = window.copy(stream = window.stream.ifEmpty { detail.stream }))
-                    listOf(true, false).map { previous -> async(Dispatchers.IO) {
-                        val ids = target.pageIds(previous)
-                        try {
-                            JumpPage(ids, if (ids.isEmpty()) emptyList() else repository.posts(topicId, ids).filter { it.id in ids })
-                        } catch (e: CancellationException) { throw e }
-                        catch (e: Exception) { JumpPage(ids, error = e) }
-                    } }.awaitAll()
-                }
+                val adjacent = if (window == null) emptyList() else adjacentPages(window.copy(stream = window.stream.ifEmpty { detail.stream }))
                 if (token != jumpGeneration) return@launch
                 _state.update { current ->
                     val latest = current.detail ?: return@update current
                     val existing = current.allPosts.associateBy(Post::id)
-                    val unavailable = adjacent.filter { it.error == null }.flatMap { page ->
-                        page.ids.filterNot { id -> page.posts.any { it.id == id } }
-                    }.toSet()
+                    val unavailable = unavailableIds(adjacent)
                     current.copy(detail = if (window == null) latest else latest.copy(
                         posts = (window.posts + adjacent.flatMap { it.posts }).map { existing[it.id] ?: it }
                             .distinctBy(Post::id).sortedBy(Post::number),
@@ -188,6 +212,21 @@ class TopicViewModel(
             catch (e: Exception) { if (token == jumpGeneration) _state.update { it.copy(jumping = false, jumpError = e.message ?: "跳转失败，请重试") } }
         }
     }
+
+    private suspend fun adjacentPages(window: TopicDetail): List<JumpPage> = coroutineScope {
+        val target = TopicState(detail = window)
+        listOf(true, false).map { previous -> async(Dispatchers.IO) {
+            val ids = target.pageIds(previous)
+            try {
+                JumpPage(ids, if (ids.isEmpty()) emptyList() else repository.posts(topicId, ids).filter { it.id in ids })
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { JumpPage(ids, error = e) }
+        } }.awaitAll()
+    }
+
+    private fun unavailableIds(pages: List<JumpPage>): Set<Int> = pages.filter { it.error == null }.flatMap { page ->
+        page.ids.filterNot { id -> page.posts.any { it.id == id } }
+    }.toSet()
 
     fun resolveContext() {
         contextJob?.cancel()
