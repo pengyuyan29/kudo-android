@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -95,6 +96,7 @@ internal fun AccountTabs(labels: List<String>, selection: Int, select: (Int) -> 
 internal fun PersonalTopicsScreen(vm: PersonalTopicsViewModel, categories: List<Category>, style: TopicListStyle,
     back: () -> Unit, login: () -> Unit, open: (Int, Int?) -> Unit, user: (String) -> Unit,
     composeMessage: () -> Unit) {
+    val scroll = rememberLazyListState()
     Column(Modifier.fillMaxSize()) {
         AccountPageTopBar(vm.destination.title, back) {
             if (vm.destination == AccountDestination.MESSAGES) CommunityIconButton(Icons.Rounded.Edit, "写私信", composeMessage)
@@ -104,7 +106,7 @@ internal fun PersonalTopicsScreen(vm: PersonalTopicsViewModel, categories: List<
             val mailboxes = listOf("inbox", "sent", "archive")
             AccountTabs(listOf("收件箱", "已发送", "归档"), mailboxes.indexOf(vm.mailbox)) { vm.selectMailbox(mailboxes[it]) }
         }
-        LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        LazyColumn(Modifier.weight(1f).quickScrollTarget(scroll), state = scroll, contentPadding = PaddingValues(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             items(vm.topics, key = { it.id }) { topic ->
                 val category = categories.firstOrNull { it.id == topic.categoryId }
                 if (style == TopicListStyle.TITLE) TopicTitleRow(topic, category, { open(topic.id, null) }, user)

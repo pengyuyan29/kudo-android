@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +42,7 @@ internal fun MemberNotificationsScreen(vm: AccountViewModel, login: () -> Unit, 
         AccountTabs(NoticeGroup.entries.map { it.title }, pager.currentPage) { scope.launch { pager.animateScrollToPage(it) } }
         HorizontalPager(pager, Modifier.weight(1f)) { index ->
             val group = NoticeGroup.entries[index]
+            val scroll = rememberLazyListState()
             val notices = vm.notices.filter(group::includes)
             var scanned by remember(group) { mutableIntStateOf(0) }
             // Scan a few complete pages before offering explicit continuation, without fetching an entire account history.
@@ -50,7 +52,8 @@ internal fun MemberNotificationsScreen(vm: AccountViewModel, login: () -> Unit, 
                     scanned++; vm.loadNotices(vm.noticesLoaded)
                 }
             }
-            LazyColumn(Modifier.fillMaxSize().testTag("notice-group-${group.name}"),
+            LazyColumn(Modifier.fillMaxSize().testTag("notice-group-${group.name}")
+                .quickScrollTarget(scroll, enabled = pager.settledPage == index), state = scroll,
                 contentPadding = PaddingValues(top = 6.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 if (group == NoticeGroup.MESSAGES) item {
                     CompactAccountRow(Icons.Rounded.MailOutline, Color(0xFF6C83CA), "查看私信收件箱", privateMessages)
