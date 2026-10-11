@@ -22,6 +22,8 @@ Rust DNS 单元位于 `native/doh/src/dns.rs`：标准 POST 并行读取 A/AAAA/
 
 Socket/JNI 单元使用有界 64KB 读写块，不缓存完整上传或响应。读写持锁，关闭走独立通道；Windows 复现关闭后阻塞读取未返回，因此底层读写同时以最多 200ms 的等待片轮询关闭标志，对外仍遵守 Socket 超时。该回归、字节传输/读超时、已关闭 Socket 拒绝连接等共 9 项 Rust 测试通过。ECH 被拒绝立即清除该域名缓存，只在下次请求重新解析，不重发业务请求；错误只暴露固定代码。
 
+生产构建由 Gradle `buildDoh` 调用 `scripts/build_doh.py`，使用 Rust、Android NDK 27 与 CMake/Ninja，仅生成 arm64-v8a，强制校验 16KB ELF 对齐；依赖锁定，输入未变复用生成库。生成文件均在忽略的 `app/build` 下；不将本机预编译二进制当作可复现源代码。
+
 第一阶段保留现有系统 WebView 登录、验证和 Cookie 存储。用户可通过自己的 VPN／代理完成网页登录；原生页面启用新的 DNS／TLS 通道。第一阶段不接管 WebView TLS，不新增用户证书信任，不改网页内的导航边界。
 
 若原生直连成功但 Cloudflare 必须在同一出口重新验证，而系统 WebView 在该线路仍无法直连，则本阶段无法保证完整闭环。届时应单独评审 WebView 同出口的 DoH + ECH 方案，或继续保持浏览器与原生请求使用一致的代理出口，不能用反复复制 Cookie 代替这个能力。

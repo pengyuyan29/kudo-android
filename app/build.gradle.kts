@@ -92,10 +92,22 @@ android {
     buildFeatures { compose = true; buildConfig = true }
     testOptions { unitTests.isReturnDefaultValues = true }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
+    sourceSets.getByName("main").jniLibs.srcDir(layout.buildDirectory.dir("generated/dohJni"))
     if (providers.gradleProperty("dohProbe").orNull == "true") {
         sourceSets.getByName("androidTest").jniLibs.srcDir(layout.buildDirectory.dir("generated/dohProbeJni"))
     }
 }
+
+val buildDoh by tasks.registering(Exec::class) {
+    group = "build"
+    description = "Builds the Rust arm64 DoH/ECH transport with 16KB alignment."
+    inputs.files(rootProject.fileTree("native/doh") { include("Cargo.toml", "Cargo.lock", "src/**") })
+    inputs.file(rootProject.file("scripts/build_doh.py"))
+    outputs.file(layout.buildDirectory.file("generated/dohJni/arm64-v8a/libkudo_doh.so"))
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
+        rootProject.file("scripts/build_doh.py"), "--sdk", android.sdkDirectory.absolutePath)
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(buildDoh) }
 
 val validateReleaseSigning by tasks.registering {
     group = "verification"
