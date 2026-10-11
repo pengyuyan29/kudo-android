@@ -9,10 +9,31 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class UserProfileDataTest {
+    @Test fun summaryResolvesPopularRepliesOutsideTheTopCategoryStatistics() = runBlocking {
+        MockWebServer().use { server ->
+            server.dispatcher = object : okhttp3.mockwebserver.Dispatcher() {
+                override fun dispatch(request: okhttp3.mockwebserver.RecordedRequest): MockResponse = MockResponse().setBody(
+                    if (request.path == "/site.json") """{"categories":[{"id":7,"name":"运营反馈","icon":"comments"}]}"""
+                    else """{"user_summary":{"topic_ids":[10],"top_categories":[{"id":4,"name":"开发调优"}],"replies":[{"topic_id":10,"post_number":108}]},"topics":[{"id":10,"category_id":7,"title":"回复来源"}]}""")
+            }
+            server.start()
+            val result = CommunityRepository(DiscourseClient(NoCookies, server.url("/"))).profileSummary("fixture")
+            assertEquals("运营反馈", result.topics.single().category?.name)
+            assertEquals("运营反馈", result.replies.single().category?.name)
+        }
+    }
+
     @Test fun actualSummaryTopicIdsExcludeSideloadedReplyOriginsFromPopularTopics() {
         val result = parseProfileSummary(JSONObject("""{"user_summary":{"topic_ids":[10],"replies":[{"topic_id":9,"post_number":8}]},"topics":[{"id":9,"title":"回复来源"},{"id":10,"title":"热门话题"}]}"""))
         assertEquals(listOf(10), result.topics.map { it.topicId })
         assertEquals("回复来源", result.replies.single().title)
+    }
+    @Test fun unresolvedSummaryCategoriesKeepTheirIdentityWithoutExpandingTopStatistics() {
+        val json = JSONObject("""{"user_summary":{"topic_ids":[10],"top_categories":[{"id":4,"name":"开发调优"}],"replies":[{"topic_id":10,"post_number":3}]},"topics":[{"id":10,"category_id":7}]}""")
+        assertEquals(7, parseProfileSummary(json).replies.single().categoryId)
+        val resolved = parseProfileSummary(json, listOf(Category(7, "运营反馈", "feedback", "", "", 0)))
+        assertEquals(7, resolved.replies.single().category?.id)
+        assertEquals(listOf(4), resolved.categories.map(Category::id))
     }
     @Test fun recipientSpecificMessageDraftIsVisibleAndKeepsItsKey() {
         val drafts = localAccountDrafts(mapOf("draft_7_message_some.user_title" to "私信草稿", "draft_7_message_some.user_raw" to "未发送内容",

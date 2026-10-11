@@ -1,11 +1,30 @@
 package com.kudo.android
 
-import com.kudo.android.data.DiscourseParser
+import com.kudo.android.data.*
+import kotlinx.coroutines.runBlocking
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 
 class CategoryMetadataTest {
+    @Test fun successfulDirectoryIsSharedAndFailureDoesNotEraseItOrCrossAccounts() = runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            val repository = CommunityRepository(DiscourseClient(NoCookies, server.url("/")))
+            repository.useCategoryAccount(1)
+            server.enqueue(MockResponse().setBody("""{"categories":[{"id":7,"name":"运营反馈"}]}"""))
+            repository.categories()
+            assertEquals("运营反馈", repository.categoryCatalog.value.single().name)
+            server.enqueue(MockResponse().setResponseCode(503).setBody("{}"))
+            try { repository.categories(); fail("expected failure") } catch (_: ApiFailure) { }
+            assertEquals(7, repository.categoryCatalog.value.single().id)
+            repository.useCategoryAccount(2)
+            assertTrue(repository.categoryCatalog.value.isEmpty())
+        }
+    }
+
     @Test fun categoryIconsFollowServerMetadataInBothResponseShapes() {
         val categories = """[{"id":4,"name":"开发调优","color":"32c3c3","icon":"code","description":"<p>开发与调优</p>"},{"id":98,"name":"国产替代","color":"D12C25","icon":"seedling"}]"""
         for (json in listOf("""{"categories":$categories}""", """{"category_list":{"categories":$categories}}""")) {

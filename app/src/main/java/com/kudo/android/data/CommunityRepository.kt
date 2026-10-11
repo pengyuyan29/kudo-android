@@ -3,8 +3,24 @@ package com.kudo.android.data
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class CommunityRepository(val client: DiscourseClient) {
+    private val categoryLock = Any()
+    private val _categoryCatalog = MutableStateFlow<List<Category>>(emptyList())
+    val categoryCatalog = _categoryCatalog.asStateFlow()
+    private var categoryAccount: Int? = null
+    private var categoryGeneration = 0
+
+    fun useCategoryAccount(accountId: Int?) = synchronized(categoryLock) {
+        if (categoryAccount != accountId) {
+            categoryAccount = accountId
+            categoryGeneration++
+            _categoryCatalog.value = emptyList()
+        }
+    }
+
     suspend fun topics(filter: String = "latest", categoryId: Int? = null, next: String? = null): TopicPage {
         require(FeedFilter.entries.any { it.value == filter })
         // The website's Unseen tab uses this endpoint; keep the existing UI/cache key stable.
@@ -32,7 +48,14 @@ class CommunityRepository(val client: DiscourseClient) {
             !topic.optBoolean("deleted") && (new || (user.unifiedNew && unread))
         }
     }
-    suspend fun categories() = DiscourseParser.categories(client.get("/site.json"))
+    suspend fun categories(): List<Category> {
+        val token = synchronized(categoryLock) { categoryGeneration }
+        val categories = DiscourseParser.categories(client.get("/site.json"))
+        synchronized(categoryLock) {
+            if (token == categoryGeneration && categories.isNotEmpty()) _categoryCatalog.value = categories
+        }
+        return categories
+    }
     suspend fun tagIcons() = client.tagIcons()
     suspend fun currentUser(): Member? = client.get("/session/current.json").optJSONObject("current_user")?.let { DiscourseParser.member(it, avatarDetailsLoaded = true) }
     suspend fun user(username: String): Member {

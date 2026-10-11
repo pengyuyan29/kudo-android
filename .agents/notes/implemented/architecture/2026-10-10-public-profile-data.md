@@ -27,8 +27,10 @@ ProfileTab 定义九个标签。动态/话题/回复/赞为 user_actions 的 4,5
 
 UserProfileDataTest 验证未知统计、侧载关联、重复行分页、Boost楼层、回应游标、缺失集合报错、卡片和关注接口。
 
+UserProfileDataTest 先复现热门回复所属分类不在 top_categories 时名称丢失（artifacts/profile-category-repro-20261011.txt），完整目录解析后通过。CategoryMetadataTest 验证成功目录可共享、请求失败不抹去旧目录、换号清空目录；两组共14项 JVM 测试通过（profile-category-fixed-20261011.txt）。目录发布使用账号代次，旧账号在途结果不能写入新账号目录。
+
 ## Consequences
 
-Summary topic and reply entries preserve optional category metadata, topic tags, and `image_url` from the existing summary payload. Presentation can show these fields without adding network requests; missing fields remain absent.
+Summary entries retain category IDs even when the category is absent from top_categories. The full account-scoped /site.json catalog resolves names and icons; top_categories remains a statistical list, not the complete directory. A missing directory can be fetched once for the summary, with failure leaving the usable summary intact. Tags and image_url remain optional.
 
 保留网站独立数据与原楼层跳转，代价是维护插件分页格式；缺少插件集合时明确报错而非显示空成功。UI 的取消与账户隔离另由公开主页状态管理负责。
