@@ -39,15 +39,18 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
             if (post.number != 1) Box(Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f).clickable(enabled = enabled) { user(post.author.username) }, verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(post.author, 32.dp)
+                    Avatar(post.author, 32.dp, presentation = AvatarPresentation.PLAIN)
                     Column(Modifier.weight(1f).padding(start = 10.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(post.author.displayName, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            Text(post.author.displayName, Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                             MemberNameDecorations(post.author)
                             if (post.author.id == detail.author?.id) Text("楼主", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.weight(1f))
                         }
-                        TopicAuthorMetadata(post.updatedAt, LocalTopicPresentation.current.categories.firstOrNull { it.id == detail.categoryId }, post.edited)
+                        TopicAuthorMetadata(post.updatedAt, detail.categoryId.takeIf { post.number == 1 }?.let { categoryId ->
+                            LocalTopicPresentation.current.categories.firstOrNull { it.id == categoryId }
+                        }, post.edited)
                     }
                 }
                 PostUnreadIndicator(post, state)
@@ -56,10 +59,10 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
                     Icon(Icons.Rounded.MoreHoriz, "更多操作", Modifier.size(20.dp))
                 }
                 }
-                Text(post.number.toString(), Modifier.align(Alignment.TopEnd).padding(top = 1.dp, end = 48.dp)
+                Text(post.number.toString(), Modifier.align(Alignment.TopEnd).padding(top = 1.dp, end = 4.dp)
                     .testTag("post-floor-number-${post.number}"),
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = .35f))
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = .18f))
             }
             PostReadingContent(post.number, enabled && !state.loading) {
                 RichContent(post.cooked, image, openLink, galleryKey = "post-${post.id}", galleryBottomInset = 110.dp,

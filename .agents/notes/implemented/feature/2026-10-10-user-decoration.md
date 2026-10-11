@@ -40,7 +40,9 @@ Post 读取 user_signature（图片 URL 或 cooked HTML），Member 读取 profi
 
 ## Consequences
 
-Topic author rows now render the returned flair and active status icons inline after the display name. The avatar badge remains as a separate visual cue, while both author rows keep their metadata to one line with ellipsis.
+Topic detail avatars use the inline name decoration as the single flair/status cue, removing the duplicate overlay while keeping the icon directly after the nickname.
+
+Public contexts outside topic detail retain the avatar badge; topic detail uses the inline name decoration as the single cue. Both author rows keep their metadata to one line with ellipsis.
 
 正文解析的[引用分组](../bug-fix/2026-10-10-discourse-quotes.md)也可用于签名；签名递归渲染其内容，遵循独立满宽尺寸、默认关闭和SVG生命周期规则。
 

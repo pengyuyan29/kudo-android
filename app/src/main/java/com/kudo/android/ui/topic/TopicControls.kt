@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.Avatar
+import com.kudo.android.ui.components.AvatarPresentation
 import com.kudo.android.ui.components.CategoryIcons
 import com.kudo.android.ui.components.MemberNameDecorations
 import com.kudo.android.ui.components.TopicAuthorMetadata
@@ -56,12 +57,13 @@ internal fun TopicTopBar(
         else Row(Modifier.weight(1f).heightIn(min = 48.dp)
             .clickable(enabled = enabled, role = Role.Button) { user(author.username) }.testTag("topic-author"),
             verticalAlignment = Alignment.CenterVertically) {
-            Avatar(author, 32.dp)
+            Avatar(author, 32.dp, presentation = AvatarPresentation.PLAIN)
             Column(Modifier.weight(1f).padding(start = 10.dp, end = 8.dp)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(author.displayName, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    Text(author.displayName, Modifier.weight(1f, fill = false), maxLines = 1, overflow = TextOverflow.Ellipsis,
                         style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Normal)
                     MemberNameDecorations(author)
+                    Spacer(Modifier.weight(1f))
                 }
                 TopicAuthorMetadata(state.detail.originalPost?.updatedAt ?: state.detail.createdAt,
                     LocalTopicPresentation.current.categories.firstOrNull { it.id == state.detail.categoryId },

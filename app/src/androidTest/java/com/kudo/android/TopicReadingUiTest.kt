@@ -59,6 +59,18 @@ class TopicReadingUiTest {
         screenshot.recycle()
     }
 
+    @Test fun floorWatermarkStaysNearTheRightEdgeOfItsPost() {
+        val posts = listOf(post(1), post(2))
+        val detail = TopicDetail(12, "floor", 1, posts, posts.map(Post::id), false)
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicScreen(TopicState(detail, false, viewerId = 7), GlassMode.TRANSLUCENT,
+                {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+        } }
+        val postBounds = compose.onNodeWithTag("post-2").fetchSemanticsNode().boundsInRoot
+        val floorBounds = compose.onNodeWithTag("post-floor-number-2").fetchSemanticsNode().boundsInRoot
+        assertTrue("floor marker should remain close to the post edge", floorBounds.right >= postBounds.right - 24f)
+    }
+
     @Test fun realExposureMarksOnlyOriginalBodyAndThreadPreviewStaysUnreadUntilNavigated() {
         val batches = mutableListOf<TopicReadingBatch>()
         val root = post(8).copy(read = false)

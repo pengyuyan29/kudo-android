@@ -42,4 +42,6 @@ After an in-app jump completes (`targetRevision > 0`), automatic pagination must
 
 ## Consequences
 
+Post floor numbers remain unprefixed, move close to the right edge, and use a low-alpha watermark color.
+
 删除或不可见楼层会造成楼层编号空洞，按网站真实号码显示且明确反馈不可达；长文当前位置表示当前可见楼层，不表示整篇已读完。

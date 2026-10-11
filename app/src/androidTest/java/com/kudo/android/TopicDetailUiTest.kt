@@ -122,9 +122,17 @@ class TopicDetailUiTest {
 
     @Test fun authorDecorationsAppearAfterTheNickname() {
         compose.setContent { Screen(initial) }
-        compose.onNodeWithTag("member-name-decorations-${author.id}").assertIsDisplayed()
         compose.onNodeWithContentDescription("${author.displayName}的资质：测试资质", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithContentDescription("${author.displayName}的状态：测试状态", useUnmergedTree = true).assertIsDisplayed()
+        val name = compose.onNodeWithText(author.displayName, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val flair = compose.onNodeWithContentDescription("${author.displayName}\u7684\u8d44\u8d28\uff1a\u6d4b\u8bd5\u8d44\u8d28", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("author decorations should follow the nickname", flair.left >= name.right && flair.left - name.right < 40f)
+    }
+
+    @Test fun topicAuthorDecorationsAreNotDuplicatedByAvatarBadges() {
+        compose.setContent { Screen(initial) }
+        compose.onAllNodesWithContentDescription("${author.displayName}\u7684\u8d44\u8d28\uff1a\u6d4b\u8bd5\u8d44\u8d28", useUnmergedTree = true).assertCountEquals(1)
+        compose.onAllNodesWithContentDescription("${author.displayName}\u7684\u72b6\u6001\uff1a\u6d4b\u8bd5\u72b6\u6001", useUnmergedTree = true).assertCountEquals(1)
     }
 
     @Test fun shortTapCancelsHeartOrEmojiAndLongPressOnlyOpensTheResponsePicker() {
