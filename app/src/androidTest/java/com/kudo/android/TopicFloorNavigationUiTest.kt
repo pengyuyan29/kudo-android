@@ -118,6 +118,67 @@ class TopicFloorNavigationUiTest {
         capture("floor-backward-continuous.png")
     }
 
+    @Test fun backwardContinuationPrefetchesBeforeTheFirstLoadedFloorBecomesVisible() {
+        var state by mutableStateOf(TopicState(detail.copy(posts = (98..117).map(::post), stream = (1..120).toList(), highestPostNumber = 120),
+            false, targetNumber = 108, targetRevision = 1))
+        var requests = 0
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, previous = {
+                requests++; state = state.copy(loadingPrevious = true)
+            })
+        } }
+        compose.onNodeWithTag("post-108").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(0, requests) }
+        compose.onNodeWithTag("topic-posts").performScrollToIndex(4)
+        compose.onNodeWithTag("post-100").assertIsDisplayed()
+        compose.onNodeWithTag("post-98").assertIsNotDisplayed()
+        compose.waitUntil(4000) { requests == 1 }
+        compose.runOnIdle { assertEquals(1, requests) }
+        val before = compose.onNodeWithTag("post-100").fetchSemanticsNode().boundsInRoot
+        compose.runOnIdle { state = state.copy(loadingPrevious = false, detail = state.detail!!.copy(posts = (78..117).map(::post))) }
+        compose.waitForIdle()
+        val after = compose.onNodeWithTag("post-100").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertEquals(before.top, after.top, 3f)
+        compose.runOnIdle { assertEquals("prepending moves the threshold away and must not load another page", 1, requests) }
+        capture("floor-early-previous-prefetch.png")
+    }
+
+    @Test fun pendingReplyContextDoesNotBlockTimelineLocationOrBackwardPagination() {
+        var state by mutableStateOf(TopicState(detail.copy(posts = (98..117).map(::post), stream = (1..120).toList(), highestPostNumber = 120),
+            false, contextLoading = true, targetNumber = 108, targetRevision = 1))
+        var requests = 0
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, previous = {
+                requests++; state = state.copy(loadingPrevious = true)
+            })
+        } }
+        compose.onNodeWithTag("post-108").assertIsDisplayed()
+        compose.onNodeWithTag("topic-posts").performScrollToIndex(1)
+        compose.waitUntil(4000) { requests == 1 }
+        compose.runOnIdle { assertTrue(state.contextLoading); assertTrue(state.loadingPrevious) }
+    }
+
+    @Test fun backwardPageKeepsTheLatestReadingPositionIfTheReaderMovesDuringLoading() {
+        var state by mutableStateOf(TopicState(detail.copy(posts = (98..117).map(::post), stream = (1..120).toList(), highestPostNumber = 120),
+            false, targetNumber = 108, targetRevision = 1))
+        var requests = 0
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, previous = {
+                requests++; state = state.copy(loadingPrevious = true)
+            })
+        } }
+        compose.onNodeWithTag("post-108").assertIsDisplayed()
+        compose.onNodeWithTag("topic-posts").performScrollToIndex(1)
+        compose.waitUntil(4000) { requests == 1 }
+        compose.onNodeWithTag("topic-posts").performScrollToIndex(8)
+        val before = compose.onNodeWithTag("post-104").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        compose.runOnIdle { state = state.copy(loadingPrevious = false, detail = state.detail!!.copy(posts = (78..117).map(::post))) }
+        compose.waitForIdle()
+        val after = compose.onNodeWithTag("post-104").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertEquals("cannot restore the old request-start floor after the reader moved", before.top, after.top, 3f)
+        compose.runOnIdle { assertEquals(1, requests) }
+    }
+
     @Test fun narrowDarkLargeTextKeepsAllControlsAndFailureKeepsTheForm() {
         var state by mutableStateOf(TopicState(detail.copy(highestPostNumber = 120000), false))
         var mode by mutableStateOf(GlassMode.LIQUID)

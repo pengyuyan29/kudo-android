@@ -28,6 +28,7 @@ import com.kudo.android.ui.components.*
 import com.kudo.android.ui.components.liquid.LiquidModal
 import com.kudo.android.ui.components.liquid.LiquidModalAction
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -96,11 +97,16 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         previousAnchor = null
         if (state.targetRevision > 0) { floorVisibility.targetState = false; keyboard?.hide() }
     }
+    fun visiblePostAnchor() = listState.layoutInfo.visibleItemsInfo.firstOrNull { item -> posts.any { it.id == item.key } }
+        ?.let { (it.key as Int) to it.offset }
     fun loadPreviousPage() {
         if (state.loadingPrevious || state.loadingMore || state.jumping || state.loading) return
-        previousAnchor = listState.layoutInfo.visibleItemsInfo.firstOrNull { item -> posts.any { it.id == item.key } }
-            ?.let { (it.key as Int) to it.offset }
+        previousAnchor = visiblePostAnchor()
         previous()
+    }
+    LaunchedEffect(state.loadingPrevious, state.targetRevision) {
+        if (!state.loadingPrevious) return@LaunchedEffect
+        snapshotFlow { visiblePostAnchor() }.collect { anchor -> if (anchor != null) previousAnchor = anchor }
     }
     LaunchedEffect(posts.firstOrNull()?.id) {
         val anchor = previousAnchor ?: return@LaunchedEffect
@@ -119,8 +125,8 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     LaunchedEffect(mainVisible, showing, state.jumping, located) {
         if (!showing && !state.jumping && (state.targetNumber == null || located)) mainVisible?.let { currentFloor = it }
     }
-    LaunchedEffect(posts, state.loading, state.contextLoading, state.targetNumber, state.targetRevision) {
-        if (!located && !state.loading && !state.jumping && !state.contextLoading && state.error == null && state.targetNumber != null) {
+    LaunchedEffect(posts, state.loading, state.jumping, state.targetNumber, state.targetRevision) {
+        if (!located && !state.loading && !state.jumping && state.error == null && state.targetNumber != null) {
             val index = posts.indexOfFirst { it.number == state.targetNumber }
             if (index >= 0) {
                 threadVisibility.targetState = false
@@ -133,11 +139,11 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     val hasMore = state.pageIds(previous = false).isNotEmpty()
     val covered = LocalReadingBlocked.current
     AutomaticPostLoading(listState, "more-posts", detail?.stream to posts.map(Post::id),
-        hasMore && !showing && !covered && !state.loading && !state.jumping && !state.loadingMore && !state.loadingPrevious && !state.contextLoading &&
+        hasMore && !showing && !covered && !state.loading && !state.jumping && !state.loadingMore && !state.loadingPrevious &&
             state.error == null && state.moreError == null && (state.targetNumber == null || located), more)
-    AutomaticPostLoading(listState, "previous-posts", detail?.stream to posts.map(Post::id),
+    AutomaticPreviousPostLoading(listState, posts.take(3).map(Post::id).toSet(), detail?.stream to posts.map(Post::id),
         hasPrevious && !showing && !covered && !state.loading && !state.jumping && !state.loadingPrevious && !state.loadingMore &&
-            !state.contextLoading && state.error == null && state.previousError == null && (state.targetNumber == null || located), ::loadPreviousPage)
+            state.error == null && state.previousError == null && (state.targetNumber == null || located), ::loadPreviousPage)
     TopicReadingEnvironment(detail?.id ?: 0, state.viewerId, readingEnabled && detail != null && !state.loading && !state.jumping &&
         !showing && (state.targetNumber == null || located), onReadingBatch, onPostsRead) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -270,6 +276,19 @@ private fun AutomaticPostLoading(list: LazyListState, footer: String, progress: 
         snapshotFlow {
             val layout = list.layoutInfo
             layout.visibleItemsInfo.any { it.key == footer && it.offset < layout.viewportEndOffset && it.offset + it.size > layout.viewportStartOffset }
+        }.first { it }
+        latestLoad()
+    }
+}
+
+@Composable
+private fun AutomaticPreviousPostLoading(list: LazyListState, firstPostIds: Set<Int>, progress: Any?, enabled: Boolean, load: () -> Unit) {
+    val latestLoad by rememberUpdatedState(load)
+    LaunchedEffect(list, firstPostIds, progress, enabled) {
+        if (!enabled) return@LaunchedEffect
+        snapshotFlow {
+            val layout = list.layoutInfo
+            layout.visibleItemsInfo.any { it.key in firstPostIds && it.offset < layout.viewportEndOffset && it.offset + it.size > layout.viewportStartOffset }
         }.first { it }
         latestLoad()
     }
