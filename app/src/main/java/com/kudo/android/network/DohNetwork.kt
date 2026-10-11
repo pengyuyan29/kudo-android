@@ -165,12 +165,9 @@ class DohNetwork internal constructor(context: Context, val settings: DohSetting
                     })
                 }
                 response.use {
-                    when {
-                        response.header("cf-mitigated") == "challenge" -> "DNS 成功 · ECH 已接受 · 站点要求网页验证"
-                        response.isSuccessful && accepted -> "DNS 成功 · ECH 已接受 · 站点访问成功"
-                        accepted -> "DNS 成功 · ECH 已接受 · HTTP ${response.code}"
-                        else -> "DNS 成功，ECH 未协商"
-                    }
+                    val source = it.body?.source()
+                    if (source?.request(2L * 1024 * 1024 + 1) == true) "DNS 成功 · ECH 已接受 · 站点响应过大"
+                    else dohCheckResult(it, source?.readUtf8().orEmpty(), accepted)
                 }
             } finally { http.connectionPool.evictAll() }
         } catch (e: IOException) { currentCoroutineContext().ensureActive(); dohErrorMessage(e) }
@@ -191,6 +188,14 @@ class DohNetwork internal constructor(context: Context, val settings: DohSetting
             (app as? Application)?.unregisterActivityLifecycleCallbacks(lifecycle)
         }
     }
+}
+
+internal fun dohCheckResult(response: okhttp3.Response, body: String, accepted: Boolean): String = when {
+    !accepted -> "DNS 成功，ECH 未协商"
+    com.kudo.android.data.isCloudflareChallenge(response, body) -> "DNS 成功 · ECH 已接受 · 站点要求网页验证"
+    !response.isSuccessful -> "DNS 成功 · ECH 已接受 · HTTP ${response.code}"
+    runCatching { org.json.JSONObject(body).has("topic_list") }.getOrDefault(false) -> "DNS 成功 · ECH 已接受 · 站点访问成功"
+    else -> "DNS 成功 · ECH 已接受 · 站点未返回话题数据"
 }
 
 internal fun dohErrorMessage(error: IOException): String = when {
