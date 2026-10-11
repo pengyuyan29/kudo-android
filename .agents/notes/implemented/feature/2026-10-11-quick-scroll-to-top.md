@@ -12,7 +12,7 @@ Status: implemented
 
 按钮位于当前视口底部中央，给系统导航、首页导航和话题操作栏留出距离，键盘显示时隐藏。页面在顶部时隐藏；列表或折叠页头有偏移时淡入，点击平滑回顶并展开页头。操作期间防重复，离开页面取消旧操作。菜单/面板覆盖时禁用底层目标。话题远楼层复用跳转窗口读取1楼，不补齐中间楼层；读取成功后定位标题，失败保留原内容并允许重试。
 
-回顶样式按同机酷安实测：480dpi设备的可见圆为[492,2067][588,2163]，直径96px即32dp；图形为顶部横线加向上折角，自绘18dp矢量替代普通KeyboardArrowUp。来源截图artifacts/coolapk-quick-top-reference.png及局部icon-reference.png，布局coolapk-quick-top-layout.xml；液态材质和默认开关保留。Compose clickable继续提供最小触摸范围，视觉尺寸不再按48dp放大。
+回顶样式按同机酷安实测：480dpi设备的可见圆为[492,2067][588,2163]，直径96px即32dp；图形为顶部横线加向上折角，自绘18dp矢量替代普通KeyboardArrowUp。来源截图artifacts/coolapk-quick-top-reference.png及局部icon-reference.png，布局coolapk-quick-top-layout.xml；液态材质和默认开关保留。可见32dp圆位于透明48dp点击层中央，按压缩放反馈只作用于圆面，视觉尺寸与触摸范围分开；定位补偿8dp触摸外扩，保证圆面到栏位仍为12dp。
 
 同机酷安按钮底部2163px，详情操作栏顶部2196px，间距33px约11dp，取12dp适配密度取整。首页tabbar高度56dp、底部外距20dp，回顶避让为系统导航+88dp；详情操作栏高度48dp、底部外距20dp，避让由+96dp改为+80dp，两处均保留12dp可见间隙。
 
@@ -29,6 +29,8 @@ showScrollToTop在设置中默认打开，开关即时生效；回复底部只�
 - 远楼层先逐页补齐再回顶：能形成完整连续列表；但长话题等待不可控，沿用既有按目标窗口读取策略。
 
 ## Testing
+
+缩小后的首轮35项相关UI回归有34项通过（artifacts/ui-polish-final-ui.txt），新增实际点击圆面外4px用例复现32dp玻璃子层未响应自动触摸扩展。使用独立48dp点击层修复，避免假设复杂pointerInput组合自动提供扩大命中范围；后续针对公共回顶重新验证。离线详情截图ui-polish-topic-actions.png已检查未点赞爱心/计数与Boost同灰、32dp圆面和12dp操作栏间距。
 
 最终Debug、AndroidTest和Lint构建通过（artifacts/quick-top-final-build.txt），Lint为0错误、38既有警告、1提示。27项JVM关联回归全部通过：ReplyRulesTest 3、TopicFloorNavigationTest 12、TopicResumeReadingTest 12。
 

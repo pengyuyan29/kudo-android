@@ -1,9 +1,13 @@
 package com.kudo.android.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -11,9 +15,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.layout.boundsInWindow
@@ -72,24 +78,33 @@ internal fun QuickScrollToTopHost(content: @Composable () -> Unit) {
         if (target != null) key(target) {
             val scope = rememberCoroutineScope()
             var scrolling by remember { mutableStateOf(false) }
-            val size = with(density) { QuickScrollButtonSize.toPx() }
+            val interaction = remember { MutableInteractionSource() }
+            val pressed by interaction.collectIsPressedAsState()
+            val scale by animateFloatAsState(if (pressed) 1.08f else 1f)
+            val size = with(density) { 48.dp.toPx() }
+            val touchInset = with(density) { ((48.dp - QuickScrollButtonSize) / 2).toPx() }
             val bottom = minOf(target.bounds.bottom - with(density) { target.bottomPadding.toPx() },
                 bounds.bottom - navigation - with(density) { 12.dp.toPx() })
             val x = target.bounds.center.x - bounds.left - size / 2
-            val y = bottom - bounds.top - size
+            val y = bottom - bounds.top - size + touchInset
             AnimatedVisibility(settings.showScrollToTop && target.scrolled && ime == 0 && y >= 0,
                 modifier = Modifier.offset { IntOffset(x.roundToInt(), y.roundToInt()) },
                 enter = fadeIn(), exit = fadeOut()) {
-                LiquidButton(onClick = {
+                Box(Modifier.size(48.dp).testTag("quick-scroll-to-top").clickable(
+                    enabled = !scrolling, interactionSource = interaction, indication = null, onClick = {
                     if (!scrolling) scope.launch {
                         scrolling = true
                         try { target.scrollToTop() } finally { scrolling = false }
                     }
-                }, backdrop = backdrop, mode = settings.glass, enabled = !scrolling,
+                }), contentAlignment = Alignment.Center) {
+                LiquidButton(onClick = null, isInteractive = false,
+                    backdrop = backdrop, mode = settings.glass, enabled = !scrolling,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = .3f),
-                    contentPadding = PaddingValues(0.dp), modifier = Modifier.size(QuickScrollButtonSize).testTag("quick-scroll-to-top")) {
+                    contentPadding = PaddingValues(0.dp), modifier = Modifier.size(QuickScrollButtonSize)
+                        .graphicsLayer { scaleX = scale; scaleY = scale }.testTag("quick-scroll-to-top-surface")) {
                     Icon(ScrollTopIcon, "回到顶部", Modifier.size(18.dp))
+                }
                 }
             }
         }

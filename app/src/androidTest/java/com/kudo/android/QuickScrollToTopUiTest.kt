@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.testTag
@@ -79,7 +80,9 @@ class QuickScrollToTopUiTest {
         compose.runOnIdle { enabled = false }
         button().assertDoesNotExist()
         compose.runOnIdle { enabled = true }
-        button().assertIsDisplayed().performClick()
+        button().assertIsDisplayed()
+        compose.onNodeWithTag("quick-scroll-to-top-surface", useUnmergedTree = true)
+            .performTouchInput { click(Offset(center.x, -4f)) }
         compose.runOnIdle { assertEquals(0, scroll.firstVisibleItemIndex); assertEquals(0, scroll.firstVisibleItemScrollOffset) }
         button().assertDoesNotExist()
     }
@@ -177,6 +180,7 @@ class QuickScrollToTopUiTest {
         } } }
         compose.onNodeWithTag("topic-posts").performScrollToIndex(8)
         button().assertIsDisplayed()
+        capture("ui-polish-topic-actions.png")
         compose.runOnIdle { replyShowing = true }
         button().assertDoesNotExist()
     }
