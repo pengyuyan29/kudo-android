@@ -26,6 +26,10 @@ Status: proposed
 
 首批 5 项 Rust 离线边界测试通过。补充协议回归先复现 HTTP/1.1 直连误用完整 URL 而非 origin-form，7 项中 1 项失败，记录在 artifacts/doh-validation/native-repro.txt；修复将 HTTP/1.1 请求行与 HTTP/2 authority 分开处理后，7 项全部通过，记录在 native-fixed.txt。新增响应体上限测试检查超限拒绝和恰好达到上限的成功边界。DNS 各记录查询状态独立报告，全部失败保留实际底层阶段，不混成普通无地址。
 
+Windows 构建入口为 scripts/build_doh_probe.ps1，使用固定 Cargo.lock、NDK 27 与 CMake 3.22.1，生成 android-26／arm64 的 JNI 库到 app/build/generated/dohProbeJni。脚本只设置当前进程环境，结束后恢复；强制 16KB ELF LOAD 对齐并检查结果。生成文件都在既有忽略的 app/build/ 下，不把二进制提交源码。
+
+首次真实构建复现 Windows PowerShell 5 将 Cargo stderr 进度文本当作终止错误，记录 android-native-build.txt；脚本改为归一化文本并以进程退出码判断后，Android arm64 release 构建成功（73 秒），库为 4,798,696 字节，ELF LOAD 对齐均为 16KB，记录 android-native-build-fixed.txt。
+
 ## Alternatives considered
 
 - 直接上线设置和全局网络层：用户能立即体验开关、节点管理和所有页面，但会在 ECH／CF 尚未验证时扩大回归范围；先交付隔离的对照探针。
