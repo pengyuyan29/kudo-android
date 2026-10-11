@@ -57,6 +57,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.kudo.android.data.AvatarMetadataCache
 import com.kudo.android.ui.components.AvatarImage
 import com.kudo.android.ui.components.ImageAspectBadge
+import com.kudo.android.ui.components.CommunityLoadingIndicator
 import com.kudo.android.ui.components.LocalAvatarMetadata
 import com.kudo.android.ui.components.mediaUrl
 import com.kudo.android.ui.LinuxDoLink
@@ -420,6 +421,9 @@ private fun ArticleImage(image: ArticleBlock.Image, anchor: GalleryThumbnailAnch
     val resources = LocalResources.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var animation by remember(image.url) { mutableStateOf<Animatable?>(null) }
+    var loading by remember(image.url) { mutableStateOf(true) }
+    var failed by remember(image.url) { mutableStateOf(false) }
+    var retry by remember(image.url) { mutableIntStateOf(0) }
     LifecycleResumeEffect(animation) {
         if (animation?.isRunning == false) animation?.start()
         onPauseOrDispose { animation?.stop() }
@@ -433,16 +437,25 @@ private fun ArticleImage(image: ArticleBlock.Image, anchor: GalleryThumbnailAnch
             .heightIn(max = 300.dp).aspectRatio(decodedRatio ?: image.ratio ?: 1.6f)
             .bringIntoViewRequester(anchor.requester).onGloballyPositioned { anchor.coordinates = it }.testTag(tag)
             .graphicsLayer { alpha = if (gallery?.hiddenAnchor === anchor) 0f else 1f }
-            .clip(RoundedCornerShape(11.dp)).clickable(onClick = open)) {
-        AsyncImage(image.url, image.alt.ifBlank { "帖子图片，点击放大" }, Modifier.fillMaxSize(),
+            .clip(RoundedCornerShape(11.dp))
+            .then(if (loading || failed) Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else Modifier)
+            .clickable(onClick = { if (failed) { loading = true; failed = false; retry++ } else open() })) {
+        key(retry) { AsyncImage(image.url, image.alt.ifBlank { "帖子图片，点击放大" }, Modifier.fillMaxSize(),
             contentScale = ContentScale.Fit,
+            onLoading = { loading = true; failed = false },
+            onError = { loading = false; failed = true },
             onSuccess = { state ->
+                loading = false
+                failed = false
                 val bitmap = state.result.image
                 if (bitmap.width > 0 && bitmap.height > 0) decodedRatio = bitmap.width.toFloat() / bitmap.height
                 anchor.painter = state.painter
                 animation = bitmap.asDrawable(resources) as? Animatable
                 if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) animation?.stop()
-            })
+            }) }
+        if (loading) CommunityLoadingIndicator(Modifier.align(Alignment.Center).size(24.dp).testTag("$tag-loading"))
+        if (failed) Text("加载失败，点击重试", Modifier.align(Alignment.Center),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         ImageAspectBadge(decodedRatio ?: image.ratio)
     }
 }
