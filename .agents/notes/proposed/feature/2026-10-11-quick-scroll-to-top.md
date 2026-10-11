@@ -59,3 +59,7 @@ Status: proposed
 回复计数展示精简完成，最小长度仍使用网站配置，未达标时为当前/最少字数，达标后只显示当前字数；详细契约同步到原回复长度笔记。
 
 首次集中构建复现关于页缺少quickScrollTarget导入（artifacts/quick-top-integration-build.txt）；补齐明确扩展引用。继续集中编译和专项界面验证。
+
+集中Debug、AndroidTest及Lint通过（artifacts/quick-top-tests-build.txt），Lint为0错误/38警告/1提示。27项JVM关联回归全部通过（ReplyRulesTest 3、TopicFloorNavigationTest 12、TopicResumeReadingTest 12）。核对已安装Debug签名一致后install -r保留数据覆盖，新增QuickScrollToTopUiTest的8项真机用例全部通过（artifacts/quick-top-ui-first.txt），覆盖独立测试配置持久化、开关即时生效、分页状态、覆盖和重复点击、公开主页展开、远楼层失败保留/成功回标题、三种材质避让及回复计数和发送阈值。
+
+同机深色130%字号的LIQUID/BLUR/TRANSLUCENT静止截图分别为artifacts/quick-top-material-*.png，已人工检查：按钮居中且在底栏上方，液态边缘采样到真实双色内容，模糊/半透明遵循既有兼容效果。这是固定离线色块夹具的材质检查，不能当作所有实景或旧系统运行验收。
