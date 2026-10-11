@@ -132,7 +132,7 @@ internal fun CategoryFeedScreen(category: Category, state: FeedState, user: Memb
                         ?: FeedState(filter = value, accountId = user?.id, categories = state.categories)
                     FeedPage(page, pager.settledPage == index && value == state.filter, { collapse = 0f },
                         refresh, more, openTopic, openUser, login, listStyle, nested,
-                        headerScrolled = collapse > 0f, expandHeader = {
+                        expandHeader = {
                             androidx.compose.animation.core.animate(collapse, 0f) { value, _ -> collapse = value }
                         })
                 }

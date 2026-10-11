@@ -144,7 +144,7 @@ internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: 
                     }
                     LazyColumn(Modifier.fillMaxSize().testTag("profile-list-${tab.name}")
                         .quickScrollTarget(scroll, enabled = pager.settledPage == index && !covered,
-                            extraScrolled = collapse > 0f, expandHeader = {
+                            expandHeader = {
                                 androidx.compose.animation.core.animate(collapse, 0f) { value, _ -> collapse = value }
                             }), state = scroll,
                         contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {

@@ -129,7 +129,7 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
                 }
             }
             LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("member-profile")
-                .quickScrollTarget(scroll, extraScrolled = visibleCollapse > 0f, expandHeader = {
+                .quickScrollTarget(scroll, expandHeader = {
                     androidx.compose.animation.core.animate(collapse, 0f) { value, _ -> collapse = value }
                 }), state = scroll,
                 contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

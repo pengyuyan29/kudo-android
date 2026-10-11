@@ -76,7 +76,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     var revealOriginal by remember(detail?.id, ignoredUsers) { mutableStateOf(false) }
     val originalIgnored = detail?.author?.username?.lowercase(java.util.Locale.ROOT) in ignoredUsers
     val listState = rememberLazyListState()
-    val listMoved by remember { derivedStateOf { listState.canScrollBackward } }
+    val listMoved = rememberQuickScrollPastViewport(listState)
     var returningToTop by remember(detail?.id) { mutableStateOf(false) }
     var returnTopError by remember(detail?.id) { mutableStateOf<String?>(null) }
     val hasPrevious = state.pageIds(previous = true).isNotEmpty()

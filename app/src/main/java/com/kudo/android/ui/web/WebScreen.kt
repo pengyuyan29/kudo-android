@@ -18,6 +18,7 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -48,7 +49,9 @@ internal fun WebScreen(url: String, back: () -> Unit, openBrowser: (String) -> U
     var navigationGeneration by remember(url) { mutableIntStateOf(0) }
     var error by remember(url) { mutableStateOf<String?>(null) }
     var message by remember(url) { mutableStateOf<String?>(null) }
-    var scrolled by remember(url) { mutableStateOf(false) }
+    var scrollY by remember(url) { mutableIntStateOf(0) }
+    var viewportHeight by remember(url) { mutableIntStateOf(0) }
+    val scrolled = viewportHeight > 0 && scrollY >= viewportHeight
     val currentBack by rememberUpdatedState(back)
     fun navigateBack() { val view = page.view; if (view?.canGoBack() == true) view.goBack() else currentBack() }
     fun retry() {
@@ -140,7 +143,7 @@ internal fun WebScreen(url: String, back: () -> Unit, openBrowser: (String) -> U
                         message = "下载文件请使用右上角的浏览器打开"
                     }
                     page.view = this
-                    setOnScrollChangeListener { _, _, y, _, _ -> scrolled = y > 0 }
+                    setOnScrollChangeListener { _, _, y, _, _ -> scrollY = y }
                     if (page.saved?.let { restoreState(it) } == null) loadUrl(url)
                 }
             }, onRelease = { view ->
@@ -148,7 +151,7 @@ internal fun WebScreen(url: String, back: () -> Unit, openBrowser: (String) -> U
                 view.setOnScrollChangeListener(null)
                 view.stopLoading(); view.removeAllViews(); view.destroy()
                 CookieManager.getInstance().flush()
-            }, modifier = Modifier.fillMaxSize().testTag("web-content"))
+            }, modifier = Modifier.fillMaxSize().onSizeChanged { viewportHeight = it.height }.testTag("web-content"))
             if (awaitingContent && error == null) Column(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).testTag("web-loading"),
                 verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),

@@ -131,23 +131,84 @@ internal fun Modifier.quickScrollTarget(scrolled: Boolean, enabled: Boolean = tr
     return onGloballyPositioned { target.bounds = it.boundsInWindow() }
 }
 
+private data class ScrollTopRow(val index: Int, val key: Any, val size: Int)
+private data class ScrollTopMetrics(val width: Int, val height: Int, val index: Int, val offset: Int,
+    val spacing: Int, val backwards: Boolean, val rows: List<ScrollTopRow>)
+
+/** Retain measured prefix heights so a long first post is not estimated from later short replies. */
+private class ScrollTopDistance {
+    private var width = 0
+    private val measured = mutableMapOf<Int, ScrollTopRow>()
+
+    fun exceedsViewport(metrics: ScrollTopMetrics): Boolean = with(metrics) {
+        if (width != this@ScrollTopDistance.width) {
+            measured.clear()
+            this@ScrollTopDistance.width = width
+        }
+        measured.keys.removeAll { it >= height }
+        rows.filter { it.index in 0 until height && it.size > 0 }.forEach { row ->
+            if (measured[row.index]?.key?.let { it != row.key } == true) {
+                measured.keys.removeAll { it >= row.index }
+            }
+            measured[row.index] = row
+        }
+        if (!backwards || height <= 0 || rows.isEmpty()) return false
+        if (index >= height) return true
+        val prefix = measured.values.filter { it.index < index }
+        val average = rows.map { it.size }.average()
+        offset.toDouble() + index.toDouble() * spacing + prefix.sumOf { it.size.toDouble() } +
+            (index - prefix.size) * average >= height
+    }
+}
+
 @Composable
-internal fun Modifier.quickScrollTarget(state: LazyListState, enabled: Boolean = true, extraScrolled: Boolean = false,
+private fun rememberScrollThreshold(state: Any, metrics: () -> ScrollTopMetrics): Boolean {
+    var scrolled by remember(state) { mutableStateOf(false) }
+    LaunchedEffect(state) {
+        val distance = ScrollTopDistance()
+        snapshotFlow(metrics).collect { scrolled = distance.exceedsViewport(it) }
+    }
+    return scrolled
+}
+
+@Composable
+internal fun rememberQuickScrollPastViewport(state: LazyListState): Boolean = rememberScrollThreshold(state) {
+    val info = state.layoutInfo
+    ScrollTopMetrics(info.viewportSize.width, info.viewportSize.height, state.firstVisibleItemIndex,
+        state.firstVisibleItemScrollOffset, info.mainAxisItemSpacing, state.canScrollBackward,
+        info.visibleItemsInfo.map { ScrollTopRow(it.index, it.key, it.size) })
+}
+
+@Composable
+private fun rememberQuickScrollPastViewport(state: LazyGridState): Boolean = rememberScrollThreshold(state) {
+    val info = state.layoutInfo
+    val items = info.visibleItemsInfo.filter { it.row >= 0 }
+    val firstRow = items.firstOrNull { it.index == state.firstVisibleItemIndex }?.row
+        ?: items.minOfOrNull { it.row } ?: 0
+    ScrollTopMetrics(info.viewportSize.width, info.viewportSize.height, firstRow,
+        state.firstVisibleItemScrollOffset, info.mainAxisItemSpacing, state.canScrollBackward,
+        items.groupBy { it.row }.map { (row, cells) ->
+            ScrollTopRow(row, cells.minBy { it.index }.key, cells.maxOf { it.size.height })
+        })
+}
+
+@Composable
+internal fun Modifier.quickScrollTarget(state: LazyListState, enabled: Boolean = true,
     bottomPadding: Dp = LocalQuickScrollBottomPadding.current, expandHeader: suspend () -> Unit = {}): Modifier {
-    val scrolled by remember(state) { derivedStateOf { state.canScrollBackward } }
-    return quickScrollTarget(scrolled || extraScrolled, enabled, bottomPadding) {
+    val scrolled = rememberQuickScrollPastViewport(state)
+    return quickScrollTarget(scrolled, enabled, bottomPadding) {
         coroutineScope { launch { state.animateScrollToItem(0) }; launch { expandHeader() } }
     }
 }
 
 @Composable
 internal fun Modifier.quickScrollTarget(state: LazyGridState, enabled: Boolean = true): Modifier {
-    val scrolled by remember(state) { derivedStateOf { state.canScrollBackward } }
+    val scrolled = rememberQuickScrollPastViewport(state)
     return quickScrollTarget(scrolled, enabled) { state.animateScrollToItem(0) }
 }
 
 @Composable
 internal fun Modifier.quickScrollTarget(state: ScrollState, enabled: Boolean = true): Modifier {
-    val scrolled by remember(state) { derivedStateOf { state.value > 0 } }
+    val scrolled by remember(state) { derivedStateOf { state.viewportSize > 0 && state.value >= state.viewportSize } }
     return quickScrollTarget(scrolled, enabled) { state.animateScrollTo(0) }
 }

@@ -14,6 +14,7 @@ import com.kudo.android.data.AndroidSessionCookies
 import com.kudo.android.data.DisplaySettings
 import com.kudo.android.data.ThemeMode
 import com.kudo.android.ui.theme.KudoTheme
+import com.kudo.android.ui.components.QuickScrollToTopHost
 import com.kudo.android.ui.web.WebScreen
 import org.junit.*
 import org.junit.Assert.*
@@ -96,6 +97,20 @@ class WebScreenUiTest {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
         }
         bitmap.recycle()
+    }
+
+    @Test fun quickReturnWaitsForAViewportAndReturnsTheWebPageToTheTop() {
+        compose.setContent { KudoTheme(DisplaySettings()) { QuickScrollToTopHost {
+            WebScreen(start, {}, {}, ::create)
+        } } }
+        awaitPage("指南")
+        javascript("document.body.style.minHeight='6000px'")
+        compose.runOnUiThread { current().scrollTo(0, current().height / 4) }
+        compose.onNodeWithTag("quick-scroll-to-top").assertDoesNotExist()
+        compose.runOnUiThread { current().scrollTo(0, current().height * 2) }
+        compose.onNodeWithTag("quick-scroll-to-top").assertIsDisplayed().performClick()
+        compose.waitUntil(5000) { current().scrollY == 0 }
+        compose.onNodeWithTag("quick-scroll-to-top").assertDoesNotExist()
     }
 
     @Test fun refreshingShowsLoadingAgainUntilContentAppears() {

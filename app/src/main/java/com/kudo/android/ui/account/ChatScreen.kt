@@ -108,7 +108,8 @@ internal fun ChatScreen(vm: ChatViewModel, member: Member, settings: AppSettings
     val draftKey = "${member.id}_chat_${vm.channelId}"
     var raw by remember(member.id, vm.channelId) { mutableStateOf(settings.draft(draftKey).raw) }
     val scroll = rememberLazyListState()
-    val awayFromTop by remember { derivedStateOf { scroll.canScrollBackward && scroll.canScrollForward } }
+    val pastViewport = rememberQuickScrollPastViewport(scroll)
+    val awayFromTop = pastViewport && scroll.canScrollForward
     var located by remember(vm) { mutableStateOf(false) }
     val lifecycle by LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
     val visibleId by remember(scroll) { derivedStateOf { scroll.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? Int }.maxOrNull() } }

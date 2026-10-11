@@ -4,10 +4,15 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Bitmap
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Text
@@ -29,6 +34,7 @@ import com.kudo.android.ui.editor.EditorForm
 import com.kudo.android.ui.theme.KudoTheme
 import com.kudo.android.ui.topic.*
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -87,6 +93,109 @@ class QuickScrollToTopUiTest {
         button().assertDoesNotExist()
     }
 
+    @Test fun shortScrollStaysHiddenAndThresholdFollowsViewportHeight() {
+        var height by mutableStateOf(320.dp)
+        lateinit var scroll: LazyListState
+        compose.setContent { KudoTheme(DisplaySettings()) { QuickScrollToTopHost {
+            Box(Modifier.fillMaxWidth().height(height)) {
+                scroll = rememberLazyListState()
+                ListFixture(scroll)
+            }
+        } } }
+        val list = compose.onNodeWithTag("fixture-list")
+        list.performScrollToIndex(1)
+        button().assertDoesNotExist()
+        capture("quick-top-threshold-short.png")
+        list.performScrollToIndex(6)
+        button().assertIsDisplayed()
+        capture("quick-top-threshold-distant.png")
+        compose.runOnIdle { height = 560.dp }
+        button().assertDoesNotExist()
+        list.performScrollToIndex(12)
+        button().assertIsDisplayed()
+        list.performScrollToIndex(1)
+        button().assertDoesNotExist()
+    }
+
+    @Test fun aLongFirstItemCountsItsRealHeightWhenItLeavesTheViewport() {
+        compose.setContent { KudoTheme(DisplaySettings()) { QuickScrollToTopHost {
+            val scroll = rememberLazyListState()
+            LazyColumn(Modifier.fillMaxWidth().height(320.dp).quickScrollTarget(scroll).testTag("long-first"), state = scroll) {
+                items(40) { Text("内容 $it", Modifier.fillMaxWidth().height(if (it == 0) 960.dp else 64.dp)) }
+            }
+        } } }
+        val list = compose.onNodeWithTag("long-first")
+        list.performTouchInput { swipe(center, center - Offset(0f, 60f), 600) }
+        button().assertDoesNotExist()
+        list.performScrollToIndex(1)
+        button().assertIsDisplayed()
+        list.performScrollToIndex(2)
+        button().assertIsDisplayed()
+        button().performClick()
+        button().assertDoesNotExist()
+    }
+
+    @Test fun gridThresholdCountsRowsAndPlainScrollAlsoWaitsForAViewport() {
+        var grid by mutableStateOf(true)
+        var plainScroll: (Int) -> Unit = {}
+        compose.setContent { KudoTheme(DisplaySettings()) { QuickScrollToTopHost {
+            if (grid) {
+                val scroll = rememberLazyGridState()
+                LazyVerticalGrid(GridCells.Fixed(2), Modifier.fillMaxWidth().height(320.dp)
+                    .quickScrollTarget(scroll).testTag("threshold-grid"), state = scroll) {
+                    items(80) { Text("徽章 $it", Modifier.height(64.dp)) }
+                }
+            } else {
+                val scroll = rememberScrollState()
+                val scope = rememberCoroutineScope()
+                Column(Modifier.fillMaxWidth().height(320.dp).verticalScroll(scroll).quickScrollTarget(scroll)) {
+                    Text("长资料", Modifier.height(4000.dp))
+                }
+                SideEffect { plainScroll = { value -> scope.launch { scroll.scrollTo(value) } } }
+            }
+        } } }
+        val list = compose.onNodeWithTag("threshold-grid")
+        list.performScrollToIndex(2)
+        button().assertDoesNotExist()
+        list.performScrollToIndex(16)
+        button().assertIsDisplayed().performClick()
+        button().assertDoesNotExist()
+        compose.runOnIdle { grid = false }
+        compose.runOnIdle { plainScroll(60) }
+        button().assertDoesNotExist()
+        compose.runOnIdle { plainScroll(2000) }
+        button().assertIsDisplayed().performClick()
+        button().assertDoesNotExist()
+    }
+
+    @Test fun restoredPositionAndReverseChatKeepTheirReturnDestinations() {
+        var reverse by mutableStateOf(false)
+        lateinit var scroll: LazyListState
+        compose.setContent { KudoTheme(DisplaySettings()) { QuickScrollToTopHost {
+            key(reverse) {
+                scroll = rememberLazyListState(initialFirstVisibleItemIndex = if (reverse) 0 else 40)
+                val past = rememberQuickScrollPastViewport(scroll)
+                LazyColumn(Modifier.fillMaxWidth().height(320.dp).testTag("restored-reverse")
+                    .quickScrollTarget(scrolled = past && (!reverse || scroll.canScrollForward)) {
+                        scroll.animateScrollToItem(if (reverse) 79 else 0)
+                    }, state = scroll, reverseLayout = reverse) {
+                    items(80) { Text("消息 $it", Modifier.height(64.dp).fillMaxWidth()) }
+                }
+            }
+        } } }
+        button().assertIsDisplayed().performClick()
+        compose.runOnIdle { assertFalse(scroll.canScrollBackward); reverse = true }
+        button().assertDoesNotExist()
+        val list = compose.onNodeWithTag("restored-reverse")
+        list.performScrollToIndex(1)
+        button().assertDoesNotExist()
+        list.performScrollToIndex(10)
+        button().assertIsDisplayed().performClick()
+        compose.onNodeWithText("消息 79").assertIsDisplayed()
+        compose.runOnIdle { assertFalse(scroll.canScrollForward) }
+        button().assertDoesNotExist()
+    }
+
     @Test fun pagerOnlyReturnsTheCurrentListAndKeepsTheOtherReadingPosition() {
         val states = mutableListOf<LazyListState>()
         compose.setContent { KudoTheme(DisplaySettings()) { QuickScrollToTopHost {
@@ -137,6 +246,9 @@ class QuickScrollToTopUiTest {
         } } }
         val list = compose.onNodeWithTag("profile-list-SUMMARY")
         val expandedTop = list.fetchSemanticsNode().boundsInRoot.top
+        list.performTouchInput { swipe(center, center - Offset(0f, 60f), 600) }
+        button().assertDoesNotExist()
+        list.performTouchInput { swipeUp(durationMillis = 600) }
         list.performTouchInput { swipeUp(durationMillis = 600) }
         button().assertIsDisplayed()
         assertTrue(list.fetchSemanticsNode().boundsInRoot.top < expandedTop)
