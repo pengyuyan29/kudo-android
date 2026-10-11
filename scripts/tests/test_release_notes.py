@@ -194,6 +194,33 @@ gh() {
                 if scenario == "published":
                     self.assertNotIn("--notes-file", recorded)
 
+    def test_workflow_passes_published_baseline_and_stops_when_query_fails(self):
+        bash = str(Path(r"C:\Program Files\Git\bin\bash.exe")) if os.name == "nt" else shutil.which("bash")
+        if not bash or not Path(bash).is_file():
+            self.skipTest("Bash is required for the workflow shell fixture")
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        block = workflow.split("      - name: Organize release notes from commits\n", 1)[1].split("      - name:", 1)[0]
+        self.assertIn("        run: |\n", block)
+        shell = "\n".join(line[10:] for line in block.split("        run: |\n", 1)[1].splitlines())
+        stub = '''set -euo pipefail
+gh() { [[ "$SCENARIO" != error ]] || return 1; printf '%s' "$PUBLISHED_BASELINE"; }
+python3() { printf '%s\\n' "$@" > arguments.txt; }
+'''
+        (self.root / "notes.sh").write_text(stub + shell, encoding="utf-8", newline="\n")
+        for scenario, baseline in (("published", "v0.1.0"), ("first", ""), ("error", "")):
+            with self.subTest(scenario=scenario):
+                arguments = self.root / "arguments.txt"
+                arguments.unlink(missing_ok=True)
+                result = subprocess.run([bash, "notes.sh"], cwd=self.root, capture_output=True,
+                    env={**os.environ, "SCENARIO": scenario, "PUBLISHED_BASELINE": baseline,
+                        "RELEASE_TAG": "v0.1.3", "RELEASE_REPOSITORY": "owner/repo", "RUNNER_TEMP": str(self.root)})
+                self.assertEqual(scenario != "error", result.returncode == 0, result.stderr)
+                if scenario == "error":
+                    self.assertFalse(arguments.exists())
+                else:
+                    values = arguments.read_text().splitlines()
+                    self.assertEqual(baseline, values[values.index("--previous-tag") + 1])
+
 
 if __name__ == "__main__":
     unittest.main()
