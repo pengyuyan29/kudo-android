@@ -10,7 +10,7 @@ Status: implemented
 
 界面设置持久化信息流和传统标题两种模式，默认信息流。首页、分类和搜索主题列表应用同一选择；传统行显示头像、标题、图标分类与标签、回复数和更新时间，以分隔线代替卡片间距，不显示摘要和预览图。持久化名称而非序号，缺失及未知值回退信息流。
 
-信息流昵称下显示 bumped_at 更新时间和带图标分类；列表接口没有主帖编辑版本，遵循用户补充要求完全不显示编辑状态，也不逐帖请求详情。详情楼主和回复昵称下显示各自 updated_at、同一主题分类和版本大于1时的“已编辑”；缺少 updated_at 时回退 created_at，时间变化本身不能判定编辑。深链仍由 pinnedOriginal 提供楼主更新时间和编辑状态。
+信息流昵称下显示 bumped_at 更新时间和带图标分类；列表接口没有主帖编辑版本，遵循用户补充要求完全不显示编辑状态，也不逐帖请求详情。详情顶部楼主作者栏和回复昵称下仅显示各自 updated_at 与版本大于1时的“已编辑”，不显示分类；话题分类仅在标题下与标签一起展示。缺少 updated_at 时回退 created_at，时间变化本身不能判定编辑。深链仍由 pinnedOriginal 提供楼主更新时间和编辑状态。
 
 两种列表共用蓝色状态标记：服务器 unread_posts > 0 显示新回复数字，其次 unseen=true 显示蓝点，其余隐藏。不用 highest_post_number 减 last_read 推算，因为通知级别低的主题即使有楼层差也返回0。缺字段不补逐帖请求。既有后台列表探测只同步当前页已存在主题的两个状态字段，不插入、删除、重排主题或重置滚动与分页；新主题仍走原有更新提示。
 
@@ -31,6 +31,7 @@ Status: implemented
 - 同一张卡片隐藏摘要和图片：组件少，但头像、计数和分隔线仍保持卡片层次，无法达到传统列表密度，采用独立传统行、共享元信息。
 - 每项列表请求完整详情判断编辑状态：字段完整，但带来逐帖网络开销；接口不支持时用户允许隐藏，因此列表不补请求也不显示编辑标记。
 - 只内置标签图标配置：离线稳定且没有辅助请求，但站点增删和改名无法跟随；内置用于失败回退，正常读取站点主题配置，图形仍使用已核实的本地矢量。
+- 顶部作者栏同时保留分类：滚动正文后仍能辨认分类，但与标题下重复且占用日期和编辑状态的空间；按用户最新要求去掉顶部分类，保留标题下可点击的分类与标签。
 
 ## Verification
 
@@ -48,8 +49,12 @@ RMX2202 / Android13 的46项集中界面回归全部通过（85.265秒），日�
 
 Topic detail metadata now renders the resolved category before tag chips. Category and tag chips expose native navigation callbacks, while reply author rows omit the topic category.
 
-分类目录由 CommunityRepository 按账号共享成功结果。辅助加载失败保留已成功目录，首次无目录时有限重试；回到前台或详情加载完成仍缺分类时可重试。账号切换清空目录并拒绝旧请求回写。顶部作者分类和标题下分类订阅同一目录，分类文字在窄行中省略而不换行。
+分类目录由 CommunityRepository 按账号共享成功结果。辅助加载失败保留已成功目录，首次无目录时有限重试；回到前台或详情加载完成仍缺分类时可重试。账号切换清空目录并拒绝旧请求回写。标题下分类继续订阅该目录并可点击进入分类页；顶部作者栏只保留日期和“已编辑”，不再订阅分类目录。
 
-2026-10-11：TopicPresentationUiTest 的9项真机用例通过，包括首次目录503后重试恢复顶部分类；同批3项总结布局用例通过，日志 summary-layout-fixed-device-20261011.txt。顶部恢复截图 topic-toolbar-category-recovered.png 已查看，日期、分类和编辑状态保持单行。
+2026-10-11（历史验证，顶部展示约定已被下述要求替代）：TopicPresentationUiTest 的9项真机用例通过，包括首次目录503后重试恢复顶部分类；同批3项总结布局用例通过，日志 summary-layout-fixed-device-20261011.txt。顶部恢复截图 topic-toolbar-category-recovered.png 已查看，日期、分类和编辑状态保持单行。
+
+2026-10-11 用户要求移除顶部作者栏分类：两项复现测试在旧版真机上均失败，作者栏语义仍包含“开发调优”及分类图标，日志 artifacts/topic-toolbar-category-repro-device-20261011.txt。回归继续验证日期、真实编辑状态、分类目录首次503后重试及标题下分类和标签的顺序与原生导航。
+
+修正后 RMX2202 / Android13 的9项 TopicPresentationUiTest 与3项作者栏、关注和昵称装饰用例全部通过（12项，16.239秒），日志 artifacts/topic-toolbar-category-fixed-device-20261011.txt。Debug、AndroidTest 构建与 Lint 通过，日志 artifacts/topic-toolbar-category-fixed-build-20261011.txt。已查看 artifacts/topic-toolbar-no-category-light-20261011.png 和 artifacts/topic-toolbar-category-recovered-20261011.png：顶部日期与编辑状态之间只有一个分隔符，分类只出现在标题下。核对签名一致后使用 adb install -r 保留数据覆盖安装，已启动正常应用；未发现新增问题。
 
 列表保留真实活动时间和分类，但不会显示主帖编辑状态。详情以服务端版本为准，自动处理和用户编辑是否增加版本由站点决定。启动多两项有时限的辅助读取，失败仍显示内容及内置标签图标；新图标名在本地目录更新前使用通用 Tag 图形。未知分类元数据不编造分类名，读取成功后补入。

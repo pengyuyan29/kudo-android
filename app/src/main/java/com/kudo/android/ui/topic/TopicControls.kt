@@ -35,7 +35,6 @@ import com.kudo.android.ui.components.AvatarPresentation
 import com.kudo.android.ui.components.CategoryIcons
 import com.kudo.android.ui.components.MemberNameDecorations
 import com.kudo.android.ui.components.TopicAuthorMetadata
-import com.kudo.android.ui.components.LocalTopicPresentation
 import com.kudo.android.ui.components.liquid.LiquidButton
 import com.kudo.android.ui.theme.LogoYellow
 import com.kudo.android.ui.theme.LikeRed
@@ -66,8 +65,7 @@ internal fun TopicTopBar(
                     Spacer(Modifier.weight(1f))
                 }
                 TopicAuthorMetadata(state.detail.originalPost?.updatedAt ?: state.detail.createdAt,
-                    LocalTopicPresentation.current.categories.firstOrNull { it.id == state.detail.categoryId },
-                    state.detail.originalPost?.edited == true)
+                    category = null, edited = state.detail.originalPost?.edited == true)
             }
         }
         if (author != null && author.id != state.viewerId &&

@@ -37,7 +37,7 @@ class TopicPresentationUiTest {
     private val detail = TopicDetail(3, topic.title, 4, listOf(first), listOf(10), false, tags = tags)
     private val metadata = TopicPresentationMetadata(categories = listOf(category))
 
-    @Test fun toolbarCategoryRecoversAfterTheFirstDirectoryRequestFails() {
+    @Test fun detailCategoryRecoversAfterTheFirstDirectoryRequestFails() {
         val attempts = AtomicInteger()
         val http = OkHttpClient.Builder().addInterceptor { chain ->
             val site = chain.request().url.encodedPath == "/site.json"
@@ -58,9 +58,12 @@ class TopicPresentationUiTest {
             }
         } }
         compose.waitUntil(5000) { repository.categoryCatalog.value.isNotEmpty() }
-        compose.onNodeWithTag("topic-author").assert(hasText("开发调优"))
+        compose.onNodeWithTag("topic-author").assert(!hasText("开发调优"))
+        compose.onNodeWithTag("topic-detail-category", useUnmergedTree = true).assertIsDisplayed()
+            .assert(hasAnyDescendant(hasText("开发调优")))
+        compose.onAllNodesWithContentDescription("分类图标：开发调优").assertCountEquals(1)
         assertTrue(attempts.get() >= 2)
-        capture("topic-toolbar-category-recovered.png")
+        capture("topic-detail-category-recovered.png")
     }
 
     @Test fun feedShowsTimeCategoryAndCapsuleIconsWithoutEditMarker() {
@@ -91,11 +94,15 @@ class TopicPresentationUiTest {
             }
         }
         compose.onNodeWithTag("topic-author").assert(hasText("已编辑"))
-        compose.onAllNodesWithContentDescription("分类图标：开发调优").assertCountEquals(2)
+        compose.onNodeWithTag("topic-author").assert(hasText(relativeTime(first.updatedAt)))
+            .assert(!hasText("开发调优"))
+        compose.onAllNodesWithContentDescription("分类图标：开发调优").assertCountEquals(1)
         compose.onNodeWithContentDescription("标签图标：人工智能").assertIsDisplayed()
         capture("presentation-detail-light.png")
         compose.runOnIdle { post = first.copy(version = 1) }
         compose.onNodeWithText("已编辑").assertDoesNotExist()
+        compose.onNodeWithTag("topic-author").assert(hasText(relativeTime(first.updatedAt)))
+            .assert(!hasText("开发调优"))
     }
 
     @Test fun detailMetadataOrdersAndNavigatesCategoryAndTags() {
