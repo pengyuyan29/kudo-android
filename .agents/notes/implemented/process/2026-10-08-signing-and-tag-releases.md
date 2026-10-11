@@ -8,7 +8,7 @@ Debug 依赖开发机器的默认证书，Release 没有签名配置，仓库没
 
 ## Decision
 
-当前正式版基线为 `0.1.6` / `1007`。Release APK 只打包 `arm64-v8a`，发布脚本将验证 APK 的 `native-code` 清单只包含该 ABI；公开产物统一命名为 `kudo_<version>_release_arm64-v8a.apk` 及对应的 `.sha256` 文件。
+当前正式版基线为 `0.1.8` / `1009`，下一版从 `0.1.9` / `1010` 开始。Release APK 只打包 `arm64-v8a`，发布脚本将验证 APK 的 `native-code` 清单只包含该 ABI；公开产物统一命名为 `kodo_<version>_release_arm64-v8a.apk` 及对应的 `.sha256` 文件。
 
 `release_version.py` 集中定义发布 ABI 并生成小写文件名，`prepare_release.py` 在复制 APK 前解析 `aapt dump badging`，缺少 native-code、包含多个 ABI 或出现其他 ABI 都会拒绝发布。
 
@@ -60,6 +60,8 @@ Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移�
 - 移除 setup-android，直接使用 runner 的 sdkmanager：可以减少一个第三方 Action，但需要自行维护命令行工具、许可证和安装路径；上游 v4.0.4 已支持 Node 24，保留原有 SDK 安装接口。
 
 ## Verification
+
+2026-10-11：使用 `-PversionName=0.1.8 -PversionCode=1009` 完成正式 R8 构建，默认 Gradle 版本保持 `0.1.0 / 1`。正式包为 `artifacts/release/0.1.8/kodo_0.1.8_release_arm64-v8a.apk`，SHA256 为 `9acd96dff6cdddf78f533e782104c868c00ce00d019db7b78f1c5e0cdf850c49`；正式证书与既有发布一致，版本 `0.1.8 / 1009`、仅 `arm64-v8a`、非 debuggable 及16KB zipalign检查通过，详情为同目录 `local-verification.txt`。27项发布工具测试及完整290项JVM测试通过；主页旧夹具遗漏分类目录请求的问题及修正见[公开主页协议](../architecture/2026-10-10-public-profile-data.md)。本次发布前的既有UI与Lint结果见[加载圆环](../feature/2026-10-10-in-app-web-links.md)；本地验签不替代云端附件验收，不覆盖手机已安装的开发版。
 
 本次发布脚本测试覆盖 `v0.1.6` 到 `1007`、`v0.1.7` 到 `1008` 的映射，覆盖 `0.1.9` 到 `0.2.0` 的进位、新小写 APK 名称，以及缺失、多 ABI 和非 `arm64-v8a` 清单的拒绝路径。
 
