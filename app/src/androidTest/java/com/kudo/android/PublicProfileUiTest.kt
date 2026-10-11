@@ -18,6 +18,8 @@ import coil3.request.*
 import com.kudo.android.data.*
 import com.kudo.android.ui.account.*
 import com.kudo.android.ui.components.ErrorState
+import com.kudo.android.ui.components.LocalTopicPresentation
+import com.kudo.android.ui.components.TopicPresentationMetadata
 import com.kudo.android.ui.theme.KudoTheme
 import org.junit.*
 import org.junit.Assert.*
@@ -115,6 +117,31 @@ class PublicProfileUiTest {
         assertEquals("分类、点赞和日期应垂直居中在同一行", likesBounds.center.y, dateBounds.center.y, 3f)
         assertTrue("分类应位于元数据行左侧", categoryBounds.left < likesBounds.left)
         assertTrue("日期应位于点赞信息右侧", likesBounds.left < dateBounds.left)
+    }
+    @Test fun popularTopicMetadataUsesOneLeftRightRow() {
+        val entry = ProfileEntry("aligned-topic", 9, null, "社区 Leaderboard 点数规则调整",
+            time = "2025-12-24T00:00:00Z", count = 15000, category = Category(7, "运营反馈", "", "", "", 0))
+        compose.setContent { KudoTheme(DisplaySettings()) { Column(Modifier.fillMaxSize().statusBarsPadding()) { ProfileEntryRow(entry, {}) } } }
+        val category = compose.onNodeWithText("运营反馈", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val date = compose.onNodeWithText("2025-12-24", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertEquals("分类与右侧日期必须同行", category.center.y, date.center.y, 3f)
+        assertTrue(category.right < date.left)
+        screenshot("summary-topic-one-row.png")
+    }
+
+    @Test fun popularReplyResolvesCategoryOutsideSummaryStatisticsOnNarrowLargeText() {
+        val category = Category(7, "运营反馈", "", "", "", 0)
+        compose.setContent { KudoTheme(DisplaySettings(fontScale = 1.3f)) {
+            CompositionLocalProvider(LocalTopicPresentation provides TopicPresentationMetadata(categories = listOf(category))) {
+                Box(Modifier.width(280.dp).statusBarsPadding()) { ProfileEntryRow(ProfileEntry("missing-category", 9, 108, "回复",
+                    time = "2025-09-11T00:00:00Z", count = 1189, categoryId = 7), {}) }
+            }
+        } }
+        val categoryBounds = compose.onNodeWithText("运营反馈", useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val date = compose.onNodeWithText("2025-09-11", useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertEquals(categoryBounds.center.y, date.center.y, 3f)
+        assertTrue(categoryBounds.right < date.left)
+        screenshot("summary-reply-narrow-one-row.png")
     }
     @Test fun expandedHeaderIsSquareAndCollapsedToolbarKeepsImageAndActions() {
         var style: Boolean? = null

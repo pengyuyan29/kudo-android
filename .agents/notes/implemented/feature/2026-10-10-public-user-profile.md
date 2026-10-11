@@ -42,6 +42,10 @@ The expanded header content fades out by the halfway point of the collapse range
 
 ## Consequences
 
+热门话题和热门回复共用标题下的单行元数据：分类在左侧，楼层（仅回复）、点赞和日期在右侧；标签和可选封面保持原有展示。分类优先使用摘要已解析信息，否则以保留的 categoryId 查共享完整目录。窄屏优先保留右侧数字和日期，分类单行省略，不另占一行。
+
+2026-10-11：普通话题同行布局及窄屏130%回复分类缺失两项真机测试先失败（summary-layout-repro-device-20261011.txt），修复后两项及既有回复同行回归通过（summary-layout-fixed-device-20261011.txt）。截图 summary-topic-one-row.png / summary-reply-narrow-one-row.png 已检查左右布局。
+
 插件权限与隐私会令部分内容不可用，必须显示局部错误而非空列表。头像铺底可能模糊，遮罩需保证文字可读。页内背景不能改变“我的”的标题图来源。
 
 数据结构与各插件分页的细节由[公开主页协议](../architecture/2026-10-10-public-profile-data.md)承载。顶部使用用户自己的图片而非生成素材，摘要列表保持紧凑；卡片请求暂不可用时保留头像回退和独立重试。
