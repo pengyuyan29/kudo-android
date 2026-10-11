@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -37,6 +38,7 @@ internal fun AccountRecordsScreen(destination: AccountDestination, user: Member,
     var email by remember { mutableStateOf("") }
     var validity by remember { mutableIntStateOf(7) }
     val sheet = remember { MutableTransitionState(false) }
+    val scroll = rememberLazyListState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(user.id, destination, refresh) {
         loading = true; error = null
@@ -52,7 +54,7 @@ internal fun AccountRecordsScreen(destination: AccountDestination, user: Member,
                 if (destination == AccountDestination.CHAT) CommunityIconButton(Icons.Rounded.AddComment, "发起聊天", { selected = null; sheet.targetState = true })
                 CommunityIconButton(Icons.Rounded.Refresh, "刷新", { refresh++ }, enabled = !busy && !loading)
             }
-            LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+            LazyColumn(state = scroll, modifier = Modifier.quickScrollTarget(scroll, enabled = !sheet.currentState && !sheet.targetState), contentPadding = PaddingValues(bottom = 24.dp)) {
                 if (loading) item { LoadingRow() }
                 error?.let { item { ErrorState(it, { refresh++ }, login) } }
                 itemsIndexed(records, key = { index, record -> "${record.id}-$index" }) { _, record ->

@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -30,6 +31,7 @@ internal fun DraftsScreen(user: Member, repository: CommunityRepository, setting
     var refresh by remember(user.id) { mutableIntStateOf(0) }
     var deleting by remember(user.id) { mutableStateOf<SavedDraft?>(null) }
     val sheet = remember { MutableTransitionState(false) }
+    val scroll = rememberLazyListState()
     val scope = rememberCoroutineScope()
     suspend fun load(more: Boolean) {
         loading = true; error = null
@@ -45,7 +47,7 @@ internal fun DraftsScreen(user: Member, repository: CommunityRepository, setting
     Box(Modifier.fillMaxSize()) {
         Column {
             AccountPageTopBar("我的草稿", back) { CommunityIconButton(Icons.Rounded.Refresh, "刷新草稿", { refresh++ }, enabled = !loading) }
-            LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+            LazyColumn(state = scroll, modifier = Modifier.quickScrollTarget(scroll, enabled = !sheet.currentState && !sheet.targetState), contentPadding = PaddingValues(bottom = 24.dp)) {
                 if (local.isNotEmpty()) item { Text("本机草稿", Modifier.padding(16.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 items(local, key = { "local-${it.key}" }) { saved -> DraftRow(saved, { edit(saved) }, { deleting = saved; sheet.targetState = true }) }
                 item { Text("云端草稿", Modifier.padding(16.dp), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -99,6 +101,7 @@ internal fun CloudDraftScreen(key: String, user: Member, repository: CommunityRe
     var message by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val categorySheet = remember { MutableTransitionState(false) }
+    val scroll = rememberLazyListState()
     LaunchedEffect(user.id, key, refresh) {
         loading = true; error = null
         try {
@@ -125,7 +128,7 @@ internal fun CloudDraftScreen(key: String, user: Member, repository: CommunityRe
                     }
                 }, enabled = !loading && saved != null, compact = true)
             }
-            LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+            LazyColumn(Modifier.weight(1f).quickScrollTarget(scroll, enabled = !categorySheet.currentState && !categorySheet.targetState), state = scroll, contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 if (loading) item { LoadingRow() }
                 if (saved?.topicId == null) item {
                     CommunityTextField(draft.title, { change(draft.copy(title = it)) }, placeholder = "标题", enabled = !loading)
