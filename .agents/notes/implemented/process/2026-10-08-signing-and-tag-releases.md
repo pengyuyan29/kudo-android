@@ -100,6 +100,13 @@ Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移�
 - 实际 `.github/workflows/release.yml` 通过 actionlint 1.7.12；20 项发布工具测试通过，包含从该工作流提取发布 shell 后验证的新建草稿、恢复草稿、已公开版本拒绝覆盖、上传失败和摘要失败路径。没有改动 App 源码，因此不重复无关的 JVM、Android Lint 或真机测试。
 - 本次仅修改工作流和现有发布笔记，并按用户确认推送 main；不创建新发布 Tag，不移动已发布 v0.1.5，不把本地校验视为新 Action 的云端发布验收。
 
+2026-10-11 v0.1.8 发布尝试：
+
+- 本地完整290项JVM、27项发布工具测试与正式包验签通过后，main和annotated Tag `v0.1.8` 原子推送，Tag固定指向 `921392bb330f9d231ee502d1501d38df3013d353`；后续记录只推main，不移动Tag。
+- [Android Release运行38150590635](https://github.com/woliubang256/kudo-android/actions/runs/38150590635)的发布工具与笔记检查通过，但云端290项JVM出现两项失败：FeedViewModelTest.categoryRateLimitDoesNotReplaceSuccessfulFeedWithError 在测试启动时报 UncaughtExceptionsBeforeTest；TopicFloorNavigationTest.aSupersededJumpCannotReplaceTheLatestTarget 再次出现5秒等待超时。签名构建与publish均未执行，没有创建v0.1.8 Release。完整构建日志为 `artifacts/release/0.1.8/remote-build-failure.log`，状态为同目录 `remote-run.json`。当前只有日志摘要，尚无云端XML中的被抑制异常及具体等待阶段，不能把两项失败归因于确定的App缺陷或确定的夹具缺陷；不以盲目重跑替代排查。
+- main的Commit messages校验成功；[tag校验运行38150590659](https://github.com/woliubang256/kudo-android/actions/runs/38150590659)失败。新Tag事件的before全零，工作流使用单个SHA调用git log，误把所有旧祖先提交纳入前缀门禁，和仅约束新提交的既有约定不符。失败日志为 `tag-commit-check-failure.log`。历史提交与Tag均不改写；该CI范围问题另行修复。
+- 本地 `kodo_0.1.8_release_arm64-v8a.apk` 及校验文件保留，未覆盖手机开发版。版本升级、打包、Tag与推送已完成，自动Release未完成；是否在修复后另发0.1.9等待用户选择，本次不自动再升一个版本。
+
 ## Consequences
 
 签名与版本检查使发布包能保持更新身份并对应 Tag；代价是开发者必须备份 signing/ 和 signing.properties。丢失正式证书或密码后无法使用原签名更新已安装应用。Debug 和 Release 保持相同包名、使用不同签名，不能互相覆盖安装；当前手机仍保留旧 Debug 签名应用，本次未卸载或替换，也未把构建和验签当成真机运行验收。
