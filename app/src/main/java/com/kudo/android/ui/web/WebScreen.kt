@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
@@ -154,7 +153,7 @@ internal fun WebScreen(url: String, back: () -> Unit, openBrowser: (String) -> U
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).testTag("web-loading"),
                 verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
                 horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(Modifier.size(26.dp), strokeWidth = 2.dp, color = LogoYellow)
+                CommunityLoadingIndicator()
                 Text("加载中…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             error?.let { text ->

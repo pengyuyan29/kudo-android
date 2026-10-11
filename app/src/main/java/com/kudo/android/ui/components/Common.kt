@@ -81,7 +81,7 @@ fun ErrorState(error: Throwable, retry: () -> Unit, login: () -> Unit, back: (()
 }
 
 @Composable
-fun LoadingRow() { Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), strokeWidth = 2.dp, color = LogoYellow) } }
+fun LoadingRow() { Box(Modifier.fillMaxWidth().padding(30.dp), contentAlignment = Alignment.Center) { CommunityLoadingIndicator() } }
 
 @Composable
 fun SectionLabel(text: String, trailing: String? = null) {
