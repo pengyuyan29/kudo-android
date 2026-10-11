@@ -58,6 +58,7 @@ AppContainer 持有统一 DohNetwork，并应用于主站、Connect、Coil 图�
 
 - 设置提供“DNS over HTTPS”开关，首次安装默认关闭，关闭时不向第三方 DoH 服务发起预热查询。
 - 内置文章普通版 `https://edge.1molchuan.top/linuxdo`。文章明确说明旧 `/plus` 已回退普通版，因此不把两个路径当作两个独立节点，也不接入文章面向 AI 服务的中继能力。
+- 另内置“始皇DoH” `https://kudo.ddd.oaifree.com/query-dns`，来源为用户指定的[来源文章](https://idcflare.com/t/topic/39038)。内置节点统一由 `BuiltInDohServers` 列表管理，全部 ID 均禁止被自定义配置覆盖、编辑或删除；新增节点不切换现有选择，默认及失效选择回退仍为“社区 DoH”。持久化格式保持 version 1，升级时自动展示新增内置项。
 - 内置节点只供选择、查看和检测；自定义节点支持新增、列表查看、编辑、删除和选用。字段为稳定 ID、名称、HTTPS DoH URL、可选 bootstrap IP。
 - URL 保留服务路径，使用标准 DNS wire format POST `application/dns-message`；仅有 JSON DNS 接口的服务不兼容。
 - 自定义 URL 必须为合法 HTTPS 地址，拒绝 userinfo 和 fragment；bootstrap 只接受合法 IP，不替换上游的 Host 或证书校验名称。带私人标识的服务器地址不进入普通日志。
@@ -183,6 +184,8 @@ RMX2202 / Android 13，当前用户确认的非代理 Wi-Fi：正式 DiscourseCl
 Debug、AndroidTest、R8 Release 和 Lint 通过；Release APK 通过 `zipalign -P 16`，JNI 类及方法在 R8 后保留。原生依赖完整许可校验和 `npm run verify-notes` 通过。结果保存在忽略目录 `artifacts/doh-validation/production-final-device-tests.txt`、`production-final-build-checks.txt` 与设备私有目录的无身份结果 JSON。
 
 验证范围限于当前 Wi-Fi 和现有登录。没有新走一次代理网页登录、切换真实 VPN App 或蜂窝线路；系统 VPN 监测使用公开回调，分应用 VPN 的 UID 可见性仍有上限。Connect/MessageBus 路由和来源边界有模拟回归，未为本次测试触发真实写操作。上表保留用户复验用例，不把未执行的网络场景记作通过。
+
+新增“始皇DoH”后，定向运行 `DohSettingsTest` 的 8 项测试通过，覆盖双内置列表、默认与旧选择保留、新节点选用及持久化、自定义节点并存、全部内置 ID 的改删与覆盖保护。电脑端独立无凭据标准 DoH POST 探测中，`linux.do` 的 A、AAAA、HTTPS 查询均为 HTTP 200 / rcode 0，HTTPS 回答包含 ECH 参数；这只验证解析响应，尚未用手机验证该新节点的实际 ECH 握手或主站访问。
 
 ## Consequences
 

@@ -11,14 +11,16 @@ import java.net.InetAddress
 import java.util.UUID
 
 data class DohServer(val id: String, val name: String, val url: String, val bootstrap: List<String> = emptyList()) {
-    val builtIn: Boolean get() = id == BuiltInDohServer.id
+    val builtIn: Boolean get() = BuiltInDohServers.any { it.id == id }
 }
 
 val BuiltInDohServer = DohServer("linuxdo-community", "社区 DoH", "https://edge.1molchuan.top/linuxdo")
+val ShihuangDohServer = DohServer("shihuang-doh", "始皇DoH", "https://kudo.ddd.oaifree.com/query-dns")
+val BuiltInDohServers = listOf(BuiltInDohServer, ShihuangDohServer)
 
 data class DohConfiguration(val enabled: Boolean = false, val selectedId: String = BuiltInDohServer.id,
     val customServers: List<DohServer> = emptyList()) {
-    val servers: List<DohServer> get() = listOf(BuiltInDohServer) + customServers
+    val servers: List<DohServer> get() = BuiltInDohServers + customServers
     val selected: DohServer get() = servers.firstOrNull { it.id == selectedId } ?: BuiltInDohServer
     fun select(id: String): DohConfiguration = copy(selectedId = servers.firstOrNull { it.id == id }?.id ?: BuiltInDohServer.id)
     fun saveServer(server: DohServer): DohConfiguration {
@@ -27,7 +29,7 @@ data class DohConfiguration(val enabled: Boolean = false, val selectedId: String
         return copy(customServers = customServers.filterNot { it.id == server.id } + validated)
     }
     fun removeServer(id: String): DohConfiguration {
-        require(id != BuiltInDohServer.id) { "内置服务器不能删除" }
+        require(BuiltInDohServers.none { it.id == id }) { "内置服务器不能删除" }
         return copy(customServers = customServers.filterNot { it.id == id },
             selectedId = if (selectedId == id) BuiltInDohServer.id else selectedId)
     }
@@ -66,7 +68,7 @@ internal fun decodeDohConfiguration(raw: String?): DohConfiguration = runCatchin
     val list = json.optJSONArray("servers") ?: JSONArray()
     val servers = (0 until list.length().coerceAtMost(100)).mapNotNull { index -> runCatching {
         val item = list.getJSONObject(index)
-        require(item.getString("id") != BuiltInDohServer.id)
+        require(BuiltInDohServers.none { it.id == item.getString("id") })
         val ips = item.optJSONArray("bootstrap") ?: JSONArray()
         validateDohServer(item.getString("name"), item.getString("url"),
             (0 until ips.length()).joinToString(",") { ips.getString(it) }, item.getString("id"))
