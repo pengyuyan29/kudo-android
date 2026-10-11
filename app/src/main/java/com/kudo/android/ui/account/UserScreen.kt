@@ -107,6 +107,8 @@ internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: 
         LaunchedEffect(state.showingFollowers) { followsVisibility.targetState = state.showingFollowers != null }
         var selectedBadge by remember { mutableStateOf<UserBadge?>(null) }
         val badgeVisibility = remember { MutableTransitionState(false) }
+        val covered = listOf(moreVisibility, detailsVisibility, followsVisibility, badgeVisibility)
+            .any { it.currentState || it.targetState }
         val context = LocalContext.current
         val pageUrl = profile?.member?.username?.let { "https://linux.do/u/${android.net.Uri.encode(it)}" }.orEmpty()
         if (profile == null) Column(Modifier.fillMaxSize()) {
@@ -140,7 +142,11 @@ internal fun PublicProfilePage(state: PublicProfileState, viewerId: Int?, back: 
                             }
                         }
                     }
-                    LazyColumn(Modifier.fillMaxSize().testTag("profile-list-${tab.name}"), state = scroll,
+                    LazyColumn(Modifier.fillMaxSize().testTag("profile-list-${tab.name}")
+                        .quickScrollTarget(scroll, enabled = pager.settledPage == index && !covered,
+                            extraScrolled = collapse > 0f, expandHeader = {
+                                androidx.compose.animation.core.animate(collapse, 0f) { value, _ -> collapse = value }
+                            }), state = scroll,
                         contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         if (tab == ProfileTab.SUMMARY) {
                             if (state.error != null) item { ErrorState(state.error, refresh, login, back) }

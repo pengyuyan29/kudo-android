@@ -34,6 +34,7 @@ import com.kudo.android.BuildConfig
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.Avatar
 import com.kudo.android.ui.components.AvatarPresentation
+import com.kudo.android.ui.components.quickScrollTarget
 import com.kudo.android.ui.theme.Ink
 import com.kudo.android.ui.theme.LogoYellow
 import kotlinx.coroutines.CancellationException
@@ -127,7 +128,10 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
                     backgroundLoaded = it
                 }
             }
-            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("member-profile"), state = scroll,
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("member-profile")
+                .quickScrollTarget(scroll, extraScrolled = visibleCollapse > 0f, expandHeader = {
+                    androidx.compose.animation.core.animate(collapse, 0f) { value, _ -> collapse = value }
+                }), state = scroll,
                 contentPadding = PaddingValues(top = 8.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 item(key = "shortcuts") {
                     BoxWithConstraints(Modifier.padding(horizontal = 8.dp).fillMaxWidth().clip(RoundedCornerShape(10.dp))
