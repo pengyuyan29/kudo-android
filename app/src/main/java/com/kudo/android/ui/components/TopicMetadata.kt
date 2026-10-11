@@ -21,23 +21,40 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 
 internal data class TopicPresentationMetadata(
     val categories: List<Category> = emptyList(),
     val tagIcons: Map<String, TagIconStyle> = DefaultTagIcons,
+    val refreshCategories: () -> Unit = {},
 )
 internal val LocalTopicPresentation = staticCompositionLocalOf { TopicPresentationMetadata() }
 
 @Composable
 internal fun TopicPresentationEnvironment(repository: CommunityRepository, accountId: Int?, content: @Composable () -> Unit) {
+    val reload = remember(repository, accountId) { Channel<Unit>(Channel.CONFLATED) }
     val metadata = key(repository, accountId) {
-        produceState(TopicPresentationMetadata(), repository, accountId) {
+        produceState(TopicPresentationMetadata(refreshCategories = { reload.trySend(Unit) }), repository, accountId) {
+            repository.useCategoryAccount(accountId)
             coroutineScope {
                 launch {
-                    try {
-                        withTimeoutOrNull(8000) { withContext(Dispatchers.IO) { repository.categories() } }
-                            ?.let { value = value.copy(categories = it) }
-                    } catch (e: CancellationException) { throw e } catch (_: Exception) { /* Auxiliary metadata never blocks reading. */ }
+                    repository.categoryCatalog.collect { value = value.copy(categories = it) }
+                }
+                launch {
+                    reload.trySend(Unit)
+                    for (request in reload) {
+                        repeat(2) { attempt ->
+                            if (repository.categoryCatalog.value.isEmpty()) {
+                                try { withTimeoutOrNull(8000) { withContext(Dispatchers.IO) { repository.categories() } } }
+                                catch (e: CancellationException) { throw e }
+                                catch (_: Exception) { /* Reading stays available; retry on the next entry or resume. */ }
+                                if (attempt == 0 && repository.categoryCatalog.value.isEmpty()) delay(750)
+                            }
+                        }
+                    }
                 }
                 launch {
                     try {
@@ -48,6 +65,7 @@ internal fun TopicPresentationEnvironment(repository: CommunityRepository, accou
             }
         }
     }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { reload.trySend(Unit) }
     CompositionLocalProvider(LocalTopicPresentation provides metadata.value, content = content)
 }
 
@@ -63,7 +81,7 @@ internal fun CategoryInline(category: Category, modifier: Modifier = Modifier, o
             .then(if (onClick == null) Modifier else Modifier.clickable(role = Role.Button, onClick = onClick))
             .testTag("category-inline-${category.id}")) {
         Icon(CategoryIcons.get(category.icon), "分类图标：${category.name}", Modifier.size(12.dp), iconColor(category.color))
-        Text(category.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Text(category.name, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

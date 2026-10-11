@@ -48,4 +48,8 @@ RMX2202 / Android13 的46项集中界面回归全部通过（85.265秒），日�
 
 Topic detail metadata now renders the resolved category before tag chips. Category and tag chips expose native navigation callbacks, while reply author rows omit the topic category.
 
+分类目录由 CommunityRepository 按账号共享成功结果。辅助加载失败保留已成功目录，首次无目录时有限重试；回到前台或详情加载完成仍缺分类时可重试。账号切换清空目录并拒绝旧请求回写。顶部作者分类和标题下分类订阅同一目录，分类文字在窄行中省略而不换行。
+
+2026-10-11：TopicPresentationUiTest 的9项真机用例通过，包括首次目录503后重试恢复顶部分类；同批3项总结布局用例通过，日志 summary-layout-fixed-device-20261011.txt。顶部恢复截图 topic-toolbar-category-recovered.png 已查看，日期、分类和编辑状态保持单行。
+
 列表保留真实活动时间和分类，但不会显示主帖编辑状态。详情以服务端版本为准，自动处理和用户编辑是否增加版本由站点决定。启动多两项有时限的辅助读取，失败仍显示内容及内置标签图标；新图标名在本地目录更新前使用通用 Tag 图形。未知分类元数据不编造分类名，读取成功后补入。

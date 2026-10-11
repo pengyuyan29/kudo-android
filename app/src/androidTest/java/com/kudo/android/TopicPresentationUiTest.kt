@@ -18,6 +18,11 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
+import okhttp3.OkHttpClient
+import okhttp3.Response
+import okhttp3.Protocol
+import okhttp3.ResponseBody.Companion.toResponseBody
 
 @RunWith(AndroidJUnit4::class)
 class TopicPresentationUiTest {
@@ -31,6 +36,32 @@ class TopicPresentationUiTest {
         updatedAt = "2026-10-09T00:00:00Z", version = 3)
     private val detail = TopicDetail(3, topic.title, 4, listOf(first), listOf(10), false, tags = tags)
     private val metadata = TopicPresentationMetadata(categories = listOf(category))
+
+    @Test fun toolbarCategoryRecoversAfterTheFirstDirectoryRequestFails() {
+        val attempts = AtomicInteger()
+        val http = OkHttpClient.Builder().addInterceptor { chain ->
+            val site = chain.request().url.encodedPath == "/site.json"
+            val failed = site && attempts.incrementAndGet() == 1
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
+                .code(if (failed) 503 else 200).message("fixture")
+                .body((if (site && !failed) """{"categories":[{"id":4,"name":"开发调优","icon":"code"}]}""" else if (site) "{}" else "<html></html>").toResponseBody()).build()
+        }.build()
+        val cookies = object : SessionCookies {
+            override fun get(url: String) = ""
+            override fun set(url: String, cookie: String) { }
+        }
+        val repository = CommunityRepository(DiscourseClient(cookies, http = http))
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicPresentationEnvironment(repository, 1) {
+                TopicScreen(TopicState(detail, false, viewerId = 1), GlassMode.TRANSLUCENT,
+                    {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {})
+            }
+        } }
+        compose.waitUntil(5000) { repository.categoryCatalog.value.isNotEmpty() }
+        compose.onNodeWithTag("topic-author").assert(hasText("开发调优"))
+        assertTrue(attempts.get() >= 2)
+        capture("topic-toolbar-category-recovered.png")
+    }
 
     @Test fun feedShowsTimeCategoryAndCapsuleIconsWithoutEditMarker() {
         compose.setContent {

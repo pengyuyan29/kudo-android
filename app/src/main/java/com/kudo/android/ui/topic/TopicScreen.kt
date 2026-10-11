@@ -63,6 +63,10 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     fun choose(post: Post) { reactionPostId = post.id; visibility.targetState = true }
     fun replyTo(post: Post?) { threadVisibility.targetState = false; visibility.targetState = false; reply(post) }
     val detail = state.detail
+    val presentation = LocalTopicPresentation.current
+    LaunchedEffect(detail?.id, state.loading) {
+        if (!state.loading && detail != null && presentation.categories.none { it.id == detail.categoryId }) presentation.refreshCategories()
+    }
     val actions = LocalTopicActions.current
     val ignoredUsers = LocalIgnoredUsers.current
     var revealOriginal by remember(detail?.id, ignoredUsers) { mutableStateOf(false) }
