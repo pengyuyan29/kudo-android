@@ -12,7 +12,11 @@ Status: proposed
 
 ## Proposal
 
-建议先验证**原生请求的 DoH + ECH 直连**，通过真实手机线路验收后再交付完整设置和网络接入。纯 OkHttp DoH 可以作为对照基线，但不能以它已经满足“关闭代理后继续访问”为验收结论。
+用户已批准“按照 doh+ech 开发”。在已完成的真机验证基础上接入完整设置与原生网络；按配置持久化、Rust DNS/TLS、Android Socket 适配、VPN 策略、客户端接入、界面和真机验收拆分为小单元，每单元单独提交。纯 OkHttp DoH 继续仅作为对照。
+
+生产接入保留 OkHttp 的 HTTP、连接池、Cookie 边界、流式请求/响应及取消机制，通过自定义 SocketFactory/SSLSocketFactory 将 DNS 与 TLS 交给独立编写的 Rust 模块。适配初期明确使用 HTTP/1.1，避免 Android 平台的 ALPN Socket 识别限制导致协议误判；不伪造 HTTP/2 协商。原生 Socket 的关闭必须可中断正在等待的读写，TLS 仍严格验证原域名及证书；`linux.do` 与子域、`ldstatic.com` 与子域必须真实接受 ECH，否则明确失败。
+
+配置单元位于 `DohSettings.kt`，与界面显示偏好分开持久化。自定义服务器拥有稳定 ID；删除选中节点回退内置，内置不可编辑/删除；非法持久数据过滤并修复选中 ID。URL 中的私人参数仅留在应用私有配置，不进入普通日志。
 
 第一阶段保留现有系统 WebView 登录、验证和 Cookie 存储。用户可通过自己的 VPN／代理完成网页登录；原生页面启用新的 DNS／TLS 通道。第一阶段不接管 WebView TLS，不新增用户证书信任，不改网页内的导航边界。
 
