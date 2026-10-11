@@ -14,7 +14,7 @@ internal data class ImageSaveResult(val saved: Int, val total: Int)
 internal fun interface ImageStore { fun save(image: OriginalImageFile) }
 
 /** Exports the original bytes, never the sampled/decoded preview. */
-internal class ImageDownloader(private val http: OkHttpClient, private val directory: File,
+internal class ImageDownloader(private val http: Call.Factory, private val directory: File,
     private val maxBytes: Long = 64L * 1024 * 1024) {
     suspend fun download(image: OriginalImage): OriginalImageFile = withContext(Dispatchers.IO) {
         val url = image.url.toHttpUrlOrNull()

@@ -18,18 +18,19 @@ class AndroidSessionCookies : SessionCookies {
 
 class AppContainer(context: Context) {
     val settings = AppSettings(context.applicationContext)
+    val network = com.kudo.android.network.DohNetwork(context.applicationContext, DohSettings(context.applicationContext))
     val notifications = com.kudo.android.notifications.LocalNotifications(context.applicationContext)
     val cookies = AndroidSessionCookies()
     val userAgent: String = WebSettings.getDefaultUserAgent(context.applicationContext)
-    val client = DiscourseClient(cookies, userAgent = { userAgent })
+    val client = DiscourseClient(cookies, userAgent = { userAgent }, route = network::client)
     val repository = CommunityRepository(client)
-    val connect = ConnectRepository(cookies, userAgent)
-    val imageHttpClient = OkHttpClient.Builder().addNetworkInterceptor { chain ->
+    val connect = ConnectRepository(cookies, userAgent, route = network::client)
+    val imageHttpClient: okhttp3.Call.Factory = network.client(OkHttpClient.Builder().addNetworkInterceptor { chain ->
         val request = chain.request()
         val builder = request.newBuilder().removeHeader("Cookie")
         if (request.url.isHttps && request.url.host == "linux.do") {
             builder.header("Cookie", cookies.get(request.url.toString())).header("User-Agent", userAgent)
         }
         chain.proceed(builder.build())
-    }.build()
+    }.build())
 }
