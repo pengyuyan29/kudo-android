@@ -76,6 +76,9 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     var revealOriginal by remember(detail?.id, ignoredUsers) { mutableStateOf(false) }
     val originalIgnored = detail?.author?.username?.lowercase(java.util.Locale.ROOT) in ignoredUsers
     val listState = rememberLazyListState()
+    val listMoved by remember { derivedStateOf { listState.canScrollBackward } }
+    var returningToTop by remember(detail?.id) { mutableStateOf(false) }
+    var returnTopError by remember(detail?.id) { mutableStateOf<String?>(null) }
     val hasPrevious = state.pageIds(previous = true).isNotEmpty()
     var previousAnchor by remember(detail?.id) { mutableStateOf<Pair<Int, Int>?>(null) }
     var currentFloor by rememberSaveable(detail?.id) { mutableIntStateOf(state.targetNumber ?: 1) }
@@ -143,14 +146,24 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             if (index >= 0) {
                 threadVisibility.targetState = false
                 try {
-                    scrollToPost(index)
+                    if (returningToTop && state.targetNumber == 1) {
+                        delay(16)
+                        listState.animateScrollToItem(0)
+                    } else scrollToPost(index)
                     currentFloor = state.targetNumber
                 } catch (e: CancellationException) {
                     // A reader may interrupt the scroll without cancelling this navigation generation.
                     currentCoroutineContext().ensureActive()
                 }
                 located = true
+                returningToTop = false
             }
+        }
+    }
+    LaunchedEffect(state.jumpError) {
+        if (returningToTop && state.jumpError != null) {
+            returnTopError = state.jumpError
+            returningToTop = false
         }
     }
     val hasMore = state.pageIds(previous = false).isNotEmpty()
@@ -172,8 +185,17 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             .focusProperties { onEnter = { if (showing) cancelFocusChange() } }.focusGroup()) {
             Column(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
                 TopicTopBar(state, !showing, back, user, follow) { detail?.let { actions.openDetail(it.id, it.originalPost, bookmark) } }
+                returnTopError?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 PostReadingViewport(110.dp) { viewport ->
-                LazyColumn(state = listState, modifier = Modifier.testTag("topic-posts").then(viewport), contentPadding = PaddingValues(bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(state = listState, modifier = Modifier.testTag("topic-posts").then(viewport)
+                    .quickScrollTarget(scrolled = listMoved || hasPrevious, enabled = !showing && !state.loading && !state.jumping,
+                        bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 96.dp) {
+                        previousAnchor = null
+                        returnTopError = null
+                        if (hasPrevious) { returningToTop = true; jumpTo(1) }
+                        else { listState.animateScrollToItem(0); currentFloor = 1 }
+                    }, contentPadding = PaddingValues(bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (state.loading && detail == null) item { LoadingRow() }
                     if (state.error != null) item { ErrorState(state.error, retry, login, back) }
                     if (detail != null) {
