@@ -133,7 +133,7 @@ private enum class GalleryGesture { UNDECIDED, PAGER, TRANSFORM, DISMISS, IGNORE
 
 internal fun Modifier.galleryGestures(
     state: GalleryTransformState, enabled: Boolean, flingVelocity: Float,
-    start: () -> Unit, finish: (Boolean) -> Unit, panFinished: (Offset) -> Unit = {},
+    start: () -> Unit, finish: (Boolean) -> Unit, panFinished: (Offset) -> Unit = {}, gestureFinished: () -> Unit = {},
 ): Modifier = pointerInput(state, enabled) {
     if (!enabled) return@pointerInput
     awaitEachGesture {
@@ -192,6 +192,7 @@ internal fun Modifier.galleryGestures(
         } finally {
             if (!completed && mode == GalleryGesture.DISMISS) finish(false)
             state.dragging = false
+            gestureFinished()
         }
     }
 }

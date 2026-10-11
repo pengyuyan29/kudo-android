@@ -9,6 +9,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.FrameRateCategory
+import androidx.compose.ui.preferredFrameRate
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -29,6 +31,8 @@ import coil3.asDrawable
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -50,8 +54,10 @@ internal fun GalleryImagePage(
     var retry by remember(image.originalUrl) { mutableIntStateOf(0) }
     var settling by remember { mutableStateOf<Job?>(null) }
     var flinging by remember { mutableStateOf<Job?>(null) }
+    var touching by remember { mutableStateOf(false) }
+    var flingActive by remember { mutableStateOf(false) }
     val decay = rememberSplineBasedDecay<Float>()
-    DisposableEffect(transform, enabled, active) { onDispose { flinging?.cancel(); settling?.cancel() } }
+    DisposableEffect(transform, enabled, active) { onDispose { flinging?.cancel(); settling?.cancel(); touching = false } }
     DisposableEffect(image.originalUrl) { onDispose { animation?.stop(); onPainterDisposed() } }
     val currentClose by rememberUpdatedState(close)
     val currentInformation by rememberUpdatedState(information)
@@ -79,14 +85,24 @@ internal fun GalleryImagePage(
             if (enabled) detectTapGestures(onTap = { currentClose() }, onLongPress = { currentInformation() })
         }
         .galleryGestures(transform, enabled, flingVelocity,
-            start = { flinging?.cancel(); settling?.cancel(); transform.dismissOffset = androidx.compose.ui.geometry.Offset.Zero },
+            start = { touching = true; flinging?.cancel(); settling?.cancel(); transform.dismissOffset = androidx.compose.ui.geometry.Offset.Zero },
             finish = { dismiss ->
                 if (currentEnabled) {
                     if (dismiss) currentClose()
                     else if (galleryMotionEnabled(context)) settling = scope.launch { transform.restoreDismiss() }
                     else transform.dismissOffset = androidx.compose.ui.geometry.Offset.Zero
                 }
-            }, panFinished = { velocity -> if (currentEnabled && currentActive) flinging = scope.launch { transform.fling(velocity, decay) } })
+            }, panFinished = { velocity ->
+                if (currentEnabled && currentActive && galleryMotionEnabled(context)) {
+                    val job = scope.launch(start = CoroutineStart.LAZY) {
+                        try { transform.fling(velocity, decay) }
+                        finally { if (flinging === currentCoroutineContext()[Job]) flingActive = false }
+                    }
+                    flinging = job
+                    flingActive = true
+                    job.start()
+                }
+            }, gestureFinished = { touching = false })
         .semantics {
             contentDescription = "第 ${page + 1} 张图片"
             stateDescription = transform.zoomDescription
@@ -97,7 +113,8 @@ internal fun GalleryImagePage(
                 CustomAccessibilityAction("还原图片") { if (enabled) transform.resetZoom(); enabled },
             )
         }) {
-        key(retry) { AsyncImage(request, null, Modifier.fillMaxSize().graphicsLayer {
+        key(retry) { AsyncImage(request, null, Modifier.fillMaxSize()
+            .then(if (touching || flingActive) Modifier.preferredFrameRate(FrameRateCategory.High) else Modifier).graphicsLayer {
             scaleX = transform.scale * transform.dismissScale
             scaleY = scaleX
             translationX = transform.offset.x + transform.dismissOffset.x
