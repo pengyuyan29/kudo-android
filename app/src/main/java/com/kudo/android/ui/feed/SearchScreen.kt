@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -25,6 +26,7 @@ import com.kudo.android.data.TopicListStyle
 fun SearchScreen(state: SearchState, search: (String, Boolean) -> Unit, back: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit, login: () -> Unit, listStyle: TopicListStyle = TopicListStyle.FEED) {
     var query by rememberSaveable { mutableStateOf(state.query) }
     val keyboard = LocalSoftwareKeyboardController.current
+    val scroll = rememberLazyListState()
     val ignored = com.kudo.android.ui.topic.LocalIgnoredUsers.current
     val visibleResults = state.results.filterNot { it.author?.username?.lowercase(java.util.Locale.ROOT) in ignored }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -36,7 +38,7 @@ fun SearchScreen(state: SearchState, search: (String, Boolean) -> Unit, back: ()
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { keyboard?.hide(); search(query, false) }))
             CommunityButton("搜索", { keyboard?.hide(); search(query, false) }, enabled = query.isNotBlank(), compact = true)
         }
-        LazyColumn(contentPadding = if (listStyle == TopicListStyle.TITLE) PaddingValues(bottom = 32.dp) else PaddingValues(start = 12.dp, end = 12.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(if (listStyle == TopicListStyle.TITLE) 0.dp else 10.dp)) {
+        LazyColumn(state = scroll, modifier = Modifier.quickScrollTarget(scroll), contentPadding = if (listStyle == TopicListStyle.TITLE) PaddingValues(bottom = 32.dp) else PaddingValues(start = 12.dp, end = 12.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(if (listStyle == TopicListStyle.TITLE) 0.dp else 10.dp)) {
             if (!state.searched) item { EmptyState("好内容，值得被找到", "支持 Discourse 搜索语法，例如 category:开发调优。", Icons.Rounded.Search) }
             items(visibleResults, key = { it.id }, contentType = { listStyle }) { topic ->
                 if (listStyle == TopicListStyle.TITLE) TopicTitleRow(topic, null, { openTopic(topic.id) }, openUser)

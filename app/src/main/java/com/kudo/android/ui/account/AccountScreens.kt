@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -45,8 +46,9 @@ fun RootHeading(title: String, action: @Composable RowScope.() -> Unit = {}) {
 
 @Composable
 fun CategoriesScreen(categories: List<Category>, loading: Boolean, error: Throwable?, refresh: () -> Unit, login: () -> Unit, inHome: Boolean = false, select: (Category) -> Unit) {
+    val scroll = rememberLazyListState()
     Column(Modifier.fillMaxSize().then(if (inHome) Modifier else Modifier.statusBarsPadding())) {
-        LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(state = scroll, modifier = Modifier.quickScrollTarget(scroll), contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 14.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (loading && categories.isEmpty()) item { LoadingRow() }
             if (error != null) item { ErrorState(error, refresh, login) }
             items(categories, key = { it.id }) { category ->
@@ -78,8 +80,9 @@ fun ProfileScreen(user: Member?, login: () -> Unit, settings: () -> Unit, bookma
 
 @Composable
 private fun GuestProfileScreen(login: () -> Unit, settings: () -> Unit, about: () -> Unit) {
+    val scroll = rememberLazyListState()
     Column(Modifier.fillMaxSize().statusBarsPadding().semantics { paneTitle = "我的" }.testTag("guest-profile")) {
-        LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 16.dp, bottom = 112.dp),
+        LazyColumn(state = scroll, modifier = Modifier.quickScrollTarget(scroll), contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 16.dp, bottom = 112.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item { GuestLoginPanel("登录后参与社区讨论", login) }
             item {
@@ -151,10 +154,11 @@ fun NotificationsScreen(vm: AccountViewModel, login: () -> Unit, open: (Int, Int
 
 @Composable
 private fun GuestNotificationsScreen(login: () -> Unit) {
+    val scroll = rememberLazyListState()
     Column(Modifier.fillMaxSize().statusBarsPadding().semantics { paneTitle = "消息" }.testTag("guest-notifications")) {
         Text("消息", Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 16.dp, vertical = 12.dp),
             fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onBackground)
-        LazyColumn(contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp)) {
+        LazyColumn(state = scroll, modifier = Modifier.quickScrollTarget(scroll), contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp)) {
             item { GuestLoginPanel("登录后查看回复、提及和点赞通知", login) }
         }
     }
@@ -162,9 +166,10 @@ private fun GuestNotificationsScreen(login: () -> Unit) {
 
 @Composable
 fun BookmarksScreen(vm: AccountViewModel, back: () -> Unit, login: () -> Unit, open: (Int, Int?) -> Unit) {
+    val scroll = rememberLazyListState()
     Column {
         AccountPageTopBar("我的收藏", back) { CommunityIconButton(Icons.Rounded.Refresh, "刷新收藏", { vm.loadSaved() }) }
-        LazyColumn(contentPadding = PaddingValues(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        LazyColumn(state = scroll, modifier = Modifier.quickScrollTarget(scroll), contentPadding = PaddingValues(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             if (vm.user == null) item { EmptyState("把好内容留在这里", "登录后查看你的社区收藏。", Icons.Rounded.BookmarkBorder, "登录", login) }
             if (vm.savedLoading) item { LoadingRow() }
             items(vm.saved, key = { it.id }) { topic ->
