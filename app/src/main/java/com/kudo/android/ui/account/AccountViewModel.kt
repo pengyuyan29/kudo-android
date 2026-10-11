@@ -96,7 +96,7 @@ class AccountViewModel(
                     throw e
                 } catch (e: ApiFailure) {
                     if (epoch == sessionEpoch && e.kind == FailureKind.VERIFICATION) {
-                        messages.trySend(e.message)
+                        // Push clearance is independent; a normal main-site read owns its recovery UI.
                         notificationJob = null
                     }
                 }

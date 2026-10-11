@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RuntimeNotificationsTest {
-    @Test fun cloudflareNotificationStreamSurfacesManualVerificationMessage() = runTest {
+    @Test fun cloudflareNotificationStreamPausesQuietlyAndResumesOnSessionCheck() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val server = MockWebServer(); server.start()
         server.enqueue(MockResponse().setBody("""{"current_user":{"id":42,"username":"fixture"}}"""))
@@ -29,9 +29,7 @@ class RuntimeNotificationsTest {
         try {
             awaitIdle()
             assertEquals(42, vm.user?.id)
-            val message = withTimeout(3000) { vm.events.first() }
-            assertTrue(message.contains("Cloudflare"))
-            assertTrue(message.contains("手动完成验证"))
+            assertNull("推送域名失败不应反复要求主站过盾", withTimeoutOrNull(200) { vm.events.first() })
             server.enqueue(MockResponse().setBody("""{"current_user":{"id":42,"username":"fixture"}}"""))
             assertTrue(vm.checkSession())
             awaitIdle()
