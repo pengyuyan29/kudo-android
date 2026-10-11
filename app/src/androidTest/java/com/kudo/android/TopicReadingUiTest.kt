@@ -33,17 +33,17 @@ class TopicReadingUiTest {
         } }
         compose.onNodeWithTag("unread-post-1").assertDoesNotExist()
         compose.onNodeWithTag("unread-post-2").assertExists()
-        compose.onNodeWithTag("post-floor-number-2").assertTextEquals("2").assertIsDisplayed()
+        compose.onNodeWithTag("post-floor-number-2").assertTextEquals("#2").assertIsDisplayed()
         compose.onNodeWithTag("unread-post-3").assertDoesNotExist()
         compose.onNodeWithTag("unread-post-4").assertDoesNotExist()
         capture("post-unread-blue.png")
         compose.mainClock.autoAdvance = false
-        compose.runOnIdle { state = state.copy(readNumbers = setOf(1)) }
+        compose.runOnIdle { state = state.copy(readNumbers = setOf(2)) }
         compose.mainClock.advanceTimeBy(900)
-        compose.onNodeWithTag("unread-post-1").assertExists()
+        compose.onNodeWithTag("unread-post-2").assertExists()
         capture("post-unread-fading.png")
         compose.mainClock.advanceTimeBy(1100)
-        compose.onNodeWithTag("unread-post-1").assertDoesNotExist()
+        compose.onNodeWithTag("unread-post-2").assertDoesNotExist()
         compose.mainClock.autoAdvance = true
         compose.runOnIdle { state = state.copy(viewerId = null) }
         compose.onNodeWithTag("unread-post-2").assertDoesNotExist()
@@ -68,7 +68,13 @@ class TopicReadingUiTest {
         } }
         val postBounds = compose.onNodeWithTag("post-2").fetchSemanticsNode().boundsInRoot
         val floorBounds = compose.onNodeWithTag("post-floor-number-2").fetchSemanticsNode().boundsInRoot
-        assertTrue("floor marker should remain close to the post edge", floorBounds.right >= postBounds.right - 24f)
+        val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
+        assertTrue("floor marker should ignore the 16dp content padding", postBounds.right - floorBounds.right <= 5f * density)
+        assertTrue("floor marker should be at the outer top edge", floorBounds.top - postBounds.top <= 3f * density)
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        compose.onNodeWithTag("post-floor-number-2").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(androidx.compose.ui.text.font.FontWeight.Normal, layouts.single().layoutInput.style.fontWeight)
+        assertTrue(layouts.single().layoutInput.style.fontSize.value <= 12f)
     }
 
     @Test fun realExposureMarksOnlyOriginalBodyAndThreadPreviewStaysUnreadUntilNavigated() {

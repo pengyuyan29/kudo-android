@@ -42,6 +42,6 @@ After an in-app jump completes (`targetRevision > 0`), automatic pagination must
 
 ## Consequences
 
-Post floor numbers remain unprefixed, move close to the right edge, and use a low-alpha watermark color.
+楼层水印按最新界面要求使用 # 前缀、11sp 常规字重和12%前景色，独立叠放于整条回复最右上角，距顶2dp/右4dp，不受正文16dp padding影响。此前大号加粗且无前缀便于快速定位，但过于醒目，用户要求恢复为不起眼的水印。TopicReadingUiTest 真机验证外层边缘位置、字号及字重，8项阅读相关用例通过（artifacts/floor-window-final-device-20261011.txt）。
 
 删除或不可见楼层会造成楼层编号空洞，按网站真实号码显示且明确反馈不可达；长文当前位置表示当前可见楼层，不表示整篇已读完。

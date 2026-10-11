@@ -31,7 +31,8 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
     val ignoredUsers = LocalIgnoredUsers.current
     var revealed by remember(post.id, ignoredUsers) { mutableStateOf(false) }
     val ignored = post.author.username.lowercase(Locale.ROOT) in ignoredUsers
-    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp).testTag("post-${post.number}"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).testTag("post-${post.number}")) {
+    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (ignored && !(if (post.number == 1) originalRevealed else revealed)) {
             Text("@${post.author.username} 的内容已忽略", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             TextButton(onClick = { if (post.number == 1) revealOriginal() else revealed = true }) { Text("查看此楼层") }
@@ -59,10 +60,6 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
                     Icon(Icons.Rounded.MoreHoriz, "更多操作", Modifier.size(20.dp))
                 }
                 }
-                Text(post.number.toString(), Modifier.align(Alignment.TopEnd).padding(top = 1.dp, end = 4.dp)
-                    .testTag("post-floor-number-${post.number}"),
-                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = .18f))
             }
             PostReadingContent(post.number, enabled && !state.loading) {
                 RichContent(post.cooked, image, openLink, galleryKey = "post-${post.id}", galleryBottomInset = 110.dp,
@@ -89,6 +86,13 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
             }
             PostBoosts(post, enabled, user, openLink)
         }
+    }
+    if (post.number != 1 && (!ignored || revealed)) {
+        Text("#${post.number}", Modifier.align(Alignment.TopEnd).padding(top = 2.dp, end = 4.dp)
+            .testTag("post-floor-number-${post.number}"),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontWeight = FontWeight.Normal),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = .12f))
+    }
     }
 }
 
