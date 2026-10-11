@@ -37,3 +37,5 @@ FeedPageCacheTest先在原逻辑复现“阅读确认不能触发返回后的刷
 FeedPageCacheTest、FeedSessionTest、FeedUpdatesTest关联回归通过（artifacts/feed-return-state-fixed.txt）。追加分页用例通过（artifacts/feed-return-pagination-fixed.txt），验证已加载两页保留next与回顶请求，用户点击刷新后才替换第一页并清除提示。
 
 真实NavHost加离线OkHttp拦截的分类/标签返回用例，以及保存列表恢复的折叠页头断言，先在旧实现复现3项失败（artifacts/feed-return-ui-repro.txt）。恢复回调改为幂等同步账号，不再刷新，页头在下一个小单元修复。
+
+首页页头复现返回后列表顶部由102px变234px，原因是Pager首次发射无条件重置折叠偏移。现在只在真实页码变化时展开页头，恢复当前页保留保存状态，显式回顶/刷新继续原有逻辑。

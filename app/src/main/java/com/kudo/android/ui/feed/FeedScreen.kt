@@ -86,11 +86,15 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
             val currentSelect by rememberUpdatedState(select)
             val currentCategories by rememberUpdatedState(categories)
             LaunchedEffect(pager) {
+                var previousPage = pager.settledPage
                 snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { index ->
                     val value = tabs.getOrNull(index)?.first ?: return@collect
                     if (value == "categories") currentCategories() else currentSelect(value)
-                    scrollBehavior.state.heightOffset = 0f
-                    scrollBehavior.state.contentOffset = 0f
+                    if (index != previousPage) {
+                        scrollBehavior.state.heightOffset = 0f
+                        scrollBehavior.state.contentOffset = 0f
+                    }
+                    previousPage = index
                 }
             }
             LaunchedEffect(state.filter) {
