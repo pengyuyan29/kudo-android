@@ -37,7 +37,8 @@ import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 @Composable
-fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit, user: Member?, logout: () -> Unit, back: () -> Unit, openLink: (String) -> Unit, manageIgnored: () -> Unit = {}) {
+fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit, user: Member?, logout: () -> Unit, back: () -> Unit, openLink: (String) -> Unit, manageIgnored: () -> Unit = {},
+    networkSummary: String = "已关闭", manageNetwork: () -> Unit = {}) {
     val context = LocalContext.current
     var notificationsEnabled by remember { mutableStateOf(false) }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
@@ -96,6 +97,12 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                         SettingRow("消息通知", if (notificationsEnabled) "已开启 · 运行期间接收" else "未开启 · 点击管理", !showing) {
                             context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
                         }
+                    }
+                }
+                item { SectionLabel("网络") }
+                item {
+                    Column(Modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface)) {
+                        SettingRow("DNS over HTTPS", networkSummary, !showing, manageNetwork)
                     }
                 }
                 item { SectionLabel("链接打开") }
