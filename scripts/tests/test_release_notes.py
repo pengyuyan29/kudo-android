@@ -52,22 +52,22 @@ class ReleaseNotesTest(unittest.TestCase):
 
     def test_incremental_range_chooses_numeric_ancestor_and_ignores_other_branches(self):
         self.commit("旧版本内容")
-        self.git("tag", "v0.9.0")
+        self.git("tag", "v0.8.0")
         self.git("tag", "not-a-release")
         self.git("checkout", "-b", "other")
         self.commit("其他分支")
-        self.git("tag", "v0.99.0")
+        self.git("tag", "v0.9.0")
         self.git("checkout", "main")
         self.commit("旧的小版本")
-        self.git("tag", "v0.10.0")
+        self.git("tag", "v0.8.9")
         self.commit("feat!: 新版本能力")
         self.git("tag", "v1.0.0")
-        self.assertEqual("v0.10.0", previous_tag("v1.0.0", self.root))
+        self.assertEqual("v0.8.9", previous_tag("v1.0.0", self.root))
         notes = generate_notes("v1.0.0", "owner/repo", self.root)
         self.assertIn("新版本能力", notes)
         self.assertNotIn("旧版本内容", notes)
         self.assertNotIn("其他分支", notes)
-        self.assertIn("/compare/v0.10.0...v1.0.0", notes)
+        self.assertIn("/compare/v0.8.9...v1.0.0", notes)
 
     def test_merged_subjects_empty_changes_and_invalid_parameters(self):
         notes = render_notes("v1.0.0", ["Merge branch 'feature'", "", "  "], "owner/repo", "v0.9.0")

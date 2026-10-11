@@ -65,6 +65,8 @@ Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移�
 
 2026-10-11：使用 `-PversionName=0.1.6 -PversionCode=1007` 完成正式 R8 构建，`prepare_release.py` 生成 `kodo_0.1.6_release_arm64-v8a.apk` 及校验文件。`aapt` 显示包版本为 `0.1.6/1007` 且只含 `arm64-v8a`；`apksigner` 显示单一签名者、V2 验签通过且没有 debuggable 标记。APK SHA256 为 `7e4898ae810ecd9d7ee6a6da278f9975024b8facb78808079200af3f4b9a7d7c`。
 
+2026-10-11：使用 `-PversionName=0.1.7 -PversionCode=1008` 完成正式 R8 构建，`prepare_release.py` 生成 `kodo_0.1.7_release_arm64-v8a.apk` 及校验文件。`aapt` 显示包版本为 `0.1.7/1008` 且只含 `arm64-v8a`；`apksigner` 显示同一正式证书、V2 验签通过且没有 debuggable 标记。APK SHA256 为 `40d57964f5dbe45938e7f6f73efd772b717515b532988dfba7a0098828631a20`。
+
 2026-10-08 本地验证：
 
 - Debug 与开启 R8 的 Release 均构建成功，通过 apksigner 验证并匹配各自独立的 RSA 4096 证书。真实重复生成后对比所有签名文件哈希，原文件不变；Git 忽略生效，已跟踪及未忽略文件中没有生成的密码。
