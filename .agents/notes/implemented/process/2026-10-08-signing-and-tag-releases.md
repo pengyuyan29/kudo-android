@@ -20,6 +20,8 @@ Tag 发布只接受 vX.Y.Z，三位组件均为单个 0 到 9 的数字；版本
 
 GitHub Actions 在 v 开头的 Tag 推送时校验 Tag、执行脚本测试、笔记校验、JVM 测试及 Lint，然后从 GitHub Secrets 恢复 Release 密钥库，构建签名 APK。工具链为 Ubuntu 24.04、JDK 21、Node 22、Android SDK 36 和 Build Tools 35.0.0；外部 Action 固定为已向官方仓库核实的提交 SHA。Windows 的 gradlew.bat 与 Linux 的 bash ./gradlew 均可使用仓库 Wrapper。
 
+JVM检查失败时单独上传JUnit XML和HTML报告，保留14天，名称包含Tag与run_attempt；没有报告时忽略。该步骤不绕过失败门禁，不上传签名配置或会话数据。仅保留job日志最简单，但v0.1.8的日志没有UncaughtExceptionsBeforeTest的被抑制异常及具体等待阶段，不能支持调度根因分析，因此同时保留完整测试报告。
+
 构建作业只读仓库，关闭共享 Gradle 缓存和 configuration cache；四个 Secrets 为 RELEASE_KEYSTORE_BASE64、RELEASE_STORE_PASSWORD、RELEASE_KEY_ALIAS、RELEASE_KEY_PASSWORD。密钥放 runner.temp，验证完成或失败后均尝试移除。prepare_release.py 使用 apksigner 验证 APK 完整性，比较唯一签名证书与正式密钥库导出的证书，使用 aapt 验证包名、Tag 版本及非 debuggable 标记，全部通过后才复制 APK 和生成对应 SHA256 文件。
 
 发布作业下载APK、校验文件和[提交日志](2026-10-11-commit-release-notes.md)生成的正文并复查 SHA256，使用目标仓库的 GITHUB_TOKEN 写 Release，不需要额外长期发布令牌。它先创建草稿、上传完整文件后再公开；同 Tag 遗留草稿可重试，已公开版本拒绝覆盖。检查或构建失败不会进入发布作业，上传失败不会公开不完整草稿。Actions 中转产物保留 14 天，公开 Release 附件不受此限制。

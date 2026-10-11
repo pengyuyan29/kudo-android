@@ -68,6 +68,18 @@ jobs:
       - name: Unit tests and Android Lint
         run: bash ./gradlew :app:testDebugUnitTest :app:lintDebug --no-daemon --no-configuration-cache --console=plain
 
+      - name: Upload failing JVM test reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-failure-${{ github.ref_name }}-${{ github.run_attempt }}
+          path: |
+            app/build/test-results/testDebugUnitTest/
+            app/build/reports/tests/testDebugUnitTest/
+          if-no-files-found: ignore
+          retention-days: 14
+          archive: true
+
       - name: Restore release keystore
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
