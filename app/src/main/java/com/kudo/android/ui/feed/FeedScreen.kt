@@ -109,7 +109,11 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
                     val page = if (value == state.filter) state else pages[value]?.takeIf { it.accountId == user?.id }
                         ?: FeedState(filter = value, accountId = user?.id, categories = state.categories)
                     FeedPage(page, pager.settledPage == index && value == state.filter, resetHeader,
-                        refresh, more, openTopic, openUser, login, listStyle)
+                        refresh, more, openTopic, openUser, login, listStyle,
+                        headerScrolled = scrollBehavior.state.heightOffset < 0f, expandHeader = {
+                            androidx.compose.animation.core.animate(scrollBehavior.state.heightOffset, 0f) { value, _ -> scrollBehavior.state.heightOffset = value }
+                            scrollBehavior.state.contentOffset = 0f
+                        })
                 }
             }
         }
@@ -120,7 +124,8 @@ fun FeedScreen(state: FeedState, user: Member?, select: (String) -> Unit, refres
 @Composable
 internal fun FeedPage(state: FeedState, active: Boolean, scrollToTop: () -> Unit,
     refresh: () -> Unit, more: () -> Unit, openTopic: (Int) -> Unit, openUser: (String) -> Unit,
-    login: () -> Unit, listStyle: TopicListStyle, nested: NestedScrollConnection? = null) {
+    login: () -> Unit, listStyle: TopicListStyle, nested: NestedScrollConnection? = null,
+    headerScrolled: Boolean = false, expandHeader: suspend () -> Unit = { scrollToTop() }) {
     val ignored = com.kudo.android.ui.topic.LocalIgnoredUsers.current
     val visibleTopics = state.topics.filterNot { it.author?.username?.lowercase(java.util.Locale.ROOT) in ignored }
         val listState = rememberLazyListState()
@@ -139,7 +144,8 @@ internal fun FeedPage(state: FeedState, active: Boolean, scrollToTop: () -> Unit
         LaunchedEffect(active, nearEnd, state.next) { if (active && nearEnd && state.next != null && state.moreError == null) more() }
         PullToRefreshBox(isRefreshing = state.loading && state.topics.isNotEmpty(), onRefresh = { if (active) refresh() }, modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             val traditional = listStyle == TopicListStyle.TITLE
-            LazyColumn(state = listState, contentPadding = if (traditional) PaddingValues(bottom = 112.dp) else PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(if (traditional) 0.dp else 8.dp), modifier = Modifier.fillMaxSize().then(if (nested != null) Modifier.nestedScroll(nested) else Modifier).testTag("feed-list-${state.filter}")) {
+            LazyColumn(state = listState, contentPadding = if (traditional) PaddingValues(bottom = 112.dp) else PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 112.dp), verticalArrangement = Arrangement.spacedBy(if (traditional) 0.dp else 8.dp), modifier = Modifier.fillMaxSize().then(if (nested != null) Modifier.nestedScroll(nested) else Modifier).testTag("feed-list-${state.filter}")
+                .quickScrollTarget(listState, enabled = active, extraScrolled = headerScrolled, expandHeader = expandHeader)) {
                 if (state.loading && state.topics.isEmpty()) item { LoadingRow() }
                 if (state.error != null) item { ErrorState(state.error, refresh, login) }
                 if (!state.loading && state.error == null && visibleTopics.isEmpty()) item { EmptyState("暂时没有可显示话题", "换个分类，或者稍后再来看看。") }
