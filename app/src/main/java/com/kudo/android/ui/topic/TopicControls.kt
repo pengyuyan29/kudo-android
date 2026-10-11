@@ -91,6 +91,7 @@ internal fun TopicReactionButton(
     modifier: Modifier = Modifier, bottom: Boolean = false,
 ) {
     val reaction = post?.activeReaction
+    val inactiveColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .75f * if (enabled) 1f else .38f)
     val label = if (bottom) {
         if (reaction != null && reaction != "heart") "取消主帖回应" else "赞主帖"
     } else "回应此楼层"
@@ -112,10 +113,11 @@ internal fun TopicReactionButton(
         val size = if (bottom) 22.dp else 19.dp
         if (reaction != null && reaction != "heart") SiteEmoji(reaction, Modifier.size(size))
         else Icon(if (reaction == "heart") Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder, null,
-            Modifier.size(size), tint = if (reaction == "heart") LikeRed else LocalContentColor.current.copy(alpha = if (enabled) 1f else 0.38f))
+            Modifier.size(size), tint = if (reaction == "heart") LikeRed else inactiveColor)
         if (!bottom) {
             Spacer(Modifier.width(5.dp))
-            Text(post?.reactionCount?.toString().orEmpty(), style = MaterialTheme.typography.labelLarge)
+            Text(post?.reactionCount?.toString().orEmpty(), style = MaterialTheme.typography.labelLarge,
+                color = if (reaction == null) inactiveColor else LocalContentColor.current)
         }
     }
 }
