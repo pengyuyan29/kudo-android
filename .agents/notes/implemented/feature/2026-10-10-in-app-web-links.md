@@ -12,6 +12,8 @@ Status: implemented
 
 WebView 使用 CookieManager 默认存储，与 LoginScreen 和 AndroidSessionCookies 相同，不复制登录 Cookie 到 URL、手工请求头或外站。Cookie 发送遵循 WebView 域、路径和 Secure 规则；应用内登录态可共用，系统 Chrome 的存储不属于本应用。页面具备标题、加载进度、刷新、错误重试和返回，网页历史优先返回，无历史返回原生来源；释放时停止加载并销毁实例。沿用关闭文件/内容访问和第三方 Cookie 的设置，不引入 JS 原生桥。网页阅读允许 HTTP，Manifest 放开明文流量；社区 API 和图片请求仍由各自既有同源 HTTPS 校验约束，不手工向明文网页附加社区会话。
 
+标题栏仅显示页面标题，不另占一行显示域名，外部浏览器入口使用Language网格地球矢量。首屏、导航和刷新等待期间覆盖主题底色并居中显示黄色loading，onPageCommitVisible或onPageFinished后的视觉状态确认后收起；下载进度100本身不代表内容可见。视觉回调按导航代次检查，错误或下载交接停止loading，失败保留原有重试入口，等待期间禁用网页回顶入口。
+
 ## Existing note audit
 
 WebView 原生布局使用[有界视口](../bug-fix/2026-10-10-webview-viewport.md)，保证 vh 与 iframe 高度随可用空间正常计算。
@@ -26,6 +28,8 @@ WebView 原生布局使用[有界视口](../bug-fix/2026-10-10-webview-viewport.
 - 网页内点击站内链接再次原生分流，能直接复用客户端页面；用户明确指出连续浏览会割裂，因此只在原生内容入口分流，WebView 全程维护网页历史。
 
 ## Testing
+
+网页首屏loading改动先用可控制的主文档响应闸门复现初始加载与刷新两项缺少web-loading失败（artifacts/web-loading-repro-feed-fixed-ui.txt）。同批5项返回列表用例通过；网页网络和历史契约沿用原实现。最终验证需包含进度先到100仍显示loading、内容可见后收起、失败/刷新与恢复历史。
 
 分类链接先由失败单测复现错误回首页，日志 artifacts/category-link-repro.txt；修复后精确断言 ID。LinuxDoLinkTest 增加正文路由与网页地址校验，涵盖相对 URL、查询/片段、不支持协议、凭据地址及相似域名。131项 JVM 测试、Debug/测试 APK 构建通过，Lint 为0错误、30条现有警告和1条提示，日志 artifacts/in-app-web-build.txt。
 

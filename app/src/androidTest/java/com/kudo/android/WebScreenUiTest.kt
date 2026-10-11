@@ -28,6 +28,7 @@ class WebScreenUiTest {
     private val loadedTitle = AtomicReference("")
     private val loads = AtomicInteger()
     private var failFirst = false
+    @Volatile private var responseGate: CountDownLatch? = null
     private val start = "https://reader-fixture.test/guidelines"
 
     private fun create(context: Context) = FixtureWebView(context).also { views += it }
@@ -38,6 +39,7 @@ class WebScreenUiTest {
     }
     private fun awaitPage(title: String) {
         compose.waitUntil(10000) { loadedTitle.get() == title }
+        compose.waitUntil(5000) { compose.onAllNodesWithTag("web-loading").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithText(title).assertIsDisplayed()
     }
     private fun javascript(script: String): String {
@@ -56,6 +58,7 @@ class WebScreenUiTest {
     }
 
     @After fun removeFixtureCookies() {
+        responseGate?.countDown()
         compose.runOnUiThread {
             val manager = CookieManager.getInstance()
             listOf("app_fixture", "web_fixture").forEach {
@@ -63,6 +66,36 @@ class WebScreenUiTest {
             }
             manager.flush()
         }
+    }
+
+    @Test fun initialPageShowsLoadingUntilContentAppearsEvenIfProgressFinishesFirst() {
+        val gate = CountDownLatch(1)
+        responseGate = gate
+        try {
+            compose.setContent { KudoTheme(DisplaySettings()) { WebScreen(start, {}, {}, ::create) } }
+            compose.onNodeWithTag("web-loading").assertIsDisplayed()
+            compose.onNodeWithText("reader-fixture.test").assertDoesNotExist()
+            compose.runOnUiThread { current().webChromeClient?.onProgressChanged(current(), 100) }
+            compose.onNodeWithTag("web-loading").assertIsDisplayed()
+            gate.countDown()
+            awaitPage("指南")
+            compose.onNodeWithTag("web-loading").assertDoesNotExist()
+            compose.onNodeWithText("reader-fixture.test").assertDoesNotExist()
+        } finally { gate.countDown() }
+    }
+
+    @Test fun refreshingShowsLoadingAgainUntilContentAppears() {
+        show()
+        val gate = CountDownLatch(1)
+        responseGate = gate
+        try {
+            loadedTitle.set("")
+            compose.onNodeWithContentDescription("刷新网页").performClick()
+            compose.onNodeWithTag("web-loading").assertIsDisplayed()
+            gate.countDown()
+            awaitPage("指南")
+            compose.onNodeWithTag("web-loading").assertDoesNotExist()
+        } finally { gate.countDown() }
     }
 
     @Test fun siteLinksNewWindowsAndRedirectsStayInWebHistory() {
@@ -125,6 +158,7 @@ class WebScreenUiTest {
             WebScreen(start, {}, {}, ::create)
         } }
         compose.waitUntil(10000) { compose.onAllNodesWithTag("web-error").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("web-loading").assertDoesNotExist()
         compose.onNodeWithText("重新加载").performClick()
         awaitPage("指南")
         val previous = loads.get()
@@ -150,6 +184,7 @@ class WebScreenUiTest {
             super.setWebViewClient(object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = client.shouldOverrideUrlLoading(view, request)
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse {
+                    if (request.isForMainFrame) responseGate?.await(10, TimeUnit.SECONDS)
                     val value = request.url.toString()
                     val attempt = loads.incrementAndGet()
                     val title = when {
@@ -181,6 +216,7 @@ class WebScreenUiTest {
                     return response
                 }
                 override fun onPageStarted(view: WebView, url: String, icon: Bitmap?) = client.onPageStarted(view, url, icon)
+                override fun onPageCommitVisible(view: WebView, url: String) = client.onPageCommitVisible(view, url)
                 override fun doUpdateVisitedHistory(view: WebView, url: String, reload: Boolean) = client.doUpdateVisitedHistory(view, url, reload)
                 override fun onPageFinished(view: WebView, url: String) {
                     client.onPageFinished(view, url)
