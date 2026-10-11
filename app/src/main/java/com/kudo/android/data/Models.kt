@@ -70,8 +70,11 @@ data class TopicDetail(
     val tags: List<TopicTag> = emptyList(),
     val highestPostNumber: Int = maxOf(posts.maxOfOrNull(Post::number) ?: 1, stream.size),
     val archived: Boolean = false,
+    val lastReadPostNumber: Int? = null,
 ) {
     val originalPost: Post? get() = posts.firstOrNull { it.number == 1 } ?: pinnedOriginal
+    val resumePostNumber: Int? get() = lastReadPostNumber?.takeIf { it > 0 }
+        ?.let { (it.toLong() + 1).coerceAtMost(highestPostNumber.coerceAtLeast(1).toLong()).toInt() }
 }
 data class Notice(val id: Int, val title: String, val description: String, val topicId: Int?, val postNumber: Int?, val read: Boolean, val time: String,
     val type: Int = 0, val actor: Member? = null, val url: String = "", val isSolved: Boolean = false,
@@ -195,7 +198,8 @@ object DiscourseParser {
             json.optJSONArray("valid_reactions").strings().filter { it.matches(Regex("[a-zA-Z0-9_+:-]+")) }.distinct(),
             tags = json.optJSONArray("tags").topicTags(),
             highestPostNumber = maxOf(json.optInt("highest_post_number"), posts.maxOfOrNull(Post::number) ?: 1,
-                if (json.positiveInt("highest_post_number") == null) ids?.length() ?: 0 else 0), archived = json.optBoolean("archived"))
+                if (json.positiveInt("highest_post_number") == null) ids?.length() ?: 0 else 0), archived = json.optBoolean("archived"),
+            lastReadPostNumber = json.positiveInt("last_read_post_number"))
     }
 
     fun notices(json: JSONObject): List<Notice> = json.optJSONArray("notifications").objects().map { item ->
