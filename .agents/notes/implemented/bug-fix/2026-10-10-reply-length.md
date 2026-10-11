@@ -12,6 +12,8 @@ Status: implemented
 
 最小长度沿用网页UTF-16算法：排除单行HTML注释和BBCode引用，折叠网站定义的空白并忽略首尾空白；超过10000码元时与网站一样直接计原始长度。最大长度检查原始文本。UI禁用与ViewModel发送前复核同时存在，发送成功后的清理仍遵循[账号与草稿](../feature/2026-10-07-account-and-composer.md)。
 
+普通回复的底部提示只保留计数：低于服务端最小长度时显示“当前 / 最少 字”，达到后显示“当前 字”；不追加“回复至少/还需”或草稿自动保存文案。配置读取失败、上传/发布过程和实际发送失败继续各自显示状态，发布前校验不变。
+
 ## Existing note audit
 
 [账号与草稿](../feature/2026-10-07-account-and-composer.md)部分重叠，互链且保持发送互斥和确认后清理；[酷安式表单](../feature/2026-10-10-coolapk-forms.md)保持键盘与拖动面板约束；[Boost](../feature/2026-10-10-post-boosts-and-length.md)使用独立短回复协议。没有完全吸收或过时记录。

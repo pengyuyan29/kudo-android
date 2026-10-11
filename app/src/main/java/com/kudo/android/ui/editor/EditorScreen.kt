@@ -101,9 +101,11 @@ internal fun EditorForm(draft: Draft, categories: List<Category>, edit: (Draft) 
             }
             Text(if (uploading) "正在上传图片…" else if (sending) "正在发布…" else if (reply) {
                 if (replyRules == null) "正在读取回帖字数规则…"
-                else "${replyLength(draft.raw)} / ${replyRules.minimum} 字 · ${replyRules.problem(draft.raw) ?: "草稿已自动保存"}"
+                else replyLength(draft.raw).let { length ->
+                    if (length < replyRules.minimum) "$length / ${replyRules.minimum} 字" else "$length 字"
+                }
             } else "草稿已自动保存 · ${draft.raw.length} 字",
-                Modifier.padding(horizontal = 20.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Modifier.padding(horizontal = 20.dp, vertical = 4.dp).then(if (reply) Modifier.testTag("reply-length") else Modifier), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(Modifier.fillMaxWidth().then(if (reply) Modifier else Modifier.navigationBarsPadding()).padding(start = 8.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 CommunityIconButton(Icons.Rounded.AddPhotoAlternate, "上传图片", pickImage, enabled = enabled && !uploading)
                 CommunityIconButton(Icons.Rounded.Code, "插入代码块", { edit(draft.copy(raw = draft.raw + "\n```\n\n```\n")) }, enabled = enabled)
