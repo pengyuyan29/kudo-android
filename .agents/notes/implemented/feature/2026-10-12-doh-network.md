@@ -28,6 +28,8 @@ Socket/JNI 单元使用有界 64KB 读写块，不缓存完整上传或响应。
 
 随包 `assets/licenses/native-doh-NOTICES.txt` 保留锁定 Android 依赖图 118 个组件及相关构建依赖的完整许可/版权，包括 AWS-LC、BoringSSL、OpenSSL、Fiat。`native_notices.py --check` 在 Cargo 构建后执行，兼容 Windows CRLF；jni-sys-macros 发布包缺失的两份许可从其固定 VCS 提交补入源树。构建与许可脚本明确使用 UTF-8，避免 Windows 默认编码影响 CMake 路径和 Cargo 元数据。
 
+README 记录 Rust、NDK、Python 与 CMake/Ninja 的新增构建要求及 WebView 边界；手机运行不需要 Rust 环境。关于页告知所选 DoH 服务可看到查询域名，但不会接收社区登录凭据，并提供完整原生组件许可入口；第三方说明保留独立实现与 FluxDO 参考的区别。
+
 Android 适配单元为 `network/DohTransport.kt` 与 `NativeDoh.kt`。原始 Socket 与 SSLSocket 共用同一个 Rust 句柄，提供 JNI InputStream/OutputStream、真实证书链和 TLS session，供 OkHttp 进行主机名复核与连接复用。配置关闭不创建原生 profile，不发 DNS。验收构建的 arm64 库为 4,979,856 字节（未压缩，不等于 APK 增量），HTTP 语义与现有会话通过下方定向验收。
 
 `NativeAlpnPlatform` 为当前固定的 OkHttp 4.12.0 内部 Platform 扩展，向自定义 Socket 传入协议并读取真实 ALPN；安装后所有普通 Android Socket、证书、明文策略与日志继续委托原平台，关闭功能无需恢复全局对象。该库没有公开的自定义 Socket ALPN 扩展点，因而使用其现有 Platform setter；升级 OkHttp 必须重新审核这份完整委托和原生/系统两路回归，不能视为普通依赖补丁。

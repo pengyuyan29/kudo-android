@@ -15,8 +15,13 @@
 | [Jsoup](https://jsoup.org/) | [MIT](https://jsoup.org/license) | HTML 内容解析 |
 | [Font Awesome Free 6.7.2](https://github.com/FortAwesome/Font-Awesome/tree/6.7.2) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)（图标） | 与 Linux.do 官网一致的23种分类图标 |
 | [JUnit 4](https://junit.org/junit4/) | [EPL-1.0](https://www.eclipse.org/legal/epl-v10.html) | 测试，不进入正式应用运行代码 |
+| [rustls](https://github.com/rustls/rustls)、[Hyper](https://github.com/hyperium/hyper)、[Tokio](https://github.com/tokio-rs/tokio)、[Hickory](https://github.com/hickory-dns/hickory-dns)、[jni-rs](https://github.com/jni-rs/jni-rs) | Apache-2.0 / MIT，具体见各组件 | 原生 DoH、ECH TLS、DNS HTTPS 传输与 JNI |
+| [AWS-LC](https://github.com/aws/aws-lc) | Apache-2.0 / ISC 及保留的 OpenSSL、BoringSSL 等许可 | TLS、HPKE / ECH 密码学实现 |
+| [webpki-roots](https://github.com/rustls/webpki-roots) | CDLA-Permissive-2.0 | 原生 TLS 公共信任根 |
 
 接口行为研究参考 [FluxDO](https://github.com/Lingyan000/fluxdo)（GPL-3.0），没有复制其 Flutter 实现。酷安 16.6.4 仅作为界面比例和交互研究参考，没有复制其图标、图片或反编译实现。应用图标使用本项目绘制的黄色 K 标记。
+
+DoH / ECH 原生代码由本项目独立实现，没有复用 FluxDO 的 Rust 子模块。确切版本固定在 `native/doh/Cargo.lock`；[完整原生组件许可与 NOTICE](app/src/main/assets/licenses/native-doh-NOTICES.txt)随 APK 分发，含 AWS-LC 保留的第三方条款与 Fiat 许可。`python scripts/native_notices.py` 根据 Android 依赖图重新生成，`--check` 校验同步。jni-sys-macros 0.4.1 发布包缺少工作区许可，补存自其 `.cargo_vcs_info.json` 指定提交 `64d77b7a5f119d7b55b4e2c169a4668067ff59e6` 的原始 LICENSE-MIT / LICENSE-APACHE。
 
 底部导航与详情操作栏改编自 [AndroidLiquidGlass catalog 的 Android 1.0.6 版本](https://github.com/Kyant0/AndroidLiquidGlass/tree/896a94a3ade1cc1a940b92365f942a34971fecda/catalog/src/main/java/com/kyant/backdrop/catalog)。接入 LiquidBottomTabs、LiquidBottomTab、LiquidButton、DampedDragAnimation、InteractiveHighlight、DragGestureInspector 六份源码，作者为 Kyant0，许可为 Apache-2.0；修改包名、主题与尺寸、兼容材质、滑动预选、发布隔离和采样层语义，高频拖动直接跟随触点并保留点击弹性与停顿速度复位，按钮增加禁用状态与独立子操作容器。Surface Liquid Button 为官方 LiquidButton 的30%表面色样式。源码位于 `app/src/main/java/com/kudo/android/ui/components/liquid/`，文件头保留来源版本和修改说明；[完整许可](app/src/main/assets/licenses/backdrop-demo-LICENSE.txt) 随 APK 放入 `assets/licenses/`。
 

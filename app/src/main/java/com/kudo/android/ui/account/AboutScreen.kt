@@ -89,7 +89,7 @@ fun AboutScreen(openLink: (String) -> Unit = {}, openExternal: (String) -> Unit 
             maxDialogHeightFraction = if (dialog == "licenses") .7f else 1f,
             actions = { LiquidModalAction("知道了", ::dismiss, Modifier.fillMaxWidth(), primary = true) }) {
             if (dialog == "privacy") {
-                Text("酷DO 直接连接 Linux.do。登录在官网页面完成；应用不收集密码，不接入统计或广告服务。Cookie 与草稿保存在应用私有目录，禁用系统备份，退出登录后清除。帖子中的外部图片会向其来源站点发起请求。",
+                Text("酷DO 直接连接 Linux.do。登录在官网页面完成；应用不收集密码，不接入统计或广告服务。Cookie 与草稿保存在应用私有目录，禁用系统备份，退出登录后清除。帖子中的外部图片会向其来源站点发起请求。DoH 默认关闭；开启后所选解析服务器可看到查询域名，应用不会向其发送社区登录凭据。",
                     style = MaterialTheme.typography.bodyMedium, color = LocalContentColor.current.copy(alpha = 0.8f))
             } else {
                 ModalLink("Backdrop 项目与许可") { openLink("https://github.com/Kyant0/AndroidLiquidGlass") }
@@ -97,6 +97,7 @@ fun AboutScreen(openLink: (String) -> Unit = {}, openExternal: (String) -> Unit 
                 ModalLink("APNG4Android 动图支持与许可") { openLink("https://github.com/penfeizhou/APNG4Android") }
                 ModalLink("libavif 解码器与许可") { openLink("https://github.com/AOMediaCodec/libavif/blob/v1.1.1/LICENSE") }
                 ModalLink("FluxDO 接口参考") { openLink("https://github.com/Lingyan000/fluxdo") }
+                ModalLink("Rust DoH / ECH 组件与完整许可") { openLink("https://github.com/woliubang256/kudo-android/blob/main/app/src/main/assets/licenses/native-doh-NOTICES.txt") }
             }
         }
     }

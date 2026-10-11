@@ -12,6 +12,7 @@ Linux.do 社区的 Android 原生第三方客户端。Kotlin + Jetpack Compose�
 - 官网 WebView 登录与验证，共享 Cookie；通知、收藏和个人资料。
 - 点赞、收藏、发帖、回复、图片上传、按账号和话题保存草稿。
 - 浅色 / 深色 / 跟随系统，字号和材质设置。
+- 默认关闭的 DoH + ECH、内置及自定义服务器管理；VPN 或系统代理开启时暂停，断开后按原选择恢复。
 
 Android 13+ 使用完整液态玻璃；Android 12 使用背景模糊；Android 8–11 使用半透明。底部导航直接改编自 Backdrop 官方 `LiquidBottomTabs` 示例，保留阻尼、速度拉伸、触点高光，以及可见底栏 / 隐藏放大标签 / 前景镜片三层结构。底栏为56dp高、22dp图标和10sp标签；高亮为 `#FFB003`，静止选中面为12%透明中性灰，绘制在图标下方以保持品牌黄。镜片静止48dp高、宽度等于标签格，首尾外侧和上下留白均为4dp；运动时增宽8dp、约66.9dp高，折射距离和内阴影随镜片高度同比适配，中心文字和图标放大，上下形成内凹折射带。玻璃底栏采用20%主题表面色和4dp模糊，半透明兼容材质仍为94%；中央发布按钮采用横向胶囊。关闭系统动画时停用速度附加拉伸，保留基础按压放大与折射。设置中可以主动切换兼容材质。
 
@@ -31,7 +32,9 @@ Android 13+ 使用完整液态玻璃；Android 12 使用背景模糊；Android 8
 
 ## 构建与安装
 
-需要 JDK 17+、Android SDK Platform 36，首次构建需要访问 Google Maven、Maven Central 和 Gradle。设置 `ANDROID_HOME` 或在未入库的 `local.properties` 中填写 `sdk.dir`。仓库包含 Gradle Wrapper，不需要全局安装 Gradle。
+需要 JDK 17+、Android SDK Platform 36、Rust stable、Python 3.9+，以及 Android NDK 27.0.12077973、CMake 3.22.1 / Ninja。首次构建需要访问 Google Maven、Maven Central、Gradle 与 crates.io。设置 `ANDROID_HOME` 或在未入库的 `local.properties` 中填写 `sdk.dir`。仓库包含 Gradle Wrapper，不需要全局安装 Gradle。
+
+先运行 `rustup target add aarch64-linux-android`。Gradle 自动以锁定依赖编译 `native/doh` 的 arm64 库、校验 16KB 对齐与随包许可；源码未变时复用生成库。原生代码及产物均只支持 arm64-v8a，手机不需要 Rust 环境。更新原生依赖后运行 `python scripts/native_notices.py` 同步许可。
 
 ```powershell
 .\gradlew.bat :app:assembleDebug
@@ -142,6 +145,7 @@ adb -s <真机序列号> shell am instrument -w -r -e class 'com.kudo.android.Ca
 
 ## 使用边界
 
+- DoH + ECH 仅接管原生请求，WebView 登录、网页验证和外链继续走系统网络；GitHub 更新检查也使用独立系统网络。当前非代理 Wi-Fi 已验证现有登录、列表及头像；ECH 不能保证不触发 CF，需网页过盾时可能仍要开启代理。
 - 首次访问可能需要在应用的官网页面手动完成 Cloudflare 验证；完成后返回并刷新。登录后点“完成登录”，由 `/session/current.json` 确认账号。代理、站点风控和客户端指纹仍可能影响部分请求。
 - 当前站点搜索要求登录。尚未用真实账号验收搜索结果、发帖、回复、上传、点赞、收藏、通知与重启恢复；代码已接入，但接口模拟和界面测试不等于完整线上验收。
 - 个人首页列表、新话题数量及登录账号的私有推送频道通过接口模拟与界面夹具验证，仍需真实账号验收。数量在主动刷新时更新；“已读”显示服务器已有阅读记录，本次未增加原生阅读进度上报。
