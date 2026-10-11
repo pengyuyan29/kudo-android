@@ -14,6 +14,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.Executors
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TopicFloorNavigationTest {
@@ -52,7 +53,7 @@ class TopicFloorNavigationTest {
             else -> null
         } }) { vm, paths ->
             vm.await { !it.loading }; vm.jumpTo(80)
-            val result = vm.await { it.targetNumber == 80 && !it.contextLoading }
+            val result = vm.await { it.targetNumber == 80 && !it.contextLoading && it.allPosts.any { post -> post.number == 20 } }
             assertEquals(listOf(1, 20, 80), result.allPosts.map(Post::number).sorted())
             assertEquals(80, result.threads.single { it.root.number == 20 }.replies.single().number)
             assertEquals(100, result.detail!!.highestPostNumber)
@@ -213,9 +214,12 @@ class TopicFloorNavigationTest {
     }
 
     @Test fun aSupersededJumpCannotReplaceTheLatestTarget() = runTest {
-        val started = CountDownLatch(1); val release = CountDownLatch(1)
+        val started = CountDownLatch(1); val release = CountDownLatch(1); val returned = CountDownLatch(1)
         withTopic({ request -> when (request.path) {
-            "/t/5/80.json" -> { started.countDown(); release.await(5, TimeUnit.SECONDS); MockResponse().setBody(topic(post(80))) }
+            "/t/5/80.json" -> {
+                started.countDown(); release.await(5, TimeUnit.SECONDS)
+                returned.countDown(); MockResponse().setBody(topic(post(80)))
+            }
             "/t/5/100.json" -> MockResponse().setBody(topic(post(100)))
             else -> null
         } }) { vm, _ -> try {
@@ -223,6 +227,7 @@ class TopicFloorNavigationTest {
             assertTrue(withContext(Dispatchers.IO) { started.await(5, TimeUnit.SECONDS) })
             vm.jumpTo(100); vm.await { it.targetNumber == 100 && !it.jumping }
             release.countDown()
+            assertTrue(withContext(Dispatchers.IO) { returned.await(5, TimeUnit.SECONDS) })
             assertEquals(100, vm.state.value.targetNumber)
             assertFalse(vm.state.value.allPosts.any { it.number == 80 })
         } finally { release.countDown() } }
@@ -246,22 +251,29 @@ class TopicFloorNavigationTest {
     }
 
     private suspend fun TestScope.withTopic(response: (RecordedRequest) -> MockResponse?, block: suspend (TopicViewModel, List<String>) -> Unit) {
-        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         val paths = CopyOnWriteArrayList<String>()
-        MockWebServer().use { server ->
-            server.dispatcher = object : Dispatcher() {
-                override fun dispatch(request: RecordedRequest): MockResponse {
-                    paths += "${request.method} ${request.path}"
-                    return response(request) ?: when {
-                        request.path == "/t/5.json" || request.path == "/t/5/1.json" -> MockResponse().setBody(topic())
-                        request.path!!.startsWith("/u/") -> MockResponse().setBody("""{"user":{"id":2,"username":"author"}}""")
-                        else -> MockResponse().setResponseCode(404).setBody("{}")
+        Executors.newSingleThreadExecutor().asCoroutineDispatcher().use { main ->
+            Dispatchers.setMain(main)
+            try {
+                MockWebServer().use { server ->
+                    server.dispatcher = object : Dispatcher() {
+                        override fun dispatch(request: RecordedRequest): MockResponse {
+                            paths += "${request.method} ${request.path}"
+                            return response(request) ?: when {
+                                request.path == "/t/5.json" || request.path == "/t/5/1.json" -> MockResponse().setBody(topic())
+                                request.path!!.startsWith("/u/") -> MockResponse().setBody("""{"user":{"id":2,"username":"author"}}""")
+                                else -> MockResponse().setResponseCode(404).setBody("{}")
+                            }
+                        }
                     }
+                    server.start()
+                    val vm = withContext(main) {
+                        TopicViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))), 5, viewerId = 9)
+                    }
+                    try { withContext(main) { block(vm, paths) } }
+                    finally { withContext(NonCancellable) { vm.viewModelScope.coroutineContext.job.cancelAndJoin() } }
                 }
-            }
-            server.start()
-            val vm = TopicViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))), 5, viewerId = 9)
-            try { block(vm, paths) } finally { vm.viewModelScope.coroutineContext[Job]?.cancelAndJoin(); Dispatchers.resetMain() }
+            } finally { Dispatchers.resetMain() }
         }
     }
 }

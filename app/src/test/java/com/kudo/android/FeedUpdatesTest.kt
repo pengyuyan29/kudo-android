@@ -15,9 +15,35 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicBoolean
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FeedUpdatesTest {
+    @Test fun fixtureCloseWaitsForCoroutineCleanupBeforeResettingMain() = runBlocking {
+        val fixture = Fixture()
+        fixture.ready()
+        val started = CompletableDeferred<Unit>()
+        val allowCleanup = CompletableDeferred<Unit>()
+        val cleaned = AtomicBoolean()
+        val pending = fixture.vm.viewModelScope.launch(CoroutineExceptionHandler { _, _ -> }) {
+            started.complete(Unit)
+            try { awaitCancellation() }
+            finally { withContext(NonCancellable) { allowCleanup.await(); cleaned.set(true) } }
+        }
+        started.await()
+        val closing = async(Dispatchers.IO) { fixture.close() }
+        try {
+            withTimeout(5000) { while (!pending.isCancelled) delay(1) }
+            assertNull("夹具关闭必须等待取消清理，不能提前重置Main或关闭线程",
+                withTimeoutOrNull(300) { closing.await(); true })
+        } finally {
+            allowCleanup.complete(Unit)
+            withTimeout(5000) { closing.await(); pending.join() }
+        }
+        assertTrue(cleaned.get())
+        assertTrue(fixture.vm.viewModelScope.coroutineContext.job.isCompleted)
+    }
+
     @Test fun verificationFailureFromBackgroundUpdatesKeepsTheSuccessfulFeedAndCanResume() = runBlocking {
         Dispatchers.setMain(Dispatchers.Unconfined)
         val server = MockWebServer()
@@ -89,10 +115,13 @@ class FeedUpdatesTest {
         }
         suspend fun message() = act { messages.tryEmit(Unit); Unit }
         override fun close() {
-            vm.viewModelScope.cancel()
-            server.shutdown()
-            Dispatchers.resetMain()
-            main.close()
+            try {
+                runBlocking { withContext(main) { vm.viewModelScope.coroutineContext.job.cancelAndJoin() } }
+            } finally {
+                server.shutdown()
+                Dispatchers.resetMain()
+                main.close()
+            }
         }
         companion object {
             fun body(id: Int, replies: Int = 0, views: Int = 0) = """{"topic_list":{"topics":[{"id":$id,"title":"话题$id","posts_count":${replies + 1},"views":$views}],"more_topics_url":"/latest.json?page=1"}}"""
