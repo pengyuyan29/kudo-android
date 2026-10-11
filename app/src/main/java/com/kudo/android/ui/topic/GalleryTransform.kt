@@ -38,16 +38,28 @@ internal class GalleryTransformState(initialRatio: Float? = null) {
         internal set
     var dragging by mutableStateOf(false)
         internal set
+    private var userTransformed = false
     val fitBounds get() = fitGalleryImage(viewport, ratio)
-    val zoomed get() = scale > 1.001f
-    val maxScale get() = if (fitBounds.width > 0) (viewport.width / fitBounds.width * 2).coerceIn(5f, 20f) else 5f
+    val longImage get() = ratio?.let { it.isFinite() && it > 0 && it <= 1f / 3f } == true
+    val defaultScale get() = if (longImage && fitBounds.width > 0) viewport.width / fitBounds.width else 1f
+    val zoomed get() = scale > defaultScale + 0.001f
+    val maxScale get() = max(defaultScale * 2f,
+        if (fitBounds.width > 0) (viewport.width / fitBounds.width * 2f).coerceIn(5f, 20f) else 5f)
     val dismissFraction get() = if (viewport.height > 0) (dismissOffset.y / viewport.height).coerceIn(0f, 1f) else 0f
     val dismissScale get() = 1f - dismissFraction * 0.45f
     val scrimAlpha get() = (1f - dismissFraction * 1.4f).coerceIn(0f, 1f)
 
-    fun resize(size: Size) { viewport = size; offset = constrained(offset, scale) }
+    fun resize(size: Size) {
+        val atDefault = abs(scale - defaultScale) < 0.001f
+        viewport = size
+        if (!userTransformed) resetZoom()
+        else { if (atDefault) scale = defaultScale; offset = constrained(offset, scale) }
+    }
     fun decodedRatio(value: Float) {
-        if (value.isFinite() && value > 0) { ratio = value; offset = constrained(offset, scale) }
+        if (value.isFinite() && value > 0) {
+            ratio = value
+            if (!userTransformed) resetZoom() else offset = constrained(offset, scale)
+        }
     }
 
     fun transform(centroid: Offset, pan: Offset, zoom: Float) {
@@ -57,7 +69,8 @@ internal class GalleryTransformState(initialRatio: Float? = null) {
         val pivot = centroid - Offset(viewport.width / 2, viewport.height / 2)
         offset = constrained((offset - pivot) * (next / scale) + pivot + pan, next)
         scale = next
-        if (!zoomed) { scale = 1f; offset = Offset.Zero }
+        userTransformed = true
+        if (scale <= 1.001f) { scale = 1f; offset = Offset.Zero }
     }
 
     private fun constrained(value: Offset, zoom: Float): Offset {
@@ -67,7 +80,15 @@ internal class GalleryTransformState(initialRatio: Float? = null) {
         return Offset(value.x.coerceIn(-horizontal, horizontal), value.y.coerceIn(-vertical, vertical))
     }
 
-    fun resetZoom() { scale = 1f; offset = Offset.Zero }
+    fun resetZoom() {
+        scale = defaultScale
+        offset = Offset(0f, max(0f, (fitBounds.height * scale - viewport.height) / 2f))
+        userTransformed = false
+    }
+    fun canPanVertically(deltaY: Float): Boolean {
+        val bounds = displayedBounds()
+        return if (deltaY < 0) bounds.bottom > viewport.height + 0.5f else deltaY > 0 && bounds.top < -0.5f
+    }
     fun accessibleZoom() { transform(Offset(viewport.width / 2, viewport.height / 2), Offset.Zero, 2f) }
     fun dragBy(delta: Offset) { dismissOffset = (dismissOffset + delta).let { Offset(it.x, max(0f, it.y)) } }
     fun shouldDismiss(velocityY: Float, flingVelocity: Float): Boolean =
@@ -120,6 +141,7 @@ internal fun Modifier.galleryGestures(
                         if (total.getDistance() > viewConfiguration.touchSlop) mode = when {
                             state.zoomed -> GalleryGesture.TRANSFORM
                             abs(total.x) > abs(total.y) -> GalleryGesture.PAGER
+                            state.canPanVertically(total.y) -> GalleryGesture.TRANSFORM
                             total.y > 0 -> GalleryGesture.DISMISS
                             else -> GalleryGesture.IGNORE
                         }

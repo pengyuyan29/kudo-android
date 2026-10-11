@@ -266,12 +266,34 @@ class ImageGalleryUiTest {
         compose.onNodeWithText("长图").assertDoesNotExist()
         val fullscreen = compose.onRoot().captureToImage().toPixelMap()
         val badgePixel = fullscreen[(source.right - 10).toInt(), (source.bottom - 10).toInt()]
-        assertTrue("全屏时来源角标不能透过黑色背景", badgePixel.red < 0.02f && badgePixel.green < 0.02f && badgePixel.blue < 0.02f)
+        assertTrue("全屏只显示长图，来源黄色角标不能透出", badgePixel.red < 0.5f && badgePixel.green > 0.5f)
         compose.onNodeWithTag("gallery-page-0").performTouchInput { click() }
         compose.onNodeWithText("长图", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("article-image-article-0").assertHeightIsEqualTo(300.dp).assertWidthIsEqualTo(60.dp)
         assertNear(source, coloredBounds(palette[1]), 4f)
         capture("image-badge-tall-return.png")
+    }
+
+    @Test fun longImageInitiallyFillsTheWidthScrollsAndStillPagesAtDefaultZoom() {
+        val tall = ArticleBlock.Image("https://gallery.test/tall.png", "长图", 0.2f)
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            ImageGalleryHost({ emptyList() }, {}) {
+                val gallery = LocalImageGallery.current!!
+                SideEffect { observedGallery = gallery }
+                androidx.compose.material3.Text("打开长图", Modifier.clickable { gallery.open(listOf(tall, pictures[0]), 0, "long-fixture") })
+            }
+        } }
+        compose.onNodeWithText("打开长图").performClick()
+        compose.waitUntil(5000) { loaded.contains(tall.url) }
+        val viewport = compose.onNodeWithTag("gallery-page-0").fetchSemanticsNode().boundsInRoot
+        val bounds = coloredBounds(palette[1])
+        assertEquals(viewport.width, bounds.width, 3f)
+        compose.runOnIdle { assertEquals(0f, observedGallery!!.session!!.transforms[0].displayedBounds().top, 1f) }
+        compose.onNodeWithTag("gallery-page-0").performTouchInput { swipeUp(durationMillis = 600) }
+        compose.runOnIdle { assertTrue(observedGallery!!.session!!.transforms[0].displayedBounds().top < -50f) }
+        capture("gallery-long-default-width.png")
+        compose.onNodeWithTag("image-pager").performTouchInput { swipeLeft(durationMillis = 600) }
+        compose.onNodeWithText("2 / 2").assertIsDisplayed()
     }
 
     @Test fun postPagerClosesToThirdImageAboveTheBottomActions() {

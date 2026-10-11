@@ -8,6 +8,30 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GalleryTransformTest {
+    @Test fun longImagesOpenAtViewportWidthAndAtTheTopAndCanScrollBothWays() {
+        val state = GalleryTransformState(0.1f)
+        state.resize(Size(1000f, 2000f))
+        assertEquals(1000f, state.displayedBounds().width, 0.01f)
+        assertEquals(0f, state.displayedBounds().top, 0.01f)
+        assertFalse("默认宽度不能阻止相册横向翻页", state.zoomed)
+        state.transform(Offset(500f, 1000f), Offset(0f, -600f), 1f)
+        assertEquals(-600f, state.displayedBounds().top, 0.01f)
+        state.transform(Offset(500f, 1000f), Offset(0f, 9000f), 1f)
+        assertEquals(0f, state.displayedBounds().top, 0.01f)
+        state.resetZoom()
+        assertEquals(1000f, state.displayedBounds().width, 0.01f)
+    }
+
+    @Test fun lateDecodedLongImageUsesTheSameDefaultWithoutOverwritingUserZoom() {
+        val state = GalleryTransformState()
+        state.resize(Size(1000f, 2000f))
+        state.decodedRatio(0.1f)
+        assertEquals(1000f, state.displayedBounds().width, 0.01f)
+        state.transform(Offset(500f, 1000f), Offset.Zero, 2f)
+        state.decodedRatio(0.1f)
+        assertEquals(2000f, state.displayedBounds().width, 0.01f)
+    }
+
     @Test fun pinchingKeepsTheImagePointUnderTheFingerCentroid() {
         val state = GalleryTransformState(1f)
         state.resize(Size(1000f, 1000f))
@@ -21,7 +45,7 @@ class GalleryTransformTest {
     }
 
     @Test fun panCannotMoveTheImageOutsideItsRealContentBounds() {
-        val portrait = GalleryTransformState(0.25f)
+        val portrait = GalleryTransformState(0.5f)
         portrait.resize(Size(1000f, 1000f))
         portrait.transform(Offset(500f, 500f), Offset(9000f, 9000f), 2f)
         assertEquals(0f, portrait.offset.x, 0.001f)
