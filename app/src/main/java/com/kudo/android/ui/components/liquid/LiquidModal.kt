@@ -44,6 +44,7 @@ import androidx.compose.ui.semantics.dialog
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.kudo.android.data.GlassMode
 import com.kudo.android.ui.theme.Ink
@@ -72,6 +73,8 @@ internal fun LiquidModal(
     showActions: Boolean = !actionSheet,
     sheetBackground: Color = MaterialTheme.colorScheme.surface,
     dismissEnabled: Boolean = true,
+    maxDialogHeight: Dp = Dp.Infinity,
+    maxDialogHeightFraction: Float = 1f,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (actionSheet) {
@@ -91,7 +94,8 @@ internal fun LiquidModal(
         LaunchedEffect(visibility.targetState) { if (visibility.targetState) focus.requestFocus() }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val safeInsets = WindowInsets.safeDrawing.asPaddingValues()
-            val maxPanelHeight = (maxHeight - safeInsets.calculateTopPadding() - safeInsets.calculateBottomPadding() - 32.dp).coerceAtLeast(48.dp)
+            val availableHeight = (maxHeight - safeInsets.calculateTopPadding() - safeInsets.calculateBottomPadding() - 32.dp).coerceAtLeast(48.dp)
+            val maxPanelHeight = minOf(availableHeight * maxDialogHeightFraction, maxDialogHeight)
             Box(Modifier.fillMaxSize()
                 .background(if (light) Color(0xFF29293A).copy(alpha = 0.23f) else Color(0xFF121212).copy(alpha = 0.56f))
                 .clickable(interactionSource = null, indication = null, onClickLabel = "关闭弹窗", onClick = dismiss)

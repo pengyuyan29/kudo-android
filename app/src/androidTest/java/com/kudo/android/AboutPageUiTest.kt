@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
@@ -102,6 +103,64 @@ class AboutPageUiTest {
             compose.onNode(hasText(label) and hasAnyAncestor(hasClickAction()), useUnmergedTree = true)
                 .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
             assertEquals("短标题应有完整单行宽度：$label", 1, layouts.single().lineCount)
+        }
+    }
+
+    @Test fun creditsDialogDropsTheLongDescriptionAndKeepsEveryProjectLink() {
+        var link = ""
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            Box(Modifier.fillMaxSize().testTag("credits-window")) { AboutScreen(openLink = { link = it }) {} }
+        } }
+        compose.onNodeWithText("开源致谢").performScrollTo().performClick()
+        compose.onNodeWithText("Jetpack Compose", substring = true).assertDoesNotExist()
+        val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
+        val window = compose.onNodeWithTag("credits-window").fetchSemanticsNode().boundsInRoot
+        val panel = compose.onNodeWithTag("liquid-dialog").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("credits panel must be no taller than 560dp", panel.height <= 560f * density + 1f)
+        assertTrue("credits panel must use at most 70% of the window", panel.height <= window.height * .7f + 1f)
+        capture("credits-bounded-light.png")
+        for ((label, url) in listOf(
+            "Backdrop 项目与许可" to "https://github.com/Kyant0/AndroidLiquidGlass",
+            "Font Awesome 图标与许可" to "https://fontawesome.com/license/free",
+            "APNG4Android 动图支持与许可" to "https://github.com/penfeizhou/APNG4Android",
+            "libavif 解码器与许可" to "https://github.com/AOMediaCodec/libavif/blob/v1.1.1/LICENSE",
+            "FluxDO 接口参考" to "https://github.com/Lingyan000/fluxdo",
+        )) {
+            compose.onNodeWithText(label).performScrollTo().assertIsDisplayed().performClick()
+            compose.runOnIdle { assertEquals(url, link) }
+        }
+        compose.onNodeWithText("知道了").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("liquid-dialog").assertDoesNotExist()
+    }
+
+    @Test fun shortLargeTextCreditsScrollWhileTheDismissActionStaysFixedInEveryMaterial() {
+        var settings by mutableStateOf(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f))
+        var link = ""
+        compose.setContent { KudoTheme(settings) {
+            Box(Modifier.fillMaxSize(), propagateMinConstraints = false) {
+                Box(Modifier.width(280.dp).height(360.dp).testTag("credits-window")) {
+                    AboutScreen(openLink = { link = it }) {}
+                }
+            }
+        } }
+        for (mode in GlassMode.entries) {
+            compose.runOnIdle { settings = settings.copy(glass = mode); link = "" }
+            compose.onNodeWithTag("about-content").performScrollToNode(hasText("开源致谢"))
+            compose.onNodeWithText("开源致谢").performClick()
+            val window = compose.onNodeWithTag("credits-window").fetchSemanticsNode().boundsInRoot
+            val panel = compose.onNodeWithTag("liquid-dialog").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertTrue("short credits panel must use at most 70% of the window", panel.height <= window.height * .7f + 1f)
+            val buttonBefore = compose.onNodeWithText("知道了").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            val scroller = compose.onNode(hasScrollAction() and hasAnyAncestor(hasTestTag("liquid-dialog")))
+            assertTrue("overflowing links must scroll", scroller.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].maxValue() > 0f)
+            compose.onNodeWithText("FluxDO 接口参考").performScrollTo().assertIsDisplayed().performClick()
+            val buttonAfter = compose.onNodeWithText("知道了").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertEquals(buttonBefore.top, buttonAfter.top, 1f)
+            assertEquals(buttonBefore.bottom, buttonAfter.bottom, 1f)
+            compose.runOnIdle { assertEquals("https://github.com/Lingyan000/fluxdo", link) }
+            if (mode == GlassMode.LIQUID) capture("credits-bounded-short-dark.png", "credits-window")
+            compose.onNodeWithText("知道了").performClick()
+            compose.onNodeWithTag("liquid-dialog").assertDoesNotExist()
         }
     }
 
