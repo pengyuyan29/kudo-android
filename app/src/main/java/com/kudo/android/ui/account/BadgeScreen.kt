@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import com.kudo.android.ui.topic.RichContent
 import kotlinx.coroutines.*
 
@@ -55,6 +56,7 @@ internal fun BadgePage(badges: List<UserBadge>, loading: Boolean = false, error:
     var selected by remember { mutableStateOf<UserBadge?>(null) }
     val sheet = remember { MutableTransitionState(false) }
     val showing = sheet.currentState || sheet.targetState
+    val scroll = rememberLazyGridState()
     val columns = GridCells.Adaptive(100.dp * LocalDensity.current.fontScale.coerceIn(1f, 1.15f))
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(Modifier.fillMaxSize().then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)
@@ -64,7 +66,7 @@ internal fun BadgePage(badges: List<UserBadge>, loading: Boolean = false, error:
                     Modifier.padding(horizontal = 8.dp).testTag("badge-statistics"), maxLines = 1,
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            LazyVerticalGrid(columns, Modifier.weight(1f).testTag("badge-grid"), contentPadding = PaddingValues(16.dp),
+            LazyVerticalGrid(columns, Modifier.weight(1f).testTag("badge-grid").quickScrollTarget(scroll, enabled = !showing), state = scroll, contentPadding = PaddingValues(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (loading) item(span = { GridItemSpan(maxLineSpan) }) { LoadingRow() }
                 else if (error != null) item(span = { GridItemSpan(maxLineSpan) }) { ErrorState(error, refresh, login) }

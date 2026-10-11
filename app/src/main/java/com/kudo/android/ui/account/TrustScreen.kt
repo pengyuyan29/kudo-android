@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -23,6 +24,7 @@ import kotlinx.coroutines.withContext
 
 @Composable
 internal fun TrustScreen(member: Member, repository: ConnectRepository, back: () -> Unit, website: () -> Unit) {
+    val scroll = rememberLazyListState()
     var report by remember(member.id) { mutableStateOf<TrustReport?>(null) }
     var error by remember(member.id) { mutableStateOf<Throwable?>(null) }
     var loading by remember(member.id) { mutableStateOf(true) }
@@ -38,7 +40,7 @@ internal fun TrustScreen(member: Member, repository: ConnectRepository, back: ()
             CommunityIconButton(Icons.Rounded.Refresh, "刷新等级数据", { refresh++ })
             CommunityIconButton(Icons.Rounded.Language, "打开等级网页", website)
         }
-        LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        LazyColumn(state = scroll, modifier = Modifier.quickScrollTarget(scroll), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             item { Text("当前等级 Lv.${member.trustLevel}", fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold) }
             if (loading) item { LoadingRow() }
             error?.let { item {
