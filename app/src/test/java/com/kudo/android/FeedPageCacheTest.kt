@@ -12,6 +12,39 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FeedPageCacheTest {
+    @Test fun confirmedReadingKeepsLoadedUnreadPagesUntilExplicitRefresh() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        MockWebServer().use { server ->
+            server.dispatcher = object : Dispatcher() {
+                override fun dispatch(request: RecordedRequest) = MockResponse().setBody(when {
+                    request.path == "/site.json" -> """{"categories":[{"id":1,"name":"分类"}]}"""
+                    request.path!!.contains("topic-tracking") -> "[]"
+                    request.path!!.contains("page=1") -> """{"topic_list":{"topics":[{"id":2}],"more_topics_url":"/unseen.json?page=2"}}"""
+                    else -> """{"topic_list":{"topics":[{"id":1}],"more_topics_url":"/unseen.json?page=1"}}"""
+                })
+            }
+            server.start()
+            val vm = FeedViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))), initialUser = Member(7, "seven", "七", ""))
+            suspend fun idle() = withContext(Dispatchers.Default) { withTimeout(5000) { vm.viewModelScope.coroutineContext.job.children.toList().joinAll() } }
+            try {
+                idle(); vm.more(); idle()
+                val before = vm.state.value
+                assertEquals(listOf(1, 2), before.topics.map(Topic::id))
+                vm.refreshReadListsIfRequested(1, 7)
+                assertFalse(vm.state.value.loading)
+                idle()
+                assertEquals(before.topics, vm.state.value.topics)
+                assertEquals("/unseen.json?page=2", vm.state.value.next)
+                assertEquals(before.scrollToTopRequest, vm.state.value.scrollToTopRequest)
+                assertTrue(vm.state.value.hasUpdates)
+                vm.refreshFromNavigation(); idle()
+                assertEquals(listOf(1), vm.state.value.topics.map(Topic::id))
+                assertFalse(vm.state.value.hasUpdates)
+                assertEquals(1L, vm.state.value.scrollToTopRequest)
+            } finally { vm.viewModelScope.cancel(); Dispatchers.resetMain() }
+        }
+    }
+
     @Test fun categoryPersonalPagesKeepScopeCacheAndGuestBoundaryWithoutGlobalCounts() = runTest {
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
         val paths = CopyOnWriteArrayList<String>()
@@ -84,8 +117,14 @@ class FeedPageCacheTest {
                 vm.refreshReadListsIfRequested(1, 7); idle()
                 vm.refreshReadListsIfRequested(2, 8); idle()
                 assertEquals(unreadCount, paths.count { it == "/unseen.json" })
-                vm.refreshReadListsIfRequested(2, 7); idle()
-                assertEquals(unreadCount + 1, paths.count { it == "/unseen.json" })
+                val beforeReading = vm.state.value
+                vm.refreshReadListsIfRequested(2, 7)
+                assertFalse("阅读确认不能触发返回后的刷新动画", vm.state.value.loading)
+                idle()
+                assertEquals("阅读确认不能重新请求当前未读列表", unreadCount, paths.count { it == "/unseen.json" })
+                assertEquals(beforeReading.topics, vm.state.value.topics)
+                assertEquals(beforeReading.next, vm.state.value.next)
+                assertTrue("列表变化由用户主动刷新", vm.state.value.hasUpdates)
                 assertEquals(0L, vm.state.value.scrollToTopRequest)
             } finally { vm.viewModelScope.coroutineContext[Job]?.cancelAndJoin(); Dispatchers.resetMain() }
         }

@@ -80,8 +80,10 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         val dependent = setOf("unread", "new", "read")
         _pages.update { pages -> pages.filterKeys { it !in dependent }.mapValues { it.value.copy(newCount = null) } }
         if (_state.value.filter in dependent) {
-            refresh()
-        } else if (categoryId == null && tagSlug == null) {
+            // Keep the current reading snapshot, including later pages, until an explicit refresh.
+            _state.update { it.copy(hasUpdates = true) }
+        }
+        if (categoryId == null && tagSlug == null) {
             // Reading must not replace public pages, pagination or their saved scroll positions.
             readingCountJob?.cancel()
             val token = generation
