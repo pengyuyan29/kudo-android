@@ -19,6 +19,7 @@ class UserProfileViewModelTest {
                     "/u/user.json" -> MockResponse().setBody("""{"user":{"id":1,"username":"user"}}""")
                     "/u/user/card.json" -> MockResponse().setResponseCode(500).setBody("{}")
                     "/u/user/summary.json" -> MockResponse().setBody("""{"user_summary":{"likes_received":7}}""")
+                    "/site.json" -> MockResponse().setBody("""{"categories":[{"id":7,"name":"运营反馈"}]}""")
                     "/user_actions.json" -> MockResponse().setBody("""{"user_actions":[{"topic_id":9,"post_number":8,"title":"回复原楼层"}]}""")
                     else -> MockResponse().setResponseCode(404)
                 }
@@ -28,15 +29,23 @@ class UserProfileViewModelTest {
             try {
                 runCurrent(); vm.viewModelScope.coroutineContext.job.children.toList().joinAll()
                 assertEquals("user", vm.state.value.profile!!.member.username)
-                assertNotNull(vm.state.value.cardError)
+                assertEquals(FailureKind.SERVER, (vm.state.value.cardError as ApiFailure).kind)
                 assertEquals(7, vm.state.value.summary!!.counts["likes_received"])
-                assertEquals(3, server.requestCount)
+                assertNull(vm.state.value.summaryError)
+                assertEquals(4, server.requestCount)
+                assertEquals(listOf("/site.json", "/u/user.json", "/u/user/card.json", "/u/user/summary.json"),
+                    List(4) { server.takeRequest().requestUrl!!.encodedPath }.sorted())
                 vm.load(ProfileTab.REPLIES); runCurrent(); vm.viewModelScope.coroutineContext.job.children.toList().joinAll()
                 assertEquals(8, vm.state.value.feeds[ProfileTab.REPLIES]!!.entries.single().number)
+                assertEquals(5, server.requestCount)
+                val repliesRequest = server.takeRequest().requestUrl!!
+                assertEquals("/user_actions.json", repliesRequest.encodedPath)
+                assertEquals("5", repliesRequest.queryParameter("filter"))
+                assertEquals("0", repliesRequest.queryParameter("offset"))
                 vm.load(ProfileTab.REPLIES); runCurrent()
-                assertEquals(4, server.requestCount)
+                assertEquals(5, server.requestCount)
                 vm.follow(); runCurrent()
-                assertEquals("匿名用户不能发送关注写请求", 4, server.requestCount)
+                assertEquals("匿名用户不能发送关注写请求", 5, server.requestCount)
             } finally { vm.viewModelScope.cancel(); Dispatchers.resetMain() }
         }
     }

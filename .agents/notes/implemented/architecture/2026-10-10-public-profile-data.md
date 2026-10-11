@@ -29,6 +29,8 @@ UserProfileDataTest 验证未知统计、侧载关联、重复行分页、Boost�
 
 UserProfileDataTest 先复现热门回复所属分类不在 top_categories 时名称丢失（artifacts/profile-category-repro-20261011.txt），完整目录解析后通过。CategoryMetadataTest 验证成功目录可共享、请求失败不抹去旧目录、换号清空目录；两组共14项 JVM 测试通过（profile-category-fixed-20261011.txt）。目录发布使用账号代次，旧账号在途结果不能写入新账号目录。
 
+UserProfileViewModelTest 的局部失败夹具包含摘要补取的 `/site.json`，首屏核对资料、卡片、摘要和目录各一次；首次切换回复才请求活动接口，重复切换及匿名关注不增加请求。0.1.8 发布检查发现旧夹具遗漏目录，仍断言首屏只有三次请求；失败报告保存在 `artifacts/release/0.1.8/user-profile-test-failure.xml`。更新夹具与请求路径断言，不减少生产请求或移除局部失败覆盖。修正后16项相关测试及完整290项JVM测试通过，日志为 `release-0.1.8-profile-fixed.txt` 和 `release-0.1.8-unit-fixed.txt`。
+
 ## Consequences
 
 Summary entries retain category IDs even when the category is absent from top_categories. The full account-scoped /site.json catalog resolves names and icons; top_categories remains a statistical list, not the complete directory. A missing directory can be fetched once for the summary, with failure leaving the usable summary intact. Tags and image_url remain optional.
