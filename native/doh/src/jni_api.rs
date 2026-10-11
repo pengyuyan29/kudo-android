@@ -177,9 +177,10 @@ pub extern "system" fn Java_com_kudo_android_network_NativeDoh_handshake(
     _: JClass,
     id: jlong,
     host: JString,
+    alpn: JString,
 ) -> jstring {
     guard(&mut env, "javax/net/ssl/SSLHandshakeException", |env| {
-        let metadata = socket(id)?.handshake(&string(env, &host)?)?;
+        let metadata = socket(id)?.handshake(&string(env, &host)?, &string(env, &alpn)?)?;
         output(env, metadata.to_string())
     })
 }

@@ -14,13 +14,15 @@ Status: proposed
 
 用户已批准“按照 doh+ech 开发”。在已完成的真机验证基础上接入完整设置与原生网络；按配置持久化、Rust DNS/TLS、Android Socket 适配、VPN 策略、客户端接入、界面和真机验收拆分为小单元，每单元单独提交。纯 OkHttp DoH 继续仅作为对照。
 
-生产接入保留 OkHttp 的 HTTP、连接池、Cookie 边界、流式请求/响应及取消机制，通过自定义 SocketFactory/SSLSocketFactory 将 DNS 与 TLS 交给独立编写的 Rust 模块。适配初期明确使用 HTTP/1.1，避免 Android 平台的 ALPN Socket 识别限制导致协议误判；不伪造 HTTP/2 协商。原生 Socket 的关闭必须可中断正在等待的读写，TLS 仍严格验证原域名及证书；`linux.do` 与子域、`ldstatic.com` 与子域必须真实接受 ECH，否则明确失败。
+生产接入保留 OkHttp 的 HTTP、连接池、Cookie 边界、流式请求/响应及取消机制，通过自定义 SocketFactory/SSLSocketFactory 将 DNS 与 TLS 交给独立编写的 Rust 模块。支持真实 ALPN 的 HTTP/2 与 HTTP/1.1；原生 Socket 的关闭必须可中断正在等待的读写，TLS 仍严格验证原域名及证书；`linux.do` 与子域、`ldstatic.com` 与子域必须真实接受 ECH，否则明确失败。
 
 配置单元位于 `DohSettings.kt`，与界面显示偏好分开持久化。自定义服务器拥有稳定 ID；删除选中节点回退内置，内置不可编辑/删除；非法持久数据过滤并修复选中 ID。URL 中的私人参数仅留在应用私有配置，不进入普通日志。
 
 Rust DNS 单元位于 `native/doh/src/dns.rs`：标准 POST 并行读取 A/AAAA/HTTPS，校验 ID/问题/rcode/截断，按域名合并在途查询并按最小 TTL 缓存，CNAME/HTTPS alias 限制 8 跳。HTTPS 查询失败与缺少 ECH 区分；DNS 引导仅解析服务器自身，不复用业务请求或凭据。依赖锁定于 Cargo.lock；6 项离线边界测试通过。
 
-Socket/JNI 单元使用有界 64KB 读写块，不缓存完整上传或响应。读写持锁，关闭走独立通道；Windows 复现关闭后阻塞读取未返回，因此底层读写同时以最多 200ms 的等待片轮询关闭标志，对外仍遵守 Socket 超时。该回归、字节传输/读超时、已关闭 Socket 拒绝连接等共 9 项 Rust 测试通过。ECH 被拒绝立即清除该域名缓存，只在下次请求重新解析，不重发业务请求；错误只暴露固定代码。
+Socket/JNI 单元使用有界 64KB 读写块，不缓存完整上传或响应。读写使用独立锁，TLS 状态锁不包围阻塞 I/O；关闭走独立通道并以最多 200ms 等待片检查关闭标志，对外仍遵守 Socket 超时。ECH 被拒绝立即清除该域名缓存，只在下次请求重新解析，不重发业务请求；错误只暴露固定代码。
+
+回归测试先复现两项问题：等待读取时阻塞另一个线程发送，以及 `read_tls` 只消费部分密文后遗失剩余数据。修复为独立读写、按 16KB 分片且循环喂完 TLS 输入；512KB TLS 响应测试与其他测试共 11 项通过。测试自签名证书/私钥仅由 `cfg(test)` 引用，生产二进制和信任根不包含它们。
 
 生产构建由 Gradle `buildDoh` 调用 `scripts/build_doh.py`，使用 Rust、Android NDK 27 与 CMake/Ninja，仅生成 arm64-v8a，强制校验 16KB ELF 对齐；依赖锁定，输入未变复用生成库。生成文件均在忽略的 `app/build` 下；不将本机预编译二进制当作可复现源代码。
 

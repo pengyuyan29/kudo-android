@@ -12,6 +12,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[derive(Clone)]
 struct SharedTcp {
     tcp: Arc<TcpStream>,
     closed: Arc<AtomicBool>,
@@ -71,7 +72,7 @@ impl Write for SharedTcp {
 enum State {
     Empty,
     Plain(SharedTcp),
-    Tls(Box<StreamOwned<ClientConnection, SharedTcp>>),
+    Tls(Box<ClientConnection>),
 }
 pub struct Socket {
     resolver: Arc<Resolver>,
@@ -80,6 +81,8 @@ pub struct Socket {
     shutdown: Mutex<Option<Arc<TcpStream>>>,
     closed: Arc<AtomicBool>,
     read_timeout: Arc<AtomicU64>,
+    read_lock: Mutex<()>,
+    write_lock: Mutex<()>,
 }
 
 fn other(code: &'static str) -> io::Error {
@@ -93,6 +96,8 @@ impl Socket {
             shutdown: Mutex::new(None),
             closed: Arc::new(AtomicBool::new(false)),
             read_timeout: Arc::new(AtomicU64::new(0)),
+            read_lock: Mutex::new(()),
+            write_lock: Mutex::new(()),
         }
     }
     pub fn connect(&self, ip: &str, port: u16, millis: u64) -> io::Result<()> {
@@ -120,7 +125,7 @@ impl Socket {
         });
         Ok(())
     }
-    pub fn handshake(&self, host: &str) -> io::Result<Value> {
+    pub fn handshake(&self, host: &str, alpn: &str) -> io::Result<Value> {
         let answer = crate::runtime()
             .block_on(self.resolver.resolve(host))
             .map_err(other)?;
@@ -130,9 +135,23 @@ impl Socket {
         }
         let mut config =
             dns::tls_config(if use_ech { Some(answer.ech) } else { None }).map_err(other)?;
-        // OkHttp's Android socket adapters do not recognize this custom Socket for ALPN.
-        // Advertise only the protocol that the HTTP layer actually uses.
-        config.alpn_protocols = vec![b"http/1.1".to_vec()];
+        config.alpn_protocols = alpn
+            .split(',')
+            .map(|value| {
+                if !["h2", "http/1.1"].contains(&value) {
+                    return Err(other("invalid_alpn"));
+                }
+                Ok(value.as_bytes().to_vec())
+            })
+            .collect::<io::Result<_>>()?;
+        self.finish_handshake(host, config, use_ech)
+    }
+    fn finish_handshake(
+        &self,
+        host: &str,
+        config: rustls::ClientConfig,
+        use_ech: bool,
+    ) -> io::Result<Value> {
         let name = ServerName::try_from(host.to_owned()).map_err(|_| other("invalid_hostname"))?;
         let mut state = self.state.lock().map_err(|_| other("socket_lock"))?;
         let tcp = match std::mem::replace(&mut *state, State::Empty) {
@@ -184,31 +203,92 @@ impl Socket {
                 .suite()
         )
         .replace("TLS13_", "TLS_");
-        let metadata = json!({"protocol":protocol,"cipher":cipher,"certs":certs,"ech":if use_ech {"Accepted"} else {"NotOffered"}});
-        *state = State::Tls(Box::new(stream));
+        let selected = String::from_utf8_lossy(stream.conn.alpn_protocol().unwrap_or(b"http/1.1"))
+            .into_owned();
+        let metadata = json!({"protocol":protocol,"cipher":cipher,"certs":certs,"alpn":selected,"ech":if use_ech {"Accepted"} else {"NotOffered"}});
+        *state = State::Tls(Box::new(stream.conn));
         Ok(metadata)
     }
     pub fn read(&self, buf: &mut [u8]) -> io::Result<usize> {
-        let mut state = self.state.lock().map_err(|_| other("socket_lock"))?;
-        match &mut *state {
-            State::Plain(s) => s.read(buf),
-            State::Tls(s) => s.read(buf),
-            State::Empty => Err(other("socket_not_connected")),
+        let _reader = self.read_lock.lock().map_err(|_| other("socket_lock"))?;
+        let mut tcp = self.tcp()?;
+        loop {
+            {
+                let mut state = self.state.lock().map_err(|_| other("socket_lock"))?;
+                match &mut *state {
+                    State::Plain(_) => {
+                        drop(state);
+                        return tcp.read(buf);
+                    }
+                    State::Tls(conn) => match conn.reader().read(buf) {
+                        Err(e) if e.kind() == io::ErrorKind::WouldBlock => {}
+                        result => return result,
+                    },
+                    State::Empty => return Err(other("socket_not_connected")),
+                }
+            }
+            // Network I/O must never hold the TLS state mutex: HTTP/2 has independent readers/writers.
+            let mut encrypted = [0u8; 16384];
+            let count = tcp.read(&mut encrypted)?;
+            {
+                let mut state = self.state.lock().map_err(|_| other("socket_lock"))?;
+                if let State::Tls(conn) = &mut *state {
+                    let mut input = io::Cursor::new(&encrypted[..count]);
+                    if count == 0 {
+                        conn.read_tls(&mut input)?;
+                    }
+                    while (input.position() as usize) < count {
+                        if conn.read_tls(&mut input)? == 0 {
+                            return Err(other("tls_record_incomplete"));
+                        }
+                        conn.process_new_packets()
+                            .map_err(|_| other("tls_record_invalid"))?;
+                    }
+                }
+            }
+            // TLS key updates/session tickets may produce outbound records, ordered with application writes.
+            let _writer = self.write_lock.lock().map_err(|_| other("socket_lock"))?;
+            tcp.write_all(&self.drain_tls()?)?;
         }
     }
     pub fn write(&self, buf: &[u8]) -> io::Result<()> {
-        let mut state = self.state.lock().map_err(|_| other("socket_lock"))?;
-        match &mut *state {
-            State::Plain(s) => {
-                s.write_all(buf)?;
-                s.flush()
+        let _writer = self.write_lock.lock().map_err(|_| other("socket_lock"))?;
+        let mut tcp = self.tcp()?;
+        {
+            let mut state = self.state.lock().map_err(|_| other("socket_lock"))?;
+            match &mut *state {
+                State::Plain(_) => {
+                    drop(state);
+                    return tcp.write_all(buf);
+                }
+                State::Tls(conn) => conn.writer().write_all(buf)?,
+                State::Empty => return Err(other("socket_not_connected")),
             }
-            State::Tls(s) => {
-                s.write_all(buf)?;
-                s.flush()
-            }
-            State::Empty => Err(other("socket_not_connected")),
         }
+        tcp.write_all(&self.drain_tls()?)
+    }
+    fn drain_tls(&self) -> io::Result<Vec<u8>> {
+        let mut output = Vec::new();
+        let mut state = self.state.lock().map_err(|_| other("socket_lock"))?;
+        if let State::Tls(conn) = &mut *state {
+            while conn.wants_write() {
+                conn.write_tls(&mut output)?;
+            }
+        }
+        Ok(output)
+    }
+    fn tcp(&self) -> io::Result<SharedTcp> {
+        let tcp = self
+            .shutdown
+            .lock()
+            .map_err(|_| other("socket_lock"))?
+            .clone()
+            .ok_or(other("socket_closed"))?;
+        Ok(SharedTcp {
+            tcp,
+            closed: self.closed.clone(),
+            read_timeout: self.read_timeout.clone(),
+        })
     }
     pub fn timeout(&self, millis: u64) -> io::Result<()> {
         self.read_timeout.store(millis, Ordering::SeqCst);
@@ -276,6 +356,79 @@ mod tests {
         ));
         peer.write_all(b"ok").unwrap();
         assert_eq!(socket.read(&mut bytes).unwrap(), 2);
+    }
+    #[test]
+    fn read_does_not_block_independent_writes() {
+        let (socket, mut peer) = connected();
+        socket.timeout(2000).unwrap();
+        let reader = socket.clone();
+        std::thread::spawn(move || {
+            let _ = reader.read(&mut [0; 1]);
+        });
+        std::thread::sleep(Duration::from_millis(30));
+        let writer = socket.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(writer.write(b"request"));
+        });
+        let result = rx.recv_timeout(Duration::from_millis(500));
+        socket.close();
+        assert!(
+            result.is_ok(),
+            "HTTP/2 must write while its reader waits for data"
+        );
+        result.unwrap().unwrap();
+        peer.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
+        let mut data = [0; 7];
+        peer.read_exact(&mut data).unwrap();
+        assert_eq!(&data, b"request");
+    }
+    #[test]
+    fn large_tls_response_consumes_every_encrypted_byte() {
+        // Public, test-only self-signed key/certificate. Not included in production or its trust store.
+        use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+        let cert = CertificateDer::from(include_bytes!("test-cert.der").to_vec());
+        let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
+            include_bytes!("test-key.der").to_vec(),
+        ));
+        let server_config = rustls::ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(vec![cert.clone()], key)
+            .unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let payload: Vec<u8> = (0..512 * 1024).map(|i| (i % 251) as u8).collect();
+        let expected = payload.clone();
+        let server = thread::spawn(move || {
+            let tcp = listener.accept().unwrap().0;
+            tcp.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            tcp.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
+            let conn = rustls::ServerConnection::new(Arc::new(server_config)).unwrap();
+            let mut stream = StreamOwned::new(conn, tcp);
+            let _ = stream.write_all(&payload);
+            let _ = stream.flush();
+        });
+        let socket = Socket::new(Arc::new(
+            Resolver::new(r#"{"url":"https://dns.test/"}"#).unwrap(),
+        ));
+        socket.connect("127.0.0.1", port, 1000).unwrap();
+        socket.timeout(2000).unwrap();
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(cert).unwrap();
+        let config = rustls::ClientConfig::builder()
+            .with_root_certificates(roots)
+            .with_no_client_auth();
+        socket.finish_handshake("localhost", config, false).unwrap();
+        let mut received = Vec::new();
+        let mut block = [0; 8192];
+        while received.len() < expected.len() {
+            let count = socket.read(&mut block).unwrap();
+            assert!(count > 0, "TLS response must not truncate");
+            received.extend_from_slice(&block[..count]);
+        }
+        socket.close();
+        server.join().unwrap();
+        assert_eq!(expected, received);
     }
     #[test]
     fn closed_socket_cannot_start_a_connection() {
