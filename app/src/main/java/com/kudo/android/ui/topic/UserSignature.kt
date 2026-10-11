@@ -51,6 +51,7 @@ private fun usableSignatureBlocks(blocks: List<ArticleBlock>, failed: Set<String
         is ArticleBlock.Image -> block.takeUnless { it.url in failed }
         is ArticleBlock.Quote -> usableSignatureBlocks(block.blocks, failed).takeIf { it.isNotEmpty() }?.let { block.copy(blocks = it) }
         is ArticleBlock.Details -> usableSignatureBlocks(block.blocks, failed).takeIf { it.isNotEmpty() }?.let { block.copy(blocks = it) }
+        is ArticleBlock.Spoiler -> usableSignatureBlocks(block.blocks, failed).takeIf { it.isNotEmpty() }?.let { block.copy(blocks = it) }
         ArticleBlock.Rule, is ArticleBlock.Poll -> null
         else -> block
     }
@@ -59,6 +60,9 @@ private fun usableSignatureBlocks(blocks: List<ArticleBlock>, failed: Set<String
 @Composable
 private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> Unit, svgWebViewFactory: (Context) -> WebView, failed: (String) -> Unit) {
     blocks.forEach { block -> key(block) { when (block) {
+            is ArticleBlock.Spoiler -> SpoilerRegion(block, "signature-spoiler") { toggle ->
+                SignatureContent(block.blocks, { toggle() }, svgWebViewFactory, failed)
+            }
             is ArticleBlock.Details -> {
                 var expanded by remember(block) { mutableStateOf(block.open) }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -92,8 +96,7 @@ private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> U
                 val color = MaterialTheme.colorScheme.primary
                 val article = remember(block.html, color) { parseInlineArticle(block.html, color) }
                 CompositionLocalProvider(LocalUriHandler provides object : UriHandler { override fun openUri(uri: String) = openLink(uri) }) {
-                Text(article.text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth())
+                SpoilerArticleText(article, block.html, "signature-text", MaterialTheme.typography.bodySmall, MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             is ArticleBlock.Embed -> Text(block.title, Modifier.clickable { openLink(block.url) }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)

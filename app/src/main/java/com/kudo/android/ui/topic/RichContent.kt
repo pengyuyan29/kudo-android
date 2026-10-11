@@ -71,6 +71,7 @@ sealed interface ArticleBlock {
     data class TextBlock(val html: String, val quote: Boolean = false, val heading: Boolean = false) : ArticleBlock
     data class Quote(val blocks: List<ArticleBlock>, val author: String = "", val avatar: String? = null, val source: String? = null) : ArticleBlock
     data class Details(val summary: String, val blocks: List<ArticleBlock>, val open: Boolean = false) : ArticleBlock
+    data class Spoiler(val blocks: List<ArticleBlock>) : ArticleBlock
     data class Code(val text: String) : ArticleBlock
     data class Poll(val name: String) : ArticleBlock
     data class Image(
@@ -109,6 +110,12 @@ private fun previewSource(element: Element, fallback: String): String {
 fun parseArticle(html: String): List<ArticleBlock> {
     val result = mutableListOf<ArticleBlock>()
     fun walk(element: Element, quote: Boolean = false) {
+        if (element.hasClass("spoiler")) {
+            if (element.normalName() == "div" || element.select("img:not(.emoji)").isNotEmpty()) {
+                result.add(ArticleBlock.Spoiler(parseArticle(element.html()))); return
+            }
+            result.add(ArticleBlock.TextBlock(element.outerHtml(), quote)); return
+        }
         if (element.hasClass("meta") && element.parents().any { it.hasClass("lightbox") || it.hasClass("lightbox-wrapper") }) return
         if (element.hasClass("poll") && element.hasAttr("data-poll-name")) {
             result.add(ArticleBlock.Poll(element.attr("data-poll-name"))); return
@@ -172,6 +179,19 @@ fun parseArticle(html: String): List<ArticleBlock> {
                 }
             }
             "p", "h1", "h2", "h3", "h4", "li", "summary" -> {
+                if (element.select(".spoiler img:not(.emoji)").isNotEmpty()) {
+                    val pending = StringBuilder()
+                    fun flush() {
+                        if (pending.isNotEmpty()) {
+                            result.addAll(parseArticle(pending.toString()).map { if (it is ArticleBlock.TextBlock) it.copy(quote = quote) else it })
+                            pending.clear()
+                        }
+                    }
+                    element.childNodes().flatMap(::spoilerFragments).forEach { fragment ->
+                        if (fragment.region != null) { flush(); walk(fragment.region, quote) } else pending.append(fragment.html)
+                    }
+                    flush(); return
+                }
                 val images = element.select("img:not(.emoji)")
                 val copy = element.clone().apply { select("img:not(.emoji), .lightbox .meta, .lightbox-wrapper .meta").remove() }
                 if (copy.text().isNotBlank() || copy.select("img.emoji").isNotEmpty()) result.add(ArticleBlock.TextBlock(if (element.normalName() == "li") "• ${copy.html()}" else copy.html(), quote, element.normalName().startsWith("h")))
@@ -188,6 +208,16 @@ fun parseArticle(html: String): List<ArticleBlock> {
     }
     walk(Jsoup.parseBodyFragment(html).body())
     return result
+}
+
+private data class SpoilerFragment(val html: String = "", val region: Element? = null)
+private fun spoilerFragments(node: Node): List<SpoilerFragment> {
+    if (node !is Element) return listOf(SpoilerFragment(node.outerHtml()))
+    if (node.hasClass("spoiler") && node.select("img:not(.emoji)").isNotEmpty()) return listOf(SpoilerFragment(region = node))
+    if (node.select(".spoiler img:not(.emoji)").isEmpty()) return listOf(SpoilerFragment(node.outerHtml()))
+    return node.childNodes().flatMap(::spoilerFragments).map { fragment ->
+        if (fragment.region != null) fragment else SpoilerFragment(node.clone().empty().append(fragment.html).outerHtml())
+    }
 }
 
 private data class ArticleImageLocation(val image: ArticleBlock.Image, val path: String, val quotes: List<String>)
@@ -215,6 +245,7 @@ private fun closedDetails(blocks: List<ArticleBlock>, parent: String = "root"): 
         when (block) {
             is ArticleBlock.Details -> { if (!block.open) add(path); addAll(closedDetails(block.blocks, path)) }
             is ArticleBlock.Quote -> addAll(closedDetails(block.blocks, path))
+            is ArticleBlock.Spoiler -> addAll(closedDetails(block.blocks, path))
             else -> Unit
         }
     }
@@ -225,12 +256,17 @@ internal data class InlineArticle(val text: AnnotatedString, val emojis: Map<Str
 
 internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
     val emojis = linkedMapOf<String, InlineEmoji>()
+    var spoilerIndex = 0
     val text = buildAnnotatedString {
         fun appendNode(node: Node) {
             if (node is TextNode) append(node.text())
             else if (node is Element) {
                 val children: AnnotatedString.Builder.() -> Unit = { node.childNodes().forEach(::appendNode) }
-                when (node.normalName()) {
+                if (node.hasClass("spoiler")) {
+                    pushStringAnnotation("spoiler", (spoilerIndex++).toString())
+                    children()
+                    pop()
+                } else when (node.normalName()) {
                     "br" -> append("\n")
                     "strong", "b" -> withStyle(SpanStyle(fontWeight = FontWeight.Bold), children)
                     "em", "i" -> withStyle(SpanStyle(fontStyle = FontStyle.Italic), children)
@@ -371,17 +407,16 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
             is ArticleBlock.TextBlock -> {
                 val color = MaterialTheme.colorScheme.primary
                 val article = remember(block.html, color) { parseInlineArticle(block.html, color) }
-                val inline = remember(article.emojis) {
-                    article.emojis.mapValues { (_, emoji) ->
-                        InlineTextContent(Placeholder(1.25.em, 1.25.em, PlaceholderVerticalAlign.TextCenter)) {
-                            SiteEmoji(emoji.name, Modifier.fillMaxSize(), emoji.url)
-                        }
-                    }
-                }
                 CompositionLocalProvider(LocalUriHandler provides linkHandler) {
-                    SelectionContainer {
-                        Text(article.text, Modifier.fillMaxWidth(), inlineContent = inline, style = if (block.heading) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge, color = if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
-                    }
+                    SpoilerArticleText(article, block.html, "article-text-$path",
+                        if (block.heading) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
+                        if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            is ArticleBlock.Spoiler -> SpoilerRegion(block, "article-spoiler-$path") { toggleSpoiler ->
+                val spoilerLinkHandler = object : UriHandler { override fun openUri(uri: String) = toggleSpoiler() }
+                ArticleBlocks(block.blocks, path, collapsed, toggle, { toggleSpoiler() }, spoilerLinkHandler, poll) { secret, secretPath ->
+                    ArticleImage(secret, remember(secret) { GalleryThumbnailAnchor() }, "spoiler-image-$secretPath", toggleSpoiler)
                 }
             }
             is ArticleBlock.Code -> CodeBlock(block.text)
