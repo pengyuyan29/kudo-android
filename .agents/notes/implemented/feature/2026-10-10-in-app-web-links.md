@@ -12,7 +12,7 @@ Status: implemented
 
 WebView 使用 CookieManager 默认存储，与 LoginScreen 和 AndroidSessionCookies 相同，不复制登录 Cookie 到 URL、手工请求头或外站。Cookie 发送遵循 WebView 域、路径和 Secure 规则；应用内登录态可共用，系统 Chrome 的存储不属于本应用。页面具备标题、加载进度、刷新、错误重试和返回，网页历史优先返回，无历史返回原生来源；释放时停止加载并销毁实例。沿用关闭文件/内容访问和第三方 Cookie 的设置，不引入 JS 原生桥。网页阅读允许 HTTP，Manifest 放开明文流量；社区 API 和图片请求仍由各自既有同源 HTTPS 校验约束，不手工向明文网页附加社区会话。
 
-标题栏仅显示页面标题，不另占一行显示域名，外部浏览器入口使用Language网格地球矢量。首屏、导航和刷新等待期间覆盖主题底色并居中显示黄色loading，onPageCommitVisible或onPageFinished后的视觉状态确认后收起；下载进度100本身不代表内容可见。视觉回调按导航代次检查，错误或下载交接停止loading，失败保留原有重试入口，等待期间禁用网页回顶入口。
+标题栏仅显示页面标题，不另占一行显示域名，外部浏览器入口使用Language网格地球矢量。首屏、导航和刷新等待期间覆盖主题底色并居中显示CommunityLoadingIndicator，使用L站图标的黑/白/黄三色，弧长3:4:3（108°/144°/108°），淡轮廓帮助黑白段区别于背景。onPageCommitVisible或onPageFinished后的视觉状态确认后收起；下载进度100本身不代表内容可见。视觉回调按导航代次检查，错误或下载交接停止loading，失败保留原有重试入口，等待期间禁用网页回顶入口。
 
 ## Existing note audit
 
@@ -28,6 +28,8 @@ WebView 原生布局使用[有界视口](../bug-fix/2026-10-10-webview-viewport.
 - 网页内点击站内链接再次原生分流，能直接复用客户端页面；用户明确指出连续浏览会割裂，因此只在原生内容入口分流，WebView 全程维护网页历史。
 
 ## Testing
+
+三色加载样式已统一共用列表、网页、楼层向前补载、投票等待与下拉刷新；保留18/24/26dp现有尺寸，下拉刷新仍用Material3的40dp容器、16dp图形和原有拖动状态，图形随拖动旋转，真正刷新后无限旋转。5项现有真机用例通过（artifacts/tricolor-loading-device-ui.txt），覆盖网页初始等待/刷新、深色大字首页及短分类列表下拉触发、向前补载保持锚点；网页初始等待另在系统深色下复验通过（artifacts/tricolor-loading-dark-ui.txt）。已查看tricolor-loading-light.png、tricolor-loading-dark.png及真实下拉中的tricolor-loading-pull.png，黑白段保留固定图标色，通过淡轮廓提高背景区分度。系统夜间模式恢复为测试前的auto，开发版验签后install -r覆盖，未卸载或清数据。此轮仅改变样式，复用现有用例，不新增镜像绘制实现的测试或运行无关全量单测。
 
 网页首屏loading改动先用可控制的主文档响应闸门复现初始加载与刷新两项缺少web-loading失败（artifacts/web-loading-repro-feed-fixed-ui.txt）。同批5项返回列表用例通过。修复后7项WebScreenUiTest全部通过（artifacts/ui-polish-final-ui.txt），包含进度先到100仍显示loading、内容可见后收起、失败/刷新与恢复历史。最终重新构建后的初始加载用例也通过（artifacts/ui-polish-touch-final-ui.txt）。UiAutomation取得的ui-polish-web-loading.png和ui-polish-web-loaded.png已检查黄色等待提示及内容切换，但测试窗口截图未完整呈现标题栏，不作为顶部控件视觉证据。
 

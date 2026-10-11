@@ -44,7 +44,7 @@ showScrollToTop在设置中默认打开，开关即时生效；回复底部只�
 
 同机深色130%字号的LIQUID/BLUR/TRANSLUCENT静止截图分别为artifacts/quick-top-material-*.png，已人工检查按钮居中和底栏间距，液态边缘采样真实双色内容，模糊/半透明遵循既有兼容效果。色块夹具用于材质检查，真实首页截图用于导航避让与页头恢复检查；未将两者表述为所有页面或旧系统运行验收。
 
-包含缩小、独立点击范围、间距、灰色点赞、列表返回稳定和网页加载改动的Release构建通过（artifacts/ui-polish-release-final-build.txt），版本通过参数保持0.1.7/1008，仅arm64-v8a。正式包artifacts/release/0.1.7/kodo_0.1.7_release_arm64-v8a.apk已验证正式签名、非debuggable、包名/版本/ABI和16KB对齐（artifacts/ui-polish-release-verification.txt）；SHA256为d998ffd920e205007ebfdedd87e7f799614008166c00a6b5f8bf84da328a52a9。真机沿用Debug签名install -r覆盖，未卸载或清数据；正式包保留供用户安装，没有覆盖手机现有开发版。
+包含缩小、独立点击范围、间距、灰色点赞、列表返回稳定和网页加载改动的Release构建通过（artifacts/ui-polish-release-final-build.txt），后续三色加载样式同版本重建也通过（artifacts/tricolor-loading-release-build.txt）。版本通过参数保持0.1.7/1008，仅arm64-v8a。当前正式包artifacts/release/0.1.7/kodo_0.1.7_release_arm64-v8a.apk已验证正式签名、非debuggable、包名/版本/ABI和16KB对齐（artifacts/tricolor-loading-release-verification.txt）；SHA256为ce85586d917fde84892e25900736c312e4291eb0748204e29d9d969ccf3923e6。真机沿用Debug签名install -r覆盖，未卸载或清数据；正式包保留供用户安装，没有覆盖手机现有开发版。
 
 ## Integration boundaries
 
