@@ -8,7 +8,7 @@ Status: proposed
 
 当前 App 的原生请求使用 OkHttp 4.12.0，WebView 由 Android 系统提供。两者已经共享 CookieManager 和明确相同的 User-Agent，但 DNS、TLS、连接池和出口网络不是同一个概念。只替换 DNS 无法证明直连可用，也无法保证原来代理出口获得的过盾凭据在新出口继续有效。
 
-本篇保留完整功能的待评审方案。用户随后批准“开发验证看看”，并确认手机 Wi-Fi 已切到非代理网络；当前先进行[原生直连技术验证](../../proposed/testing/2026-10-12-doh-ech-device-probe.md)，未将网络层或 WebView 改造投入日常请求。
+本篇保留完整功能的待落地方案。用户随后批准“开发验证看看”，并确认手机 Wi-Fi 已切到非代理网络；[原生直连技术验证](../../implemented/testing/2026-10-12-doh-ech-device-probe.md)已完成，DoH + ECH 可读取现有登录会话、列表和头像，未将网络层或 WebView 改造投入日常请求。
 
 ## Proposal
 
@@ -80,7 +80,7 @@ Android WebView 没有可直接注入 `OkHttp.Dns` 的公共 API。`ProxyControl
 
 当时 `linux.do` A 的 TTL 为 14 秒，说明不能无限缓存或固定使用这批优选 IP。探测结果在忽略目录 `artifacts/doh-server-probe.json`，脚本为 `artifacts/doh-research-probe.py`，文章摘录为 `artifacts/doh-article-2946664.md`；这些是本地研究材料，不是自动化测试依赖。
 
-探测环境是当前电脑网络，未配置探测脚本代理；未验证手机运营商线路、真实 ECH 握手、网页登录后的社区请求或 CF 过盾复用。DNS 成功不等于业务访问成功。
+初始 DNS 探测环境是当前电脑网络，未配置探测脚本代理；该阶段没有验证手机或业务访问。后续[真机验证](../../implemented/testing/2026-10-12-doh-ech-device-probe.md)在用户确认的非代理 Wi-Fi 上完成：系统 DNS、仅 DoH 及 Rust 不开 ECH 均失败，DoH + ECH 的会话、列表、头像均 HTTP 200，实际 ECH Accepted，现有登录有效且没有 CF 挑战。结果限于当前线路与会话，尚未重新执行代理网页登录，也未覆盖长期风控或直连 WebView 过盾。
 
 ### FluxDO 参考版本
 
@@ -124,7 +124,7 @@ FluxDO 主项目为 GPL-3.0，本项目是 Apache-2.0；参考用户交互与设
 
 ## Acceptance criteria
 
-实施需要另行获得编码批准，按设置持久化、VPN 策略、DoH 解析、ECH 传输、客户端接入与验收拆成小单元；每个单元控制修改文件数，功能和相应笔记同批提交。
+当前交付了独立的原生技术验证，完整设置与日常网络接管仍未落地。后续按设置持久化、VPN 策略、DoH 解析、ECH 生产传输、客户端接入与验收拆成小单元；每个单元控制修改文件数，功能和相应笔记同批提交。
 
 | 验收场景 | 必须确认的结果 |
 | --- | --- |
@@ -142,7 +142,7 @@ FluxDO 主项目为 GPL-3.0，本项目是 Apache-2.0；参考用户交互与设
 
 真机至少对 Wi-Fi 与蜂窝网络、IPv4／IPv6 可用性和后台恢复分别检查。目标流程只做用户授权的只读会话检查，不为测试发布真实内容或切换账号。不卸载或清数据；需要安装时核对签名并使用 `adb install -r`。
 
-本轮验证范围仅是文章阅读、源码核对和五项桌面 DoH 查询。笔记运行 `npm run verify-notes`；没有运行 Android 产品测试，也不以文档校验代替功能验收。
+初始调研包括文章阅读、源码核对和五项桌面 DoH 查询。后续技术验证包括 8 项 Rust 边界测试、真机 JNI 检查及 12 条业务请求的线上对照，AndroidTest 构建、Lint 与 16KB 对齐检查通过；日常 App 代码未改，完整功能表中的设置、VPN 生命周期与生产传输仍需验收。笔记运行 `npm run verify-notes`，不以文档校验代替功能验收。
 
 ## Risks
 
