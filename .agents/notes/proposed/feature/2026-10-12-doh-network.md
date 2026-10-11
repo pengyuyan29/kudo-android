@@ -32,6 +32,8 @@ Discourse、Connect、MessageBus 通过构造参数注入 `(OkHttpClient) -> Cal
 
 AppContainer 持有统一 DohNetwork，并应用于主站、Connect、Coil 图片及原图下载；图片凭据继续在每次真实网络请求处剔除/按 HTTPS 主站添加，跨源重定向不泄漏 Cookie。ImageDownloader 只依赖 Call.Factory，不持有固定路由客户端。GitHub 更新明确豁免，继续走独立系统网络且不携带社区凭据。
 
+首页和账号通知创建的两处 MessageBus 均注入同一路由。切换时旧轮询被关闭，原有循环沿当前游标重连；不复用主站的 CookieJar 或会话拦截器。
+
 第一阶段保留现有系统 WebView 登录、验证和 Cookie 存储。用户可通过自己的 VPN／代理完成网页登录；原生页面启用新的 DNS／TLS 通道。第一阶段不接管 WebView TLS，不新增用户证书信任，不改网页内的导航边界。
 
 若原生直连成功但 Cloudflare 必须在同一出口重新验证，而系统 WebView 在该线路仍无法直连，则本阶段无法保证完整闭环。届时应单独评审 WebView 同出口的 DoH + ECH 方案，或继续保持浏览器与原生请求使用一致的代理出口，不能用反复复制 Cookie 代替这个能力。

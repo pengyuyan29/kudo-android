@@ -20,7 +20,7 @@ class AccountViewModel(
         app.client.resetSession()
         app.settings.clearAccountData()
         android.webkit.WebStorage.getInstance().deleteAllData()
-    }, DiscourseMessageBus(app.client, userAgent = app.userAgent), app.notifications)
+    }, DiscourseMessageBus(app.client, userAgent = app.userAgent, route = app.network::client), app.notifications)
     var user by mutableStateOf<Member?>(null); private set
     var checkingSession by mutableStateOf(false); private set
     var sessionReady by mutableStateOf(false); private set
