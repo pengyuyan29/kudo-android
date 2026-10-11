@@ -8,7 +8,7 @@ Debug 依赖开发机器的默认证书，Release 没有签名配置，仓库没
 
 ## Decision
 
-当前正式版基线为 `0.1.8` / `1009`，下一版从 `0.1.9` / `1010` 开始。Release APK 只打包 `arm64-v8a`，发布脚本将验证 APK 的 `native-code` 清单只包含该 ABI；公开产物统一命名为 `kodo_<version>_release_arm64-v8a.apk` 及对应的 `.sha256` 文件。
+当前正式版基线为 `0.1.9` / `1010`，下一版从 `0.2.0` / `2001` 开始。Release APK 只打包 `arm64-v8a`，发布脚本将验证 APK 的 `native-code` 清单只包含该 ABI；公开产物统一命名为 `kodo_<version>_release_arm64-v8a.apk` 及对应的 `.sha256` 文件。
 
 `release_version.py` 集中定义发布 ABI 并生成小写文件名，`prepare_release.py` 在复制 APK 前解析 `aapt dump badging`，缺少 native-code、包含多个 ABI 或出现其他 ABI 都会拒绝发布。
 
@@ -107,7 +107,13 @@ Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移�
 - 本地完整290项JVM、27项发布工具测试与正式包验签通过后，main和annotated Tag `v0.1.8` 原子推送，Tag固定指向 `921392bb330f9d231ee502d1501d38df3013d353`；后续记录只推main，不移动Tag。
 - [Android Release运行38150590635](https://github.com/woliubang256/kudo-android/actions/runs/38150590635)的发布工具与笔记检查通过，但云端290项JVM出现两项失败：FeedViewModelTest.categoryRateLimitDoesNotReplaceSuccessfulFeedWithError 在测试启动时报 UncaughtExceptionsBeforeTest；TopicFloorNavigationTest.aSupersededJumpCannotReplaceTheLatestTarget 再次出现5秒等待超时。签名构建与publish均未执行，没有创建v0.1.8 Release。完整构建日志为 `artifacts/release/0.1.8/remote-build-failure.log`，状态为同目录 `remote-run.json`。当前只有日志摘要，尚无云端XML中的被抑制异常及具体等待阶段，不能把两项失败归因于确定的App缺陷或确定的夹具缺陷；不以盲目重跑替代排查。
 - main的Commit messages校验成功；[tag校验运行38150590659](https://github.com/woliubang256/kudo-android/actions/runs/38150590659)失败。新Tag事件的before全零，工作流使用单个SHA调用git log，误把所有旧祖先提交纳入前缀门禁，和仅约束新提交的既有约定不符。失败日志为 `tag-commit-check-failure.log`。历史提交与Tag均不改写；该CI范围问题另行修复。
-- 本地 `kodo_0.1.8_release_arm64-v8a.apk` 及校验文件保留，未覆盖手机开发版。版本升级、打包、Tag与推送已完成，自动Release未完成；是否在修复后另发0.1.9等待用户选择，本次不自动再升一个版本。
+- 本地 `kodo_0.1.8_release_arm64-v8a.apk` 及校验文件保留，未覆盖手机开发版。版本升级、打包、Tag与推送已完成，自动Release未完成；当时等待用户选择是否另发0.1.9，未自行再升版本。
+
+2026-10-11 v0.1.9 发布准备：
+
+- 用户确认修复后发布0.1.9 / 1010，保留v0.1.8 Tag不变。Tag前缀校验的实际shell夹具先复现旧历史误扫，修复后覆盖有效增量、非法中间提交及首次Tag；取消清理用例先复现夹具提前关闭，修正等待清理和串行Main后21项相关用例、两核同一JVM连续10轮共210项通过，详细证据见[客户端验证](../testing/2026-10-07-client-verification.md)。完整291项JVM及Lint通过，Lint为0 errors / 38 existing warnings / 1 hint，日志为 `artifacts/release-0.1.9-unit-lint.txt`；30项发布工具测试通过，日志为 `release-0.1.9-tool-tests.txt`。两份工作流均通过actionlint，失败时上传完整JUnit报告，不绕过失败门禁。
+- 更新日志支持已发布基线并拒绝非法/非祖先范围，实际shell夹具验证空基线与API失败停止；自动流程查询上次已公开Release，避免v0.1.6、v0.1.8失败Tag漏掉App变更，仍过滤文档、测试、工具链和CI。
+- 使用 `-PversionName=0.1.9 -PversionCode=1010` 完成正式R8构建，默认Gradle版本保持不变。`artifacts/release/0.1.9/kodo_0.1.9_release_arm64-v8a.apk` 的SHA256为 `0a6f4830e227876fef62ed2ed90764e646136d9c47922d08393ba4241b1ce2ca`；正式证书与既有发布一致，版本0.1.9 / 1010、仅arm64-v8a、非debuggable及16KB zipalign通过，详情为同目录 `local-verification.txt`。构建日志为 `artifacts/release-0.1.9-build.txt`，本地验证不代替云端附件验收。已认证API确认上个已公开版本仍为v0.1.5，更新日志预览使用该基线。
 
 ## Consequences
 
