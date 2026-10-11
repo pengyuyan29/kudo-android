@@ -46,6 +46,7 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
     var dialog by rememberSaveable { mutableStateOf("theme") }
     val visibility = remember { MutableTransitionState(false) }
     val backdrop = rememberLayerBackdrop()
+    val scroll = androidx.compose.foundation.lazy.rememberLazyListState()
     val showing = visibility.currentState || visibility.targetState
     fun show(target: String) { dialog = target; visibility.targetState = true }
     fun dismiss() { visibility.targetState = false }
@@ -55,7 +56,7 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
             .then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)
             .focusProperties { onEnter = { if (showing) cancelFocusChange() } }.focusGroup()) {
             PageTopBar("设置", back)
-            LazyColumn(contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyColumn(state = scroll, modifier = Modifier.quickScrollTarget(scroll, enabled = !showing), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item { SectionLabel("界面显示") }
                 item {
                     Column(Modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface)) {
@@ -73,6 +74,12 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                             Text("显示用户签名", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                             CommunitySwitch(settings.showSignatures, { update(settings.copy(showSignatures = it)) }, enabled = !showing,
                                 modifier = Modifier.testTag("show-signatures"))
+                        }
+                        SettingsDivider()
+                        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 18.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("显示快速回顶按钮", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                            CommunitySwitch(settings.showScrollToTop, { update(settings.copy(showScrollToTop = it)) }, enabled = !showing,
+                                modifier = Modifier.testTag("show-scroll-to-top"))
                         }
                     }
                 }

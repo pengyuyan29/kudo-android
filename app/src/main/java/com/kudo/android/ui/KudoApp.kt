@@ -78,6 +78,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
     var darkStatusIcons by remember { mutableStateOf<Boolean?>(null) }
     KudoTheme(display, darkStatusIcons) {
         VerificationHost(app.client, app.userAgent) {
+        QuickScrollToTopHost {
         val account = model("account") { AccountViewModel(app) }
         val nav = rememberNavController()
         val snackbar = remember { SnackbarHostState() }
@@ -153,6 +154,8 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             if (selected == 1 && account.categories.isEmpty()) account.loadCategories()
                             if (selected == 3) account.loadNotices()
                         }
+                        CompositionLocalProvider(LocalQuickScrollBottomPadding provides
+                            (WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 88.dp)) {
                         Box(Modifier.fillMaxSize()) {
                             Box(Modifier.fillMaxSize().layerBackdrop(backdrop).background(MaterialTheme.colorScheme.background)) {
                                 when (selected) {
@@ -177,6 +180,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                 selected = it
                                 if (it == 0 && state.forUser(account.user).hasUpdates) feed.refreshFromNavigation()
                             }, { if (display.navigationAction == NavigationAction.SEARCH) nav.navigate("search") else editor() }, backdrop, display.glass, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(20.dp).widthIn(max = 530.dp).fillMaxWidth(), homeHasUpdates = state.forUser(account.user).hasUpdates, action = display.navigationAction, unreadCount = account.unreadCount)
+                        }
                         }
                     }
                     composable("category/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) { entry ->
@@ -380,6 +384,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
             }
             }
             }
+        }
         }
         }
         }
