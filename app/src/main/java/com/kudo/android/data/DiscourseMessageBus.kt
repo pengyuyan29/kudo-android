@@ -29,6 +29,7 @@ class DiscourseMessageBus(
     private val client: DiscourseClient,
     private val endpoint: HttpUrl = "https://ping.ldstatic.com/".toHttpUrl(),
     private val userAgent: String = "Kudo/0.1 Android",
+    route: (OkHttpClient) -> Call.Factory = { it },
 ) : FeedUpdates, NotificationUpdates {
     private companion object {
         const val maxConsecutiveVerificationFailures = 2
@@ -38,6 +39,7 @@ class DiscourseMessageBus(
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
         .connectTimeout(20, TimeUnit.SECONDS).readTimeout(75, TimeUnit.SECONDS)
         .callTimeout(90, TimeUnit.SECONDS).build()
+    private val calls = route(http)
 
     override fun observe(user: Member?): Flow<Unit> = flow {
         val cursors = MessageBusCursors(user?.id)
@@ -77,7 +79,7 @@ class DiscourseMessageBus(
                     .header("Origin", client.baseUrl.toString().trimEnd('/'))
                     .header("X-SILENCE-LOGGER", "true").header("User-Agent", userAgent)
                     .apply { key?.let { header("X-Shared-Session-Key", it) } }.build()
-                emit(PollBatch(http.newCall(request).poll(), first, reconnect))
+                emit(PollBatch(calls.newCall(request).poll(), first, reconnect))
                 first = false
                 reconnect = false
                 failures = 0

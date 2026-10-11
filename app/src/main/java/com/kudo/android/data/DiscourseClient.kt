@@ -55,7 +55,9 @@ class DiscourseClient(
     private val http: OkHttpClient = OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(35, TimeUnit.SECONDS).callTimeout(50, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build(),
+    route: (OkHttpClient) -> Call.Factory = { it },
 ) {
+    private val calls = route(http)
     private var csrf: String? = null
     private val csrfMutex = Mutex()
     fun resetSession() { csrf = null }
@@ -93,8 +95,11 @@ class DiscourseClient(
                 cookies.get(url.toString()).takeIf(String::isNotBlank)?.let { header("Cookie", it) }
                 token?.let { header("X-CSRF-Token", it); header("Origin", baseUrl.toString().trimEnd('/')) }
             }.build()
-        val response = try { http.newCall(request).await() } catch (e: IOException) {
-            throw ApiFailure(FailureKind.NETWORK, if (method == "GET") "网络连接失败，请检查网络后重试" else "请求结果尚未确认，请刷新确认后再操作，以免重复提交")
+        val response = try { calls.newCall(request).await() } catch (e: IOException) {
+            throw ApiFailure(FailureKind.NETWORK, if (method == "GET") {
+                if (e.message.orEmpty().contains("DoH:")) com.kudo.android.network.dohErrorMessage(e)
+                else "网络连接失败，请检查网络后重试"
+            } else "请求结果尚未确认，请刷新确认后再操作，以免重复提交")
         }
         response.use {
             it.headers("Set-Cookie").forEach { cookie -> cookies.set(url.toString(), cookie) }

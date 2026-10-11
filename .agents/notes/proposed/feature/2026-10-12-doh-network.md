@@ -28,6 +28,8 @@ Android 适配单元为 `network/DohTransport.kt` 与 `NativeDoh.kt`。原始 So
 
 运行策略位于 `network/DohNetwork.kt`：用户选择与有效状态分离，Android 可观察 VPN 或系统 HTTP 代理时暂停。监听包含 VPN 的网络请求、默认网络变化与 Activity 恢复，每次创建请求前复查；配置/网络变化关闭原生 Socket 并清理连接池，旧代回调不能覆盖新状态。主站实际 ECH 握手才显示已连接；检测仅发送无凭据 GET，可取消并随网络切换停止。配置与策略 6 项 JVM 测试通过。
 
+Discourse、Connect、MessageBus 通过构造参数注入 `(OkHttpClient) -> Call.Factory`，保留原客户端的 Cookie、来源、重定向和超时约束；默认是原客户端，既有测试和调用保持兼容。主站 GET 显示固定的 DoH 错误说明，写失败仍提示结果未知且禁止自动重放。
+
 第一阶段保留现有系统 WebView 登录、验证和 Cookie 存储。用户可通过自己的 VPN／代理完成网页登录；原生页面启用新的 DNS／TLS 通道。第一阶段不接管 WebView TLS，不新增用户证书信任，不改网页内的导航边界。
 
 若原生直连成功但 Cloudflare 必须在同一出口重新验证，而系统 WebView 在该线路仍无法直连，则本阶段无法保证完整闭环。届时应单独评审 WebView 同出口的 DoH + ECH 方案，或继续保持浏览器与原生请求使用一致的代理出口，不能用反复复制 Cookie 代替这个能力。

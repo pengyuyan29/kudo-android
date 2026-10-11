@@ -56,11 +56,13 @@ internal fun parseTrustReport(html: String): TrustReport {
 class ConnectRepository(private val cookies: SessionCookies, private val userAgent: String,
     private val endpoint: HttpUrl = "https://connect.linux.do/".toHttpUrl(),
     private val http: OkHttpClient = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
-        .retryOnConnectionFailure(false).callTimeout(35, TimeUnit.SECONDS).build()) {
+        .retryOnConnectionFailure(false).callTimeout(35, TimeUnit.SECONDS).build(),
+    route: (OkHttpClient) -> Call.Factory = { it }) {
+    private val calls = route(http)
     suspend fun load(): TrustReport {
         val request = Request.Builder().url(endpoint).header("User-Agent", userAgent).header("Accept", "text/html")
             .apply { cookies.get(endpoint.toString()).takeIf(String::isNotBlank)?.let { header("Cookie", it) } }.build()
-        val call = http.newCall(request)
+        val call = calls.newCall(request)
         val response = suspendCancellableCoroutine<Response> { continuation ->
             continuation.invokeOnCancellation { call.cancel() }
             call.enqueue(object : Callback {
