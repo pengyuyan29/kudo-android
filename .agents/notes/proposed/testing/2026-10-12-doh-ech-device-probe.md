@@ -34,6 +34,8 @@ Android 对照位于 DohEchDeviceProbeTest，编译时显式传入 -PdohProbe=tr
 
 AndroidTest 构建及 Lint 通过（27 秒，0 错误、38 警告，android-test-build-final.txt）。测试 APK 为 7,661,209 字节，签名 SHA256 与手机现有开发版相同（95f95aff266413e4c3fb431bf7ae96552d0e5e601b986e4a53d2a116b6623e4f），16KB zipalign 通过。仅使用 adb install -r 覆盖测试包，没有替换 App 主包、卸载或清数据。真机 JNI 凭据与白名单检查 1 项通过（device-native-boundaries.txt）。
 
+首轮手机对照 27 秒，系统 DNS 的会话／列表请求超时，仅 DoH 的两项请求连接错误，Rust 不开 ECH 的两项握手失败；ECH 两项在本地配置解析时失败，没有业务响应，不能判断 CF。DNS 三种记录成功，配置解码后 69 字节；Cookie 存储未变（device-result-first.json）。根因是 Hickory 的 EchConfig.0 不含 ECHConfigList 的 2 字节长度，而 rustls 需要完整 TLS 向量。用公开 ECH 配置和完整 DNS 编解码路径新增回归，8 项中此项先失败（ech-length-repro.txt）；修复使用 BinEncodable 恢复完整 wire value 后 8 项通过（ech-length-fixed.txt），不手工猜配置版本或关闭证书校验。
+
 ## Alternatives considered
 
 - 直接上线设置和全局网络层：用户能立即体验开关、节点管理和所有页面，但会在 ECH／CF 尚未验证时扩大回归范围；先交付隔离的对照探针。

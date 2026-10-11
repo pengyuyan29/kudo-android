@@ -4,6 +4,7 @@ use bytes::Bytes;
 use hickory_proto::{
     op::{Message, MessageType, OpCode, Query, ResponseCode},
     rr::{rdata::svcb::SvcParamValue, DNSClass, Name, RData, RecordType},
+    serialize::binary::{BinEncodable, BinEncoder},
 };
 use http_body_util::{BodyExt, Full};
 use hyper::Request;
@@ -348,7 +349,11 @@ fn extract(messages: &[Message]) -> Result<(Vec<IpAddr>, Vec<u8>, u32)> {
                 for (_, param) in value.svc_params() {
                     if let SvcParamValue::EchConfig(config) = param {
                         if ech.is_empty() {
-                            ech = config.0.clone();
+                            // Hickory removes ECHConfigList's u16 length while decoding.
+                            // Re-encode the value so rustls receives the complete TLS vector.
+                            config
+                                .emit(&mut BinEncoder::new(&mut ech))
+                                .map_err(|_| Failure("ech_config", "encode_failed"))?;
                             ttl = ttl.min(record.ttl());
                         }
                     }
@@ -555,7 +560,7 @@ mod tests {
         ));
         let (ips, ech, ttl) = extract(&[message]).unwrap();
         assert_eq!(ips, vec!["192.0.2.1".parse::<IpAddr>().unwrap()]);
-        assert_eq!(ech, vec![1, 2, 3]);
+        assert_eq!(ech, vec![0, 3, 1, 2, 3]);
         assert_eq!(ttl, 10);
     }
     #[test]
@@ -597,5 +602,38 @@ mod tests {
                 .unwrap(),
             b"1234"
         );
+    }
+
+    #[test]
+    fn dns_ech_preserves_the_tls_list_length_prefix() {
+        // Public Cloudflare ECH configuration, not a credential; works offline after key rotation.
+        let wire = STANDARD.decode("AEX+DQBBvgAgACAnc+9IO/WWQSMj7W2mLvaFlY3UbvRlOsLeK+qbQ6pgVwAEAAEAAQASY2xvdWRmbGFyZS1lY2guY29tAAA=").unwrap();
+        let query = dns_query(RecordType::HTTPS).unwrap();
+        let mut message = reply(&query);
+        let name = Name::from_ascii("linux.do.").unwrap();
+        message.add_answer(Record::from_rdata(
+            name.clone(),
+            30,
+            RData::A(A::new(192, 0, 2, 1)),
+        ));
+        message.add_answer(Record::from_rdata(
+            name,
+            30,
+            RData::HTTPS(HTTPS(SVCB::new(
+                1,
+                Name::root(),
+                vec![(
+                    SvcParamKey::EchConfig,
+                    SvcParamValue::EchConfig(DnsEch(wire[2..].to_vec())),
+                )],
+            ))),
+        ));
+        let decoded = dns_response(&query, &message.to_vec().unwrap()).unwrap();
+        let (_, bytes, _) = extract(&[decoded]).unwrap();
+        assert_eq!(
+            bytes, wire,
+            "Hickory stores the list without its two-byte length; TLS requires the whole list"
+        );
+        assert!(tls_config(Some(bytes)).is_ok());
     }
 }
