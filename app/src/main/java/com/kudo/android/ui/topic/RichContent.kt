@@ -460,8 +460,9 @@ private fun ArticleImage(image: ArticleBlock.Image, anchor: GalleryThumbnailAnch
     var failed by remember(image.url) { mutableStateOf(false) }
     var retry by remember(image.url) { mutableIntStateOf(0) }
     LifecycleResumeEffect(animation) {
-        if (animation?.isRunning == false) animation?.start()
-        onPauseOrDispose { animation?.stop() }
+        val drawable = animation
+        if (drawable?.isRunning == false) drawable.start()
+        onPauseOrDispose { drawable?.stop() }
     }
     var decodedRatio by remember(image.url) { mutableStateOf<Float?>(null) }
     val cornerRadius = with(LocalDensity.current) { 11.dp.toPx() }

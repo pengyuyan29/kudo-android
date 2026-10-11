@@ -10,6 +10,8 @@ Status: implemented
 
 正文图片跟随 Coil 请求显示加载、成功和失败状态；加载时保留原尺寸和淡色底，中央使用既有黑/白/黄三段指示器，失败提供明确提示及重试。重试通过请求代次重建 AsyncImage，不能复用结构相等的失败请求；成功即移除占位底和指示器。延迟响应与首轮失败的独立图片夹具验证此行为，不向社区写入内容。
 
+动图生命周期副作用只清理本次绑定的 Drawable，不能在旧副作用的清理回调里重新读取可变 animation 状态。加载结果替换空状态时，旧回调若停止新动图，会与解码线程异步移除监听竞态，导致启动超时或停留首帧。独立可观察的动图夹具断言前台加载期间零次停止，并继续检查后台、恢复与移除；真实 AVIF 像素用例验证逐帧播放。
+
 图片块分别保留缩略图、原图、有效比例及 lightbox 附件信息。正文与回复用真实比例布局，预览高度最多 300dp；宽度取内容可用宽度与 `300dp × 图片比例` 的较小值，图片靠左，超高时宽高一起缩小。尺寸缺失时由解码结果补齐；不设图片最小高度，不通过 Crop 隐藏留白。相册来源记录缩小后的真实图片矩形，点击仍打开完整原图。只剔除 lightbox 的自动元信息，保留用户图注、正文和行内表情。
 
 图片预览优先选用站点 `srcset` 中最高有效密度的 HTTPS 候选，没有合法候选时使用 `src`。支持 Discourse 的 `x` 描述符与有有效 HTML 宽度时的 `w` 描述符；无描述符按 1x 处理，无效、非正数和不安全地址忽略。原图仍来自 lightbox href，缺失时保留原 src；不会把更清晰的缩略图误作完整附件。Coil 按最终布局尺寸采样，不为正文直接下载超大原图。
@@ -33,6 +35,8 @@ Status: implemented
 - 正文继续显示附件信息：无需新增查看入口；用户明确要求精简阅读区，信息迁到大图菜单。
 
 ## Verification
+
+2026-10-12 发布回归：AVIF 用例分别出现启动超时和只采到首帧（`artifacts/image-spoiler-final-device.txt`、`article-avif-final-recheck.txt`）。新增可观察 Drawable 的专项测试稳定复现前台加载时被停止 1 次，期望为 0（`artifacts/article-animation-lifecycle-repro.txt`）。副作用捕获自身 Drawable 后，新专项、真实 AVIF 三帧与后台/恢复/移除，以及剧透、加载重试和相册等共 40 项设备回归全部通过（`artifacts/release-0.2.0-final-device.txt`，64.083 秒）。没有放宽原 AVIF 像素断言或延长超时。
 
 2026-10-12：ArticleImageLoadingUiTest 的延迟响应和首轮失败重试两项先失败；修复后与两项平移惯性用例共 4 项在 RMX2202 / Android 13 通过（3.809 秒）。日志 `artifacts/image-polish-repro-device.txt`、`image-polish-fixed-device.txt`，Debug 和 AndroidTest 构建通过；同签名 `install -r`，未清数据。
 
