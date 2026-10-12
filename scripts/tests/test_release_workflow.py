@@ -71,7 +71,7 @@ cargo() { printf 'cargo %s\\n' "$*" >> calls.txt; }
         self.assertIsNotNone(match, "Cache paths must be an explicit allowlist")
         return [line.strip() for line in match.group(1).splitlines()]
 
-    def test_dependency_caches_exclude_signing_and_build_state_and_save_after_failure(self):
+    def test_dependency_caches_exclude_signing_and_only_save_complete_builds(self):
         restore = self.step("Restore dependency cache")
         save = self.step("Save dependency cache")
         allowed = ["~/.gradle/caches/modules-2", "~/.gradle/wrapper/dists", "~/.cargo/registry", "~/.cargo/git", "~/.npm/_cacache"]
@@ -83,7 +83,9 @@ cargo() { printf 'cargo %s\\n' "$*" >> calls.txt; }
         for source in ("native/doh/Cargo.lock", "**/*.gradle.kts", "gradle/wrapper/gradle-wrapper.properties", "package.json"):
             self.assertIn(source, restore)
         self.assertIn("restore-keys:", restore)
-        self.assertIn("always()", save)
+        self.assertIn("if: success()", save)
+        self.assertIn("release-deps-v2-", restore)
+        self.assertIn("release-deps-v1-", restore)
         self.assertIn("steps.dependency-cache.outcome == 'success'", save)
         self.assertIn("steps.dependency-cache.outputs.cache-hit != 'true'", save)
         self.assertIn("steps.dependency-cache.outputs.cache-primary-key", save)

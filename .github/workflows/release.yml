@@ -82,8 +82,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.npm/_cacache
-          key: ${{ runner.os }}-${{ runner.arch }}-release-deps-v1-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'native/doh/Cargo.lock', 'package.json') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-release-deps-v2-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'native/doh/Cargo.lock', 'package.json') }}
           restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-release-deps-v2-
             ${{ runner.os }}-${{ runner.arch }}-release-deps-v1-
 
       - name: Set up Android SDK
@@ -200,7 +201,7 @@ jobs:
           archive: true
 
       - name: Save dependency cache
-        if: always() && steps.dependency-cache.outcome == 'success' && steps.dependency-cache.outputs.cache-hit != 'true'
+        if: success() && steps.dependency-cache.outcome == 'success' && steps.dependency-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |

@@ -52,7 +52,7 @@ Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移�
 
 工具链修复的 3 项回归先全部失败（`cloud-repair/toolchain-repro-tests.txt`），补齐后全部通过（`toolchain-fixed-tests.txt`）；actionlint 与 89 篇笔记检查通过。此时仅证明工作流准备契约，真实 Ubuntu 编译与发布仍由重推 Tag 后的云端运行验收。
 
-依赖缓存采用 actions/cache v6.1.0 的 restore / save 子动作，固定官方完整 SHA `55cc8345863c7cc4c66a329aec7e433d2d1c52a9`（已读取两份 action.yml，均为 node24）。仅缓存 Gradle modules-2 / Wrapper 分发、Cargo registry / git 与 npm 内容缓存，以锁文件、Gradle 文件和 package.json 哈希失效并允许恢复同平台旧依赖。另按确切版本缓存 NDK、CMake 和 Rust 工具链；SDK 位置从 runner 环境读取。原生工具准备成功即保存；依赖缓存在临时签名清理后、失败路径也可保存，减少后续重试下载。禁止缓存整个 ~/.gradle、配置缓存、daemon 日志、构建输出、签名文件、Cargo 凭据或 npm 配置，setup-gradle 的通用缓存继续关闭。缓存只加速已锁定依赖下载，命中后仍执行测试、签名和打包校验。
+依赖缓存采用 actions/cache v6.1.0 的 restore / save 子动作，固定官方完整 SHA `55cc8345863c7cc4c66a329aec7e433d2d1c52a9`（已读取两份 action.yml，均为 node24）。仅缓存 Gradle modules-2 / Wrapper 分发、Cargo registry / git 与 npm 内容缓存，以锁文件、Gradle 文件和 package.json 哈希失效并允许恢复同平台旧依赖。另按确切版本缓存 NDK、CMake 和 Rust 工具链；SDK 位置从 runner 环境读取。原生工具准备成功即保存，依赖缓存在完整检查成功、临时签名清理后保存。GitHub 缓存不可覆盖，失败时保存不完整的依赖会永久占住同一键；完整依赖使用 v2 键，同时允许恢复已有 v1 内容补齐后再保存。禁止缓存整个 ~/.gradle、配置缓存、daemon 日志、构建输出、签名文件、Cargo 凭据或 npm 配置，setup-gradle 的通用缓存继续关闭。缓存只加速已锁定依赖下载，命中后仍执行测试、签名和打包校验。
 
 缓存白名单、锁文件失效/回退和失败路径保存的两项测试先复现缺失（`cloud-repair/cache-repro-tests.txt`）。修复后 35 项全部发布工具测试通过（`all-tool-tests.txt`，14.483 秒），两份工作流 actionlint 与 89 篇笔记检查通过。用户明确要求修复后删除远端 v0.2.0 再推送同名 Tag；原 Tag 对象为 `755cbfc6c0ea341616256b54085dc76a72bf7ef7`，指向 `845ad45238c176295f55159139a734ffb511c230`，仅在远端仍为该对象时替换，不修改其他版本。
 
