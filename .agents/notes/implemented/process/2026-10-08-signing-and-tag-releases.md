@@ -68,6 +68,10 @@ Git 配置回归先失败（`cloud-repair/git-fixture-repro.txt`），修复后 
 
 运行 38203795241 的 JVM / Lint、R8、正式证书和 0.2.0 / 2001 打包校验全部通过，但在日志步骤遇到 CLI 明确拒绝 --slurp 与 --jq 同用（`cloud-repair/job-114662704882.log`）。gh 只负责分页返回 JSON，现有 Python 日志脚本读取 JSON 页选择上个公开、非预发布且非当前 Tag 的版本；查询失败仍停止，不以失败 Tag、草稿或空文件冒充基线。不新增 jq 工具依赖，基线选择和真实 Python CLI 用离线多页夹具验收，shell 夹具同时模拟 CLI 参数冲突与 API 失败。
 
+工作流将 `gh api --paginate --slurp` 的结果写入 runner.temp 的 `published-releases.json`，通过 `--published-releases` 交给 Python；API 失败由 Bash 的错误门禁停止。加强 shell 夹具后，旧工作流在已有发布和首次发布两种场景均按真实 CLI 报错失败（`cloud-repair/gh-cli-arguments-repro.txt`），修复后检查 JSON 原样传递及查询失败不调用生成器；Python 基线选择和 CLI 的多页、草稿、预发布、当前 Tag、无历史及畸形输入回归继续保留。
+
+CLI 修复后 41 项发布工具测试全部通过（`cloud-repair/gh-cli-arguments-fixed.txt`，15.539 秒），两份工作流 actionlint 与 89 篇笔记检查通过。已认证 API 确认 main 的完整 v2 依赖缓存已保存 556680498 字节，原生工具链缓存为 867191363 字节；最终 Tag 运行继续验收实际恢复及公开附件。
+
 新版上传支持不压缩的单文件制品，但发布需要 APK、摘要和正文三个文件，因此显式使用 archive: true；下载显式使用 skip-decompress: false，让文件继续直接解压到 dist。digest-mismatch: error 使 Actions 制品摘要不一致时立即失败，发布 shell 仍单独核对 APK 的 SHA256。Tag 触发、权限拆分、临时密钥清理和草稿上传完才公开的契约保持一致。
 
 ## Related decisions
@@ -83,6 +87,7 @@ Git 配置回归先失败（`cloud-repair/git-fixture-repro.txt`），修复后 
 - 保留旧 Action 并依赖 GitHub 强制切换 Node 24：改动最少且 v0.1.5 已在兼容模式下发布成功，但上游仍声明已弃用的 Node 20，不能消除运行时和 setup-java 的版本弃用问题；升级到官方声明 node24 的稳定版本，不通过强制环境变量掩盖警告。
 - 重新开启 setup-gradle 的整个用户目录缓存：能同时复用编译脚本和更多构建状态，速度收益更大；本项目同一作业稍后接触正式签名，选择公开依赖目录白名单，避免持久化潜在签名相关状态。
 - 移除 setup-android，直接使用 runner 的 sdkmanager：可以减少一个第三方 Action，但需要自行维护命令行工具、许可证和安装路径；上游 v4.0.4 已支持 Node 24，保留原有 SDK 安装接口。
+- 将 gh 的 JSON 管道交给独立 jq：表达式简短且 Ubuntu 通常自带 jq，但会新增脚本工具依赖并将基线规则放到 shell；复用已有 Python 日志生成器解析分页 JSON，保持可离线验证。
 
 ## Verification
 

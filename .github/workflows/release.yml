@@ -181,9 +181,11 @@ jobs:
           RELEASE_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          previous=$(gh api --paginate --slurp "repos/$RELEASE_REPOSITORY/releases?per_page=100" --jq 'add | map(select(.draft == false and .prerelease == false and .tag_name != env.RELEASE_TAG)) | sort_by(.published_at) | last | .tag_name // ""')
+          gh api --paginate --slurp "repos/$RELEASE_REPOSITORY/releases?per_page=100" \
+            > "$RUNNER_TEMP/published-releases.json"
           python3 scripts/release_notes.py --tag "$RELEASE_TAG" \
-            --repository "$RELEASE_REPOSITORY" --previous-tag "$previous" \
+            --repository "$RELEASE_REPOSITORY" \
+            --published-releases "$RUNNER_TEMP/published-releases.json" \
             --output "$RUNNER_TEMP/kudo-release-dist/release-notes.md"
 
       - name: Upload verified release files

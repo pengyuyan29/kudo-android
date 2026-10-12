@@ -237,23 +237,34 @@ gh() {
         self.assertIn("        run: |\n", block)
         shell = "\n".join(line[10:] for line in block.split("        run: |\n", 1)[1].splitlines())
         stub = '''set -euo pipefail
-gh() { [[ "$SCENARIO" != error ]] || return 1; printf '%s' "$PUBLISHED_BASELINE"; }
+gh() {
+  if [[ "$*" == *'--slurp'* && "$*" == *'--jq'* ]]; then
+    printf '%s\\n' 'the `--slurp` option is not supported with `--jq` or `--template`' >&2
+    return 1
+  fi
+  [[ "$SCENARIO" != error ]] || return 1
+  printf '%s' "$PUBLISHED_PAGES"
+}
 python3() { printf '%s\\n' "$@" > arguments.txt; }
 '''
         (self.root / "notes.sh").write_text(stub + shell, encoding="utf-8", newline="\n")
-        for scenario, baseline in (("published", "v0.1.0"), ("first", ""), ("error", "")):
+        pages = [[{"tag_name": "v0.1.0", "draft": False, "prerelease": False, "published_at": "2026-10-01T00:00:00Z"}]]
+        for scenario, published in (("published", pages), ("first", [[]]), ("error", [[]])):
             with self.subTest(scenario=scenario):
                 arguments = self.root / "arguments.txt"
                 arguments.unlink(missing_ok=True)
                 result = subprocess.run([bash, "notes.sh"], cwd=self.root, capture_output=True,
-                    env={**os.environ, "SCENARIO": scenario, "PUBLISHED_BASELINE": baseline,
+                    env={**os.environ, "SCENARIO": scenario, "PUBLISHED_PAGES": json.dumps(published),
                         "RELEASE_TAG": "v0.1.3", "RELEASE_REPOSITORY": "owner/repo", "RUNNER_TEMP": str(self.root)})
                 self.assertEqual(scenario != "error", result.returncode == 0, result.stderr)
                 if scenario == "error":
                     self.assertFalse(arguments.exists())
                 else:
                     values = arguments.read_text().splitlines()
-                    self.assertEqual(baseline, values[values.index("--previous-tag") + 1])
+                    self.assertNotIn("--previous-tag", values)
+                    published_file = Path(values[values.index("--published-releases") + 1])
+                    self.assertEqual(self.root / "published-releases.json", published_file)
+                    self.assertEqual(published, json.loads(published_file.read_text(encoding="utf-8")))
 
 
 if __name__ == "__main__":
