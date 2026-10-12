@@ -77,7 +77,13 @@ import org.jsoup.nodes.TextNode
 import java.util.UUID
 
 sealed interface ArticleBlock {
-    data class TextBlock(val html: String, val quote: Boolean = false, val heading: Boolean = false) : ArticleBlock
+    data class TextBlock(
+        val html: String,
+        val quote: Boolean = false,
+        val heading: Boolean = false,
+        val headingLevel: Int = 0,
+        val headingText: String = "",
+    ) : ArticleBlock
     data class Quote(val blocks: List<ArticleBlock>, val author: String = "", val avatar: String? = null, val source: String? = null) : ArticleBlock
     data class Callout(val type: ArticleCalloutType, val title: String, val blocks: List<ArticleBlock>, val open: Boolean = true) : ArticleBlock
     data class Details(val summary: String, val blocks: List<ArticleBlock>, val open: Boolean = false) : ArticleBlock
@@ -92,6 +98,27 @@ sealed interface ArticleBlock {
     ) : ArticleBlock
     data class Embed(val url: String, val title: String, val description: String = "", val image: String? = null, val site: String = "") : ArticleBlock
     data object Rule : ArticleBlock
+}
+
+data class ArticleHeading(val level: Int, val title: String)
+
+/** Extract headings from article content while keeping quoted material out of a post TOC. */
+fun List<ArticleBlock>.articleHeadings(): List<ArticleHeading> = buildList {
+    fun visit(blocks: List<ArticleBlock>) {
+        blocks.forEach { block ->
+            when (block) {
+                is ArticleBlock.TextBlock -> if (block.heading && block.headingLevel in 1..6 && block.headingText.isNotBlank()) {
+                    add(ArticleHeading(block.headingLevel, block.headingText))
+                }
+                is ArticleBlock.Callout -> visit(block.blocks)
+                is ArticleBlock.Details -> visit(block.blocks)
+                is ArticleBlock.Spoiler -> visit(block.blocks)
+                is ArticleBlock.Quote, is ArticleBlock.Code, is ArticleBlock.Image,
+                is ArticleBlock.Embed, is ArticleBlock.Poll, ArticleBlock.Rule -> Unit
+            }
+        }
+    }
+    visit(this@articleHeadings)
 }
 
 data class ArticleCalloutType(val raw: String) {
@@ -225,7 +252,7 @@ fun parseArticle(html: String): List<ArticleBlock> {
                         title?.selectFirst("img.avatar")?.attr("src")?.let(::mediaUrl), source))
                 }
             }
-            "p", "h1", "h2", "h3", "h4", "li", "summary" -> {
+            "p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "summary" -> {
                 if (element.select(".spoiler img:not(.emoji)").isNotEmpty()) {
                     val pending = StringBuilder()
                     fun flush() {
@@ -241,7 +268,16 @@ fun parseArticle(html: String): List<ArticleBlock> {
                 }
                 val images = element.select("img:not(.emoji)")
                 val copy = element.clone().apply { select("img:not(.emoji), .lightbox .meta, .lightbox-wrapper .meta").remove() }
-                if (copy.text().isNotBlank() || copy.select("img.emoji").isNotEmpty()) result.add(ArticleBlock.TextBlock(if (element.normalName() == "li") "• ${copy.html()}" else copy.html(), quote, element.normalName().startsWith("h")))
+                val level = element.normalName().removePrefix("h").toIntOrNull()?.takeIf { it in 1..6 } ?: 0
+                if (copy.text().isNotBlank() || copy.select("img.emoji").isNotEmpty()) result.add(
+                    ArticleBlock.TextBlock(
+                        if (element.normalName() == "li") "• ${copy.html()}" else copy.html(),
+                        quote,
+                        level > 0,
+                        level,
+                        copy.text().trim(),
+                    )
+                )
                 images.forEach { walk(it, quote) }
             }
             else -> {

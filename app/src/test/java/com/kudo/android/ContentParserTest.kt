@@ -3,6 +3,7 @@ package com.kudo.android
 import com.kudo.android.data.*
 import com.kudo.android.ui.topic.ArticleBlock
 import com.kudo.android.ui.topic.ArticleCalloutType
+import com.kudo.android.ui.topic.articleHeadings
 import com.kudo.android.ui.topic.parseArticle
 import com.kudo.android.ui.topic.parseInlineArticle
 import androidx.compose.ui.graphics.Color
@@ -11,6 +12,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ContentParserTest {
+    @Test fun markdownHeadingsExposeLevelsAndPlainTitlesForTopicToc() {
+        val blocks = parseArticle("<h1>总览 <strong>一</strong></h1><h5>细节</h5><blockquote><h2>引用标题</h2></blockquote><details open><summary>折叠区</summary><h3>正文标题</h3></details>")
+        val headings = blocks.articleHeadings()
+        assertEquals(listOf(1, 5, 3), headings.map { it.level })
+        assertEquals(listOf("总览 一", "细节", "正文标题"), headings.map { it.title })
+        val h5 = blocks[1] as ArticleBlock.TextBlock
+        assertTrue(h5.heading)
+        assertEquals(5, h5.headingLevel)
+        assertEquals("细节", h5.headingText)
+    }
     @Test fun animatedSmallAttachmentKeepsHtmlWidthAndOriginalAnimationInsteadOfStaticSrcset() {
         val image = parseArticle("""<img class="animated" src="/small.avif" width="153" height="153" srcset="/still.png 2x">""").single() as ArticleBlock.Image
         assertEquals(153f, image.displayWidth)
