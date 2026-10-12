@@ -102,10 +102,11 @@ internal fun QuickScrollToTopHost(content: @Composable () -> Unit) {
             val showTop = settings.showScrollToTop && target.scrolled && ime == 0 && y >= 0
             val showAccessory = accessory != null && ime == 0 && y >= 0
             if (showTop || showAccessory) {
-                val rowX = target.bounds.center.x - bounds.left -
-                    size * (if (showTop && showAccessory) 1.5f else .5f)
-                Row(Modifier.offset { IntOffset(rowX.roundToInt(), y.roundToInt()) }) {
-                    AnimatedVisibility(showAccessory, enter = fadeIn(), exit = fadeOut()) {
+                val topX = target.bounds.center.x - bounds.left - size / 2
+                val accessoryX = target.bounds.left - bounds.left + with(density) { 16.dp.toPx() }
+                Box(Modifier.fillMaxSize()) {
+                    AnimatedVisibility(showAccessory, enter = fadeIn(), exit = fadeOut(),
+                        modifier = Modifier.offset { IntOffset(accessoryX.roundToInt(), y.roundToInt()) }) {
                         Box(Modifier.size(48.dp).testTag("quick-scroll-accessory").clickable(
                             enabled = !scrolling, interactionSource = null, indication = null,
                             onClick = { accessory?.onClick?.invoke() }), contentAlignment = Alignment.Center) {
@@ -119,7 +120,8 @@ internal fun QuickScrollToTopHost(content: @Composable () -> Unit) {
                             }
                         }
                     }
-                    AnimatedVisibility(showTop, enter = fadeIn(), exit = fadeOut()) {
+                    AnimatedVisibility(showTop, enter = fadeIn(), exit = fadeOut(),
+                        modifier = Modifier.offset { IntOffset(topX.roundToInt(), y.roundToInt()) }) {
                         Box(Modifier.size(48.dp).testTag("quick-scroll-to-top").clickable(
                             enabled = !scrolling, interactionSource = null, indication = null, onClick = {
                             if (!scrolling) scope.launch {

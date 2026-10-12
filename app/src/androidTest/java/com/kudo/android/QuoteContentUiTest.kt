@@ -135,11 +135,22 @@ class QuoteContentUiTest {
             val bounds = compose.onNodeWithText(text, useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             assertTrue(region.contains(bounds.center))
         }
+        compose.onNodeWithText("“", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("article-image-article-0").assertDoesNotExist()
         capture("quote-fixed.png")
         compose.onNodeWithContentDescription("跳转引用原帖").performClick()
         compose.runOnIdle { assertEquals("https://linux.do/t/topic/3002436/1", link); assertEquals("", image) }
         compose.onNodeWithText("电子称重勺").assertIsDisplayed()
+    }
+
+    @Test fun plainQuoteShowsDecorativeMark() {
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            Column(Modifier.fillMaxSize().padding(16.dp)) {
+                RichContent("<blockquote><p>普通正文引用</p></blockquote>", {}, {})
+            }
+        } }
+        compose.onNodeWithText("普通正文引用", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText("“", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test fun collapsedQuoteStaysCollapsedAfterSavedStateRestoration() {

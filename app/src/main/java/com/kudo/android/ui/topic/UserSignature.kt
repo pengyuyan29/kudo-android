@@ -104,6 +104,7 @@ private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> U
             }
             is ArticleBlock.Embed -> Text(block.title, Modifier.clickable { openLink(block.url) }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
             is ArticleBlock.Code -> Text(block.text, style = MaterialTheme.typography.bodySmall)
+            is ArticleBlock.Table -> Unit
             is ArticleBlock.Poll -> Unit
             ArticleBlock.Rule -> Unit
         } } }

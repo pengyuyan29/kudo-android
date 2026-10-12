@@ -27,6 +27,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.*
+import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 
@@ -67,7 +68,8 @@ internal fun redactedSpoilerText(text: AnnotatedString, hidden: List<AnnotatedSt
 
 @Composable
 internal fun SpoilerArticleText(article: InlineArticle, contentKey: String, tag: String, style: TextStyle, color: Color,
-    blurSupported: Boolean = Build.VERSION.SDK_INT >= 31, modifier: Modifier = Modifier) {
+    blurSupported: Boolean = Build.VERSION.SDK_INT >= 31, modifier: Modifier = Modifier,
+    textIndent: TextIndent = TextIndent.None) {
     val ranges = remember(article) { article.text.getStringAnnotations("spoiler", 0, article.text.length).filter { it.start < it.end } }
     var shown by rememberSaveable(contentKey) { mutableStateOf(emptyList<String>()) }
     val hidden = ranges.filter { it.item !in shown }
@@ -113,7 +115,7 @@ internal fun SpoilerArticleText(article: InlineArticle, contentKey: String, tag:
             Text(article.text, Modifier.fillMaxWidth().drawWithContent {
                 if (hidden.isEmpty()) drawContent()
                 else if (layout != null) clipPath(spoilerPath(layout, hidden), ClipOp.Difference) { this@drawWithContent.drawContent() }
-            }, inlineContent = inline, style = style, color = color, onTextLayout = { layout = it })
+            }, inlineContent = inline, style = style.copy(textIndent = textIndent), color = color, onTextLayout = { layout = it })
         }
         if (hidden.isEmpty()) SelectionContainer { body() } else body()
         if (hidden.isNotEmpty()) {
@@ -128,7 +130,7 @@ internal fun SpoilerArticleText(article: InlineArticle, contentKey: String, tag:
                 Text(blurredText, Modifier.fillMaxWidth().drawWithContent {
                     if (layout != null) clipPath(spoilerPath(layout, hidden)) { this@drawWithContent.drawContent() }
                 }.blur(7.dp, BlurredEdgeTreatment.Unbounded).clearAndSetSemantics {},
-                    inlineContent = inline, style = style, color = color)
+                    inlineContent = inline, style = style.copy(textIndent = textIndent), color = color)
             } else Box(Modifier.matchParentSize().drawWithContent { drawPath(spoilerPath(layout, hidden), color.copy(alpha = 1f)) })
         }
     }

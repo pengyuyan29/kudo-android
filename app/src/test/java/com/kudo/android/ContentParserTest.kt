@@ -36,6 +36,16 @@ class ContentParserTest {
         assertTrue(topicTocHeadings("<h2>章节</h2><h3>小节</h3>").isEmpty())
         assertTrue(topicTocHeadings("<div data-theme-toc=\"true\"></div><h1>封面</h1>").isEmpty())
     }
+    @Test fun htmlTablesRemainTablesInsteadOfCodeBlocks() {
+        val table = parseArticle("""
+            <table><thead><tr><th>项目</th><th>我的情况</th></tr></thead>
+            <tbody><tr><td>注册时间</td><td>8 月 7 日</td></tr><tr><td>卡片申请通过</td><td>8 月 19 日</td></tr></tbody></table>
+        """.trimIndent()).single() as ArticleBlock.Table
+        assertEquals(listOf(true, false, false), table.rows.map { it.header })
+        assertEquals(listOf("项目", "我的情况"), table.rows.first().cells.map { org.jsoup.Jsoup.parse(it).text() })
+        assertEquals("8 月 19 日", org.jsoup.Jsoup.parse(table.rows.last().cells.last()).text())
+    }
+
     @Test fun animatedSmallAttachmentKeepsHtmlWidthAndOriginalAnimationInsteadOfStaticSrcset() {
         val image = parseArticle("""<img class="animated" src="/small.avif" width="153" height="153" srcset="/still.png 2x">""").single() as ArticleBlock.Image
         assertEquals(153f, image.displayWidth)

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -51,6 +52,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.*
+import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +61,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
 import coil3.compose.AsyncImage
 import coil3.asDrawable
 import androidx.lifecycle.Lifecycle
@@ -90,6 +94,9 @@ sealed interface ArticleBlock {
     data class Details(val summary: String, val blocks: List<ArticleBlock>, val open: Boolean = false) : ArticleBlock
     data class Spoiler(val blocks: List<ArticleBlock>) : ArticleBlock
     data class Code(val text: String) : ArticleBlock
+    data class Table(val rows: List<Row>) : ArticleBlock {
+        data class Row(val cells: List<String>, val header: Boolean)
+    }
     data class Poll(val name: String) : ArticleBlock
     data class Image(
         val url: String, val alt: String, val ratio: Float? = null,
@@ -122,7 +129,7 @@ fun List<ArticleBlock>.articleHeadings(): List<ArticleHeading> = buildList {
                 is ArticleBlock.Callout -> visit(block.blocks, path)
                 is ArticleBlock.Details -> visit(block.blocks, path)
                 is ArticleBlock.Spoiler -> visit(block.blocks, path)
-                is ArticleBlock.Quote, is ArticleBlock.Code, is ArticleBlock.Image,
+                is ArticleBlock.Quote, is ArticleBlock.Code, is ArticleBlock.Table, is ArticleBlock.Image,
                 is ArticleBlock.Embed, is ArticleBlock.Poll, ArticleBlock.Rule -> Unit
             }
         }
@@ -201,7 +208,13 @@ fun parseArticle(html: String): List<ArticleBlock> {
         when (element.normalName()) {
             "script", "style", "noscript" -> Unit
             "pre" -> result.add(ArticleBlock.Code(element.wholeText()))
-            "table" -> result.add(ArticleBlock.Code(element.select("tr").joinToString("\n") { row -> row.select("th,td").joinToString("  │  ") { it.text() } }))
+            "table" -> {
+                val rows = element.select("tr").mapNotNull { row ->
+                    val cells = row.children().filter { it.normalName() == "th" || it.normalName() == "td" }
+                    if (cells.isEmpty()) null else ArticleBlock.Table.Row(cells.map { it.html() }, cells.any { it.normalName() == "th" })
+                }
+                if (rows.isNotEmpty()) result.add(ArticleBlock.Table(rows))
+            }
             "hr" -> result.add(ArticleBlock.Rule)
             "details" -> {
                 val summary = element.children().firstOrNull { it.normalName() == "summary" }
@@ -457,6 +470,7 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
 @Composable
 private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed: List<String>, toggle: (String) -> Unit,
     onLink: (String) -> Unit, linkHandler: UriHandler, poll: @Composable (String) -> Unit,
+    firstLineIndent: TextUnit = TextUnit.Unspecified,
     image: @Composable (ArticleBlock.Image, String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         blocks.forEachIndexed { index, block ->
@@ -475,7 +489,7 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                     Text(summary, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 }
                 if (!hidden) Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
-                    ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, poll, image)
+                    ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, poll, image = image)
                 }
             }
             is ArticleBlock.Callout -> {
@@ -493,7 +507,7 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                             Modifier.size(18.dp), tint = accent)
                     }
                     if (!hidden) Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
-                        ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, poll, image)
+                        ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, poll, image = image)
                     }
                 }
             }
@@ -519,7 +533,18 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                         } }
                     }
                 }
-                if (path !in collapsed) ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, poll, image)
+                if (path !in collapsed) {
+                    Box(Modifier.fillMaxWidth()) {
+                        if (block.source == null) {
+                            Text("“", Modifier.align(Alignment.TopStart),
+                                style = MaterialTheme.typography.displayMedium,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = .28f))
+                        }
+                        ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, poll,
+                            firstLineIndent = if (block.source == null) 48.sp else TextUnit.Unspecified,
+                            image = image)
+                    }
+                }
             }
             is ArticleBlock.TextBlock -> {
                 val color = MaterialTheme.colorScheme.primary
@@ -538,6 +563,7 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                     SpoilerArticleText(article, block.html, "article-text-$path",
                         if (block.heading) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
                         if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                        textIndent = if (index == 0 && firstLineIndent != TextUnit.Unspecified) TextIndent(firstLine = firstLineIndent) else TextIndent.None,
                         modifier = headingRequester?.let { Modifier.bringIntoViewRequester(it) } ?: Modifier)
                 }
             }
@@ -548,11 +574,41 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                 }
             }
             is ArticleBlock.Code -> CodeBlock(block.text)
+            is ArticleBlock.Table -> ArticleTable(block, path, linkHandler)
             is ArticleBlock.Image -> image(block, path)
             is ArticleBlock.Embed -> OneboxPreview(block, onLink)
             is ArticleBlock.Poll -> poll(block.name)
             ArticleBlock.Rule -> Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
         } } }
+    }
+}
+
+@Composable
+private fun ArticleTable(block: ArticleBlock.Table, path: String, linkHandler: UriHandler) {
+    val color = MaterialTheme.colorScheme.primary
+    val columns = block.rows.maxOfOrNull { it.cells.size } ?: return
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+        .background(MaterialTheme.colorScheme.surfaceVariant).testTag("article-table-$path")) {
+        block.rows.forEachIndexed { rowIndex, row ->
+            Row(Modifier.fillMaxWidth().then(
+                if (row.header) Modifier.background(MaterialTheme.colorScheme.onSurface.copy(alpha = .04f)) else Modifier),
+                verticalAlignment = Alignment.CenterVertically) {
+                repeat(columns) { column ->
+                    val html = row.cells.getOrNull(column).orEmpty()
+                    val article = remember(html, color) { parseInlineArticle(html, color) }
+                    CompositionLocalProvider(LocalUriHandler provides linkHandler) {
+                        Box(Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 8.dp)) {
+                            SpoilerArticleText(article, "table-$path-$rowIndex-$column", "article-table-cell-$path-$rowIndex-$column",
+                                if (row.header) MaterialTheme.typography.labelLarge else MaterialTheme.typography.bodyMedium,
+                                MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                }
+            }
+            if (rowIndex < block.rows.lastIndex) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .7f))
+            }
+        }
     }
 }
 
