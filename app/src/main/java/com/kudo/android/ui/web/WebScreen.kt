@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.os.Bundle
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.webkit.*
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -18,6 +19,8 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -52,6 +55,7 @@ internal fun WebScreen(url: String, back: () -> Unit, openBrowser: (String) -> U
     var scrollY by remember(url) { mutableIntStateOf(0) }
     var viewportHeight by remember(url) { mutableIntStateOf(0) }
     val scrolled = viewportHeight > 0 && scrollY >= viewportHeight
+    val surfaceColor = MaterialTheme.colorScheme.surface.toArgb()
     val currentBack by rememberUpdatedState(back)
     fun navigateBack() { val view = page.view; if (view?.canGoBack() == true) view.goBack() else currentBack() }
     fun retry() {
@@ -90,6 +94,9 @@ internal fun WebScreen(url: String, back: () -> Unit, openBrowser: (String) -> U
             }) {
             AndroidView(factory = { context ->
                 webViewFactory(context).apply {
+                    setBackgroundColor(surfaceColor)
+                    outlineProvider = ViewOutlineProvider.BOUNDS
+                    clipToOutline = true
                     // Keep CSS viewport units bounded; AndroidView otherwise defaults to WRAP_CONTENT.
                     layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                     settings.javaScriptEnabled = true
@@ -146,12 +153,12 @@ internal fun WebScreen(url: String, back: () -> Unit, openBrowser: (String) -> U
                     setOnScrollChangeListener { _, _, y, _, _ -> scrollY = y }
                     if (page.saved?.let { restoreState(it) } == null) loadUrl(url)
                 }
-            }, onRelease = { view ->
+            }, update = { view -> view.setBackgroundColor(surfaceColor) }, onRelease = { view ->
                 page.view = null
                 view.setOnScrollChangeListener(null)
                 view.stopLoading(); view.removeAllViews(); view.destroy()
                 CookieManager.getInstance().flush()
-            }, modifier = Modifier.fillMaxSize().onSizeChanged { viewportHeight = it.height }.testTag("web-content"))
+            }, modifier = Modifier.fillMaxSize().clipToBounds().onSizeChanged { viewportHeight = it.height }.testTag("web-content"))
             if (awaitingContent && error == null) Column(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface).testTag("web-loading"),
                 verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),

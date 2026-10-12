@@ -1,6 +1,7 @@
 package com.kudo.android.ui.theme
 
 import android.app.Activity
+import android.graphics.drawable.ColorDrawable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
@@ -10,6 +11,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
@@ -53,15 +55,17 @@ private val KudoTypography = Typography(
 @Composable
 fun KudoTheme(settings: DisplaySettings, darkStatusIcons: Boolean? = null, content: @Composable () -> Unit) {
     val dark = when (settings.theme) { ThemeMode.SYSTEM -> isSystemInDarkTheme(); ThemeMode.LIGHT -> false; ThemeMode.DARK -> true }
+    val colors = if (dark) Dark else Light
     val view = LocalView.current
     SideEffect {
         (view.context as? Activity)?.window?.let {
+            it.setBackgroundDrawable(ColorDrawable(colors.background.toArgb()))
             WindowCompat.getInsetsController(it, view).apply { isAppearanceLightStatusBars = darkStatusIcons ?: !dark; isAppearanceLightNavigationBars = !dark }
         }
     }
     val density = LocalDensity.current
     CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale * settings.fontScale), LocalDisplaySettings provides settings) {
-        MaterialTheme(colorScheme = if (dark) Dark else Light, typography = KudoTypography) {
+        MaterialTheme(colorScheme = colors, typography = KudoTypography) {
             Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background, contentColor = MaterialTheme.colorScheme.onBackground) {
                 content()
             }

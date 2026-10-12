@@ -2,13 +2,19 @@ package com.kudo.android
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.drawable.ColorDrawable
 import android.webkit.*
+import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.core.view.WindowCompat
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kudo.android.data.AndroidSessionCookies
 import com.kudo.android.data.DisplaySettings
@@ -26,7 +32,7 @@ import java.util.concurrent.atomic.AtomicReference
 import java.io.File
 
 class WebScreenUiTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val views = mutableListOf<FixtureWebView>()
     private val loadedTitle = AtomicReference("")
     private val loads = AtomicInteger()
@@ -87,6 +93,45 @@ class WebScreenUiTest {
             compose.onNodeWithText("reader-fixture.test").assertDoesNotExist()
             capture("ui-polish-web-loaded.png")
         } finally { gate.countDown() }
+    }
+
+    @Test fun darkLoadingKeepsWindowStatusBarAndToolbarOnTheSameTheme() {
+        compose.runOnUiThread { compose.activity.enableEdgeToEdge() }
+        val surface = AtomicInteger()
+        val background = AtomicInteger()
+        val gate = CountDownLatch(1)
+        responseGate = gate
+        try {
+            compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.DARK)) {
+                val colors = MaterialTheme.colorScheme
+                SideEffect { surface.set(colors.surface.toArgb()); background.set(colors.background.toArgb()) }
+                WebScreen(start, {}, {}, ::create)
+            } }
+            fun assertDarkChrome(stage: String) {
+                compose.onNodeWithTag("web-loading").assertIsDisplayed()
+                capture("browser-dark-$stage.png")
+                val titleBounds = compose.onNodeWithText(if (stage == "initial") "网页" else "指南").fetchSemanticsNode().boundsInRoot
+                val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+                try {
+                    assertEquals("$stage status bar background", surface.get(), screenshot.getPixel(screenshot.width / 2, 4))
+                    assertEquals("$stage toolbar background", surface.get(), screenshot.getPixel(screenshot.width - 4, titleBounds.center.y.toInt()))
+                } finally { screenshot.recycle() }
+                compose.runOnIdle {
+                    assertFalse(WindowCompat.getInsetsController(compose.activity.window, compose.activity.window.decorView).isAppearanceLightStatusBars)
+                    assertEquals("$stage native window fallback", background.get(), (compose.activity.window.decorView.background as? ColorDrawable)?.color)
+                }
+            }
+            assertDarkChrome("initial")
+            gate.countDown()
+            awaitPage("指南")
+            val refreshGate = CountDownLatch(1)
+            responseGate = refreshGate
+            try {
+                compose.onNodeWithContentDescription("刷新网页").performClick()
+                assertDarkChrome("refresh")
+            } finally { refreshGate.countDown() }
+            awaitPage("指南")
+        } finally { gate.countDown(); responseGate?.countDown() }
     }
 
     private fun capture(name: String) {
@@ -183,7 +228,10 @@ class WebScreenUiTest {
     @Test fun errorsCanRetryAndRecompositionDoesNotReloadTheInitialPage() {
         failFirst = true
         var dark by mutableStateOf(false)
+        val background = AtomicInteger()
         compose.setContent { KudoTheme(DisplaySettings(theme = if (dark) ThemeMode.DARK else ThemeMode.LIGHT)) {
+            val color = MaterialTheme.colorScheme.background.toArgb()
+            SideEffect { background.set(color) }
             WebScreen(start, {}, {}, ::create)
         } }
         compose.waitUntil(10000) { compose.onAllNodesWithTag("web-error").fetchSemanticsNodes().isNotEmpty() }
@@ -191,8 +239,14 @@ class WebScreenUiTest {
         compose.onNodeWithText("重新加载").performClick()
         awaitPage("指南")
         val previous = loads.get()
-        compose.runOnIdle { dark = true }
-        compose.runOnIdle { assertEquals(previous, loads.get()); assertEquals(1, views.size) }
+        compose.runOnIdle {
+            assertEquals(background.get(), (compose.activity.window.decorView.background as? ColorDrawable)?.color)
+            dark = true
+        }
+        compose.runOnIdle {
+            assertEquals(previous, loads.get()); assertEquals(1, views.size)
+            assertEquals(background.get(), (compose.activity.window.decorView.background as? ColorDrawable)?.color)
+        }
         compose.onNodeWithContentDescription("刷新网页").performClick()
         compose.waitUntil(10000) { loads.get() > previous }
         awaitPage("指南")

@@ -14,6 +14,8 @@ WebView 使用 CookieManager 默认存储，与 LoginScreen 和 AndroidSessionCo
 
 标题栏仅显示页面标题，不另占一行显示域名，外部浏览器入口使用Language网格地球矢量。首屏、导航和刷新等待期间覆盖主题底色并居中显示CommunityLoadingIndicator，使用L站图标的黑/白/黄三色，弧长3:4:3（108°/144°/108°），淡轮廓帮助黑白段区别于背景。onPageCommitVisible或onPageFinished后的视觉状态确认后收起；下载进度100本身不代表内容可见。视觉回调按导航代次检查，错误或下载交接停止loading，失败保留原有重试入口，等待期间禁用网页回顶入口。
 
+网页等待期间的原生绘制与 Compose 共用主题：KudoTheme 同步 Activity 窗口背景与根 Surface 的 background 色，状态栏图标继续按当前主题及个人主页覆盖设置决定。WebView 在加载地址前设置 surface 底色，AndroidView 更新时同步新主题；原生 View 及 Compose 内容区都裁切到网页视口，防止其初始绘制影响上方标题栏和状态栏。颜色变化只更新已有实例，不重载网页或丢弃历史。此约束也覆盖显式选择深色、浅色及跟随系统。
+
 ## Existing note audit
 
 WebView 原生布局使用[有界视口](../bug-fix/2026-10-10-webview-viewport.md)，保证 vh 与 iframe 高度随可用空间正常计算。
@@ -26,8 +28,14 @@ WebView 原生布局使用[有界视口](../bug-fix/2026-10-10-webview-viewport.
 - 全部站内页面直接原生路由能保持交互统一，但当前只实现帖子、用户和分类，指南等页面仍需要网页；只匹配已支持目标，其余交给 WebView。
 - 手工把社区 Cookie 注入每次网页请求能直观控制首个请求，但容易遗漏重定向与子资源，也会破坏按域隔离；复用平台 CookieManager。
 - 网页内点击站内链接再次原生分流，能直接复用客户端页面；用户明确指出连续浏览会割裂，因此只在原生内容入口分流，WebView 全程维护网页历史。
+- 仅保留 Compose 加载遮罩可复用现有主题渲染，但遮罩只覆盖网页内容区，无法约束原生 WebView 的白底及越界绘制；原生窗口和 WebView 也需要同步底色并限定绘制范围。
+- 仅增加 XML 夜间窗口资源可在系统深色下提供启动底色，但运行中显式切换 App 外观仍需要跟随 Compose 主题；窗口在运行时同步颜色，不借此改变网页 CSS 或站点自身的深色设置。
 
 ## Testing
+
+RMX2202 / Android 13 的延迟主文档用例在修复前捕捉到深色内容区上方整块白色标题栏和状态栏，截图 artifacts/browser-dark-repro-initial.png，状态栏背景期望 #1C1D20、实际 #FFFFFF，日志 artifacts/browser-dark-repro-device.txt。真实社区指南的一次连续截图未捕捉同一顶部闪白，因此不把真实页面的首次检查作为复现证据。用例使用与 MainActivity 一致的 edge-to-edge 宿主，检查截图中状态栏和标题栏的实际像素以及原生窗口后备背景，覆盖初始等待和刷新等待。
+
+修复后该用例通过，已检查 artifacts/browser-dark-fix-initial.png 和 artifacts/browser-dark-fix-refresh.png，标题及操作图标完整显示，顶部为 #1C1D20。WebScreenUiTest 全部9项在同机通过（artifacts/browser-dark-regression-device.txt），覆盖首屏/刷新、网页历史、Cookie、恢复与释放、错误重试、浅色切深色不重载及 CSS 视口。实际 App 外观为 SYSTEM，系统深色下进入社区指南的5帧顶部采样均为 #1C1D20，已检查 artifacts/browser-dark-live-final-2.png；网站当时显示 Cloudflare 验证页，本轮不把这张截图作为社区指南内容加载成功的证据。Debug 验签后使用 install -r 覆盖，数据保留，测试结束恢复系统夜间模式 auto。Release 以 0.2.0 / 2001 构建通过，产物为 artifacts/release/0.2.0/browser-dark-loading/kodo_0.2.0_release_arm64-v8a.apk。
 
 三色加载样式已统一共用列表、网页、楼层向前补载、投票等待与下拉刷新；保留18/24/26dp现有尺寸，下拉刷新仍用Material3的40dp容器、16dp图形和原有拖动状态，图形随拖动旋转，真正刷新后无限旋转。5项现有真机用例通过（artifacts/tricolor-loading-device-ui.txt），覆盖网页初始等待/刷新、深色大字首页及短分类列表下拉触发、向前补载保持锚点；网页初始等待另在系统深色下复验通过（artifacts/tricolor-loading-dark-ui.txt）。已查看tricolor-loading-light.png、tricolor-loading-dark.png及真实下拉中的tricolor-loading-pull.png，黑白段保留固定图标色，通过淡轮廓提高背景区分度。系统夜间模式恢复为测试前的auto，开发版验签后install -r覆盖，未卸载或清数据。此轮仅改变样式，复用现有用例，不新增镜像绘制实现的测试或运行无关全量单测。
 
@@ -48,3 +56,5 @@ RMX2202 / Android 13 实页验收：设置的社区指南在应用内加载，�
 ## Consequences
 
 进入网页后连续浏览，不强制切换原生页面；原生正文和显式完整资料/指南入口共享 WebView 能力。HTTP 网页允许明文传输，社区请求依旧要求同源 HTTPS。WebView Bundle 保存历史与当前地址，不保留网页 DOM 或未提交网页表单。下载提示使用外部浏览器，非 HTTP(S) scheme 不自动唤起其他应用。分类仅 slug 的历史地址回退网页，不猜 ID。网页登录仍受站点验证与 WebView 兼容性约束；真实登录态的端到端验收需要已登录账号，夹具不能替代实际网站权限验证。
+
+窗口后备背景在 App 主题变化时同步，网页绘制被限定在自身视口。网页自身仍可声明浅色背景；此处不强制改写网站 CSS。顶部防闪白的设备验证覆盖 RMX2202 / Android 13，其他厂商和 WebView 版本仍需复核。
