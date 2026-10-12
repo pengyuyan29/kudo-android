@@ -7,6 +7,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
 
@@ -35,7 +36,9 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
     private var lastRefreshEpoch = 0
     private var lastReadingEpoch = 0
     private var readingCountJob: Job? = null
-    init { refresh() }
+    private val refreshResults = Channel<Int>(Channel.BUFFERED)
+    val refreshEvents = refreshResults.receiveAsFlow()
+    init { refresh(manual = false) }
     fun setUser(value: Member?): Boolean {
         if (value?.id == user?.id && value?.unifiedNew == user?.unifiedNew) return false
         user = value
@@ -43,7 +46,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         baseline = null
         acknowledgeOnProbe = false
         _state.value = FeedState(filter = defaultFeedFilter(value, categoryId != null || tagSlug != null), accountId = value?.id)
-        refresh()
+        refresh(manual = false)
         restartUpdates()
         return true
     }
@@ -58,19 +61,19 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         baseline = cached?.topics?.associateBy(Topic::id)
         _state.value = cached?.copy(categories = previous.categories, loadingMore = false)
             ?: FeedState(categories = previous.categories, filter = filter, accountId = user?.id)
-        if (cached == null) refresh()
+        if (cached == null) refresh(manual = false)
         restartUpdates()
     }
     fun refreshFromNavigation() {
         _state.update { it.copy(scrollToTopRequest = it.scrollToTopRequest + 1) }
-        if (!_state.value.loading) refresh()
+        if (!_state.value.loading) refresh(manual = true)
     }
 
     fun refreshIfRequested(epoch: Int) {
         if (epoch <= 0 || epoch == lastRefreshEpoch) return
         lastRefreshEpoch = epoch
         _pages.value = emptyMap()
-        refresh()
+        refresh(manual = false)
     }
 
     fun refreshReadListsIfRequested(epoch: Int, accountId: Int?) {
@@ -168,7 +171,9 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
         }
     }
 
-    fun refresh() {
+    fun refresh() = refresh(manual = true)
+
+    private fun refresh(manual: Boolean) {
         job?.cancel()
         moreJob?.cancel()
         readingCountJob?.cancel()
@@ -181,9 +186,13 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
             try {
                 val page = withContext(Dispatchers.IO) { loadTopics(filter) }
                 if (token != generation) return@launch
+                val loadedNewCount = if (manual) {
+                    baseline?.let { old -> page.topics.count { topic -> old[topic.id]?.let { topic.hasNewContentComparedTo(it) } ?: true } } ?: 0
+                } else null
                 baseline = page.topics.associateBy(Topic::id)
                 acknowledgeOnProbe = arrivalRevision != refreshRevision
                 _state.update { it.copy(topics = page.topics.distinctBy(Topic::id), next = page.next, loading = false, hasUpdates = it.hasUpdates && acknowledgeOnProbe) }
+                if (categoryId == null && tagSlug == null) loadedNewCount?.let(refreshResults::trySend)
                 if (acknowledgeOnProbe) signals?.trySend(Unit)
                 coroutineScope {
                     if (_state.value.categories.isEmpty()) launch {
