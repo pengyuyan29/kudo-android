@@ -10,7 +10,7 @@ Debug 依赖开发机器的默认证书，Release 没有签名配置，仓库没
 
 当前本地打包与 Tag 基线为 `0.2.0` / `2001`，下一版从 `0.2.1` / `2002` 开始。Release APK 只打包 `arm64-v8a`，发布脚本将验证 APK 的 `native-code` 清单只包含该 ABI；公开产物统一命名为 `kodo_<version>_release_arm64-v8a.apk` 及对应的 `.sha256` 文件。
 
-0.2.0 本地验收：使用 Gradle 参数 `-PversionName=0.2.0 -PversionCode=2001` 构建，默认版本不变。最终 APK 为 `artifacts/release/0.2.0/kodo_0.2.0_release_arm64-v8a.apk`，8.70 MiB，SHA256 为 `c36a8c4d2e458a90619729ce719f2921b64374242f5df243286175f1672c5bdd`；与 0.1.9 正式证书一致，版本、单 arm64-v8a、非 debuggable、16KB ZIP 对齐和三份 native ELF LOAD 对齐通过（同目录 `local-verification.txt`）。46 项相关 JVM 测试、最终 Release R8 / Lint、40 项 RMX2202 / Android 13 设备回归及两项图片帧探针通过。日志分别为 `artifacts/image-spoiler-final-build.txt`、`release-0.2.0-final-build.txt`、`release-0.2.0-final-device.txt`、`gallery-frame-probe-final-device.txt`；Lint 为 0 errors / 41 warnings / 1 hint。手机使用同签名开发包 `install -r`，不安装正式包、不卸载或清数据。GitHub 已公开正式版本经认证 API 核实仍为 v0.1.5，App 更新日志以此为基线；云端发布流程按用户要求暂不处理，本地 Tag 不代表已公开 Release。
+0.2.0 本地验收：使用 Gradle 参数 `-PversionName=0.2.0 -PversionCode=2001` 构建，默认版本不变。最终 APK 为 `artifacts/release/0.2.0/kodo_0.2.0_release_arm64-v8a.apk`，8.70 MiB，SHA256 为 `c36a8c4d2e458a90619729ce719f2921b64374242f5df243286175f1672c5bdd`；与 0.1.9 正式证书一致，版本、单 arm64-v8a、非 debuggable、16KB ZIP 对齐和三份 native ELF LOAD 对齐通过（同目录 `local-verification.txt`）。46 项相关 JVM 测试、最终 Release R8 / Lint、40 项 RMX2202 / Android 13 设备回归及两项图片帧探针通过。日志分别为 `artifacts/image-spoiler-final-build.txt`、`release-0.2.0-final-build.txt`、`release-0.2.0-final-device.txt`、`gallery-frame-probe-final-device.txt`；Lint 为 0 errors / 41 warnings / 1 hint。手机使用同签名开发包 `install -r`，不安装正式包、不卸载或清数据。用户随后要求修复云端构建并删除重推同名 Tag；v0.2.0 已完成云端发布及实际附件验收，App 更新日志以此前已公开的 v0.1.5 为基线。
 
 `release_version.py` 集中定义发布 ABI 并生成小写文件名，`prepare_release.py` 在复制 APK 前解析 `aapt dump badging`，缺少 native-code、包含多个 ABI 或出现其他 ABI 都会拒绝发布。
 
@@ -73,6 +73,10 @@ Git 配置回归先失败（`cloud-repair/git-fixture-repro.txt`），修复后 
 CLI 修复后 41 项发布工具测试全部通过（`cloud-repair/gh-cli-arguments-fixed.txt`，15.539 秒），两份工作流 actionlint 与 89 篇笔记检查通过。已认证 API 确认 main 的完整 v2 依赖缓存已保存 556680498 字节，原生工具链缓存为 867191363 字节；最终 Tag 运行继续验收实际恢复及公开附件。
 
 main 路径过滤回归先复现无条件分支触发（`cloud-repair/main-paths-repro.txt`），收窄后 42 项发布工具测试通过（`main-paths-fixed.txt`，15.928 秒），actionlint 与 89 篇笔记检查通过。用户确认普通提交不应重复编译；本轮重复 main 运行 38205319317 已取消，保留 Tag 运行。运行 38205318965 实际命中 827 MiB 原生工具和 531 MiB 完整依赖缓存，Rust 11 项测试通过；311 项 JVM 中楼层并发测试超时，发布未执行，后续依实际报告修复，不绕过门禁。
+
+最终[运行 38206575089](https://github.com/woliubang256/kudo-android/actions/runs/38206575089)的 build / publish 均成功，42 项发布工具测试、11 项 Rust 测试、完整 JVM / Lint 和签名 R8 门禁通过；Android 检查 9 分 30 秒，正式构建 6 分 40 秒。工具链命中 827 MiB，依赖命中 main 的完整 v2 缓存 531 MiB。远端 v0.2.0 注释 Tag 对象 `f73533540cd58e5a1d0b228e3724dfd10f6c11d1` 指向 `3c209ac712ded97e03690427daac9ba662a7fb9b`；本次工作流修改触发的重复 main 运行 38206575138 已取消。
+
+[v0.2.0 Release](https://github.com/woliubang256/kudo-android/releases/tag/v0.2.0) 于 2026-10-12 05:26:14 UTC 发布，非草稿。重新下载的 `kodo_0.2.0_release_arm64-v8a.apk` 为 9121314 字节，SHA256 为 `db6f8abed07656c44cc6d50d9f779a520f970d1ee89d0e4cdefb894dae87048f`，与下载的摘要文件一致；正式证书 SHA256 为 `457c98f5786d224e5117d732126389b8b7cedad5df1b14366b7e662481d22418`。包名、0.2.0 / 2001、单 arm64-v8a、非 debuggable、16KB ZIP / ELF LOAD 对齐全部通过，Release 正文与已审查的 App-only 日志一致。附件、正文与验收保存在 `artifacts/release/0.2.0/cloud-repair/published/`，构建及发布日志为同目录上一层的 `job-114671263366.log` / `job-114675392669.log`。云端与本机 APK 字节不同，不声明跨平台字节可复现；本次未安装或清理手机应用。
 
 新版上传支持不压缩的单文件制品，但发布需要 APK、摘要和正文三个文件，因此显式使用 archive: true；下载显式使用 skip-decompress: false，让文件继续直接解压到 dist。digest-mismatch: error 使 Actions 制品摘要不一致时立即失败，发布 shell 仍单独核对 APK 的 SHA256。Tag 触发、权限拆分、临时密钥清理和草稿上传完才公开的契约保持一致。
 

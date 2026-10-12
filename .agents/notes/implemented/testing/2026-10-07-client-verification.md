@@ -40,7 +40,7 @@ CommunityUiTest 的整栏抬升与取消复位检查同样按真实16ms间隔推
 
 补充状态诊断后，本地两核同一 JVM 50 轮共 600 项楼层测试通过（`cloud-repair/floor-diagnostic-repeat.txt`，测试 9.297 秒），没有复现云端底层传输失败。该顺序用例通过 DiscourseClient 已有 Call.Factory 入口使用可控异步 HTTP 回调：确认80楼请求已挂起、发起100楼后断言旧 Call 已取消，显式完成100楼并等待跳转，再从 IO 回送80楼迟到响应，检查目标、修订号和内容均不被覆盖。控制取消后仍能返回 onResponse 的真实竞态契约，不使用 sleep 或延长超时；其他楼层请求仍使用原网络夹具。不能据此声称已确定云端 socket 失败的底层根因。
 
-可控回调修复后，12 项楼层回归及两核同 JVM 50 轮共 600 项通过（`cloud-repair/floor-controlled-fixed.txt`，重复测试 5.340 秒）；目标断言、取消断言及旧楼层不入缓存的断言全部保留。云端完整 311 项 JVM、Lint 和实际发布由下一次 Tag 运行验收。
+可控回调修复后，12 项楼层回归及两核同 JVM 50 轮共 600 项通过（`cloud-repair/floor-controlled-fixed.txt`，重复测试 5.340 秒）；目标断言、取消断言及旧楼层不入缓存的断言全部保留。云端运行 38206575089 的完整 JVM、Lint、正式 R8 与发布全部通过（`cloud-repair/job-114671263366.log` / `job-114675392669.log`），实际发布附件也完成验签和版本复验，见[发布验收](../process/2026-10-08-signing-and-tag-releases.md)。
 
 云端v0.1.8在FeedViewModelTest启动前报告未处理异常，具体被抑制异常尚未取得；同次楼层跳转测试出现等待超时。两核本地连续运行相关三组共200个测试未复现原失败，不据此宣称根因已确定。排查发现FeedUpdates夹具关闭时只cancel、不等待协程结束就重置Main和关闭线程；新增用例挂起取消清理，检查关闭动作必须等待清理完成。楼层网络夹具的动作及状态延续统一在独立单线程Main执行，与App的串行UI线程一致，避免Unconfined让网络回调与测试动作并发操作ViewModel；网络等待仍为5秒，不以延长等待规避失败。
 
