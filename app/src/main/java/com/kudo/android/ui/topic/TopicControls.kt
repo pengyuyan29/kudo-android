@@ -198,7 +198,6 @@ internal fun TopicBottomBar(
 @Composable
 private fun ReplyingAvatars(users: List<Member>, compact: Boolean, modifier: Modifier) {
     val visible = users.take(3)
-    val outline = MaterialTheme.colorScheme.surface
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
     val size = minOf(if (compact) 20.dp else 24.dp, maxHeight, maxWidth)
     val step = if (visible.size == 1) 0.dp else minOf(if (compact) 10.dp else 16.dp,
@@ -206,7 +205,7 @@ private fun ReplyingAvatars(users: List<Member>, compact: Boolean, modifier: Mod
     Box(Modifier.width(size + step * (visible.size - 1)).height(size).testTag("topic-replying-avatars")) {
         visible.forEachIndexed { index, member ->
             Box(Modifier.offset(x = step * index).size(size).clip(CircleShape)
-                .border(1.dp, outline, CircleShape).testTag("topic-replying-avatar-${member.id}")) {
+                .testTag("topic-replying-avatar-${member.id}")) {
                 Avatar(member, size, presentation = AvatarPresentation.PLAIN)
                 if (index == 2 && users.size > 3) {
                     Box(Modifier.fillMaxSize().background(Ink.copy(alpha = .72f)), contentAlignment = Alignment.Center) {
