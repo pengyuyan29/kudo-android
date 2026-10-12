@@ -22,6 +22,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
@@ -90,6 +91,7 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
         val latestMaximum by rememberUpdatedState(maximum)
         val visibleCollapse = collapse.coerceIn(0f, maximum)
         val fraction = if (maximum > 0f) visibleCollapse / maximum else 1f
+        val compactIdentityAlpha = profileToolbarIdentityAlpha(fraction)
         val collapsed = fraction >= .999f
         LaunchedEffect(maximum) { collapse = collapse.coerceIn(0f, maximum) }
         val nested = remember(user.id) { object : NestedScrollConnection {
@@ -174,8 +176,9 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
                     fontSize = 12.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
-        if (collapsed) MemberCompactHeader(member, backgroundLoaded, profile,
-            { destination(AccountDestination.TRUST) }, Modifier.align(Alignment.TopCenter))
+        if (compactIdentityAlpha > 0f) MemberCompactHeader(member, backgroundLoaded, profile,
+            { destination(AccountDestination.TRUST) }, Modifier.align(Alignment.TopCenter)
+                .graphicsLayer { alpha = compactIdentityAlpha })
     }
 }
 
