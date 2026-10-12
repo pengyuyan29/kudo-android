@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.drawable.Animatable
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
@@ -100,26 +101,38 @@ sealed interface ArticleBlock {
     data object Rule : ArticleBlock
 }
 
-data class ArticleHeading(val level: Int, val title: String)
+data class ArticleHeading(val level: Int, val title: String, val path: String = "")
+
+internal val LocalArticleHeadingCollector = staticCompositionLocalOf<((ArticleHeading, BringIntoViewRequester) -> Unit)?> { null }
+
+fun hasThemeTocMarker(html: String): Boolean {
+    val first = Jsoup.parseBodyFragment(html).body().children().firstOrNull() ?: return false
+    return first.normalName() == "div" && first.attr("data-theme-toc").equals("true", ignoreCase = true)
+}
 
 /** Extract headings from article content while keeping quoted material out of a post TOC. */
 fun List<ArticleBlock>.articleHeadings(): List<ArticleHeading> = buildList {
-    fun visit(blocks: List<ArticleBlock>) {
-        blocks.forEach { block ->
+    fun visit(blocks: List<ArticleBlock>, parent: String) {
+        blocks.forEachIndexed { index, block ->
+            val path = "$parent-$index"
             when (block) {
                 is ArticleBlock.TextBlock -> if (block.heading && block.headingLevel in 1..6 && block.headingText.isNotBlank()) {
-                    add(ArticleHeading(block.headingLevel, block.headingText))
+                    add(ArticleHeading(block.headingLevel, block.headingText, path))
                 }
-                is ArticleBlock.Callout -> visit(block.blocks)
-                is ArticleBlock.Details -> visit(block.blocks)
-                is ArticleBlock.Spoiler -> visit(block.blocks)
+                is ArticleBlock.Callout -> visit(block.blocks, path)
+                is ArticleBlock.Details -> visit(block.blocks, path)
+                is ArticleBlock.Spoiler -> visit(block.blocks, path)
                 is ArticleBlock.Quote, is ArticleBlock.Code, is ArticleBlock.Image,
                 is ArticleBlock.Embed, is ArticleBlock.Poll, ArticleBlock.Rule -> Unit
             }
         }
     }
-    visit(this@articleHeadings)
+    visit(this@articleHeadings, "root")
 }
+
+fun topicTocHeadings(html: String): List<ArticleHeading> =
+    if (hasThemeTocMarker(html)) parseArticle(html).articleHeadings().filter { it.level == 2 || it.level == 3 }
+    else emptyList()
 
 data class ArticleCalloutType(val raw: String) {
     val label: String get() = raw.replace('-', ' ').replace('_', ' ').replaceFirstChar { it.uppercase() }
@@ -511,10 +524,21 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
             is ArticleBlock.TextBlock -> {
                 val color = MaterialTheme.colorScheme.primary
                 val article = remember(block.html, color) { parseInlineArticle(block.html, color) }
+                val headingCollector = LocalArticleHeadingCollector.current
+                val headingRequester = if (headingCollector != null && block.heading && block.headingLevel in 1..6) {
+                    remember { BringIntoViewRequester() }
+                } else null
+                if (headingRequester != null) {
+                    DisposableEffect(path, block.headingText, headingRequester) {
+                        headingCollector?.invoke(ArticleHeading(block.headingLevel, block.headingText, path), headingRequester)
+                        onDispose { }
+                    }
+                }
                 CompositionLocalProvider(LocalUriHandler provides linkHandler) {
                     SpoilerArticleText(article, block.html, "article-text-$path",
                         if (block.heading) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyLarge,
-                        if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface)
+                        if (block.quote) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                        modifier = headingRequester?.let { Modifier.bringIntoViewRequester(it) } ?: Modifier)
                 }
             }
             is ArticleBlock.Spoiler -> SpoilerRegion(block, "article-spoiler-$path") { toggleSpoiler ->

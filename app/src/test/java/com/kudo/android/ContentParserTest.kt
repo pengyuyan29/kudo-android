@@ -4,6 +4,8 @@ import com.kudo.android.data.*
 import com.kudo.android.ui.topic.ArticleBlock
 import com.kudo.android.ui.topic.ArticleCalloutType
 import com.kudo.android.ui.topic.articleHeadings
+import com.kudo.android.ui.topic.hasThemeTocMarker
+import com.kudo.android.ui.topic.topicTocHeadings
 import com.kudo.android.ui.topic.parseArticle
 import com.kudo.android.ui.topic.parseInlineArticle
 import androidx.compose.ui.graphics.Color
@@ -21,6 +23,18 @@ class ContentParserTest {
         assertTrue(h5.heading)
         assertEquals(5, h5.headingLevel)
         assertEquals("细节", h5.headingText)
+    }
+
+    @Test fun themeTocRequiresMarkerAtStartOfPost() {
+        assertTrue(hasThemeTocMarker("<div data-theme-toc=\"true\"></div><h2>章节</h2><h3>小节</h3>"))
+        assertFalse(hasThemeTocMarker("<p>前言</p><div data-theme-toc=\"true\"></div><h2>章节</h2>"))
+        assertFalse(hasThemeTocMarker("<div data-theme-toc=\"false\"></div><h2>章节</h2>"))
+    }
+
+    @Test fun topicTocUsesOnlyMarkedH2AndH3Headings() {
+        assertEquals(listOf(2, 3), topicTocHeadings("<div data-theme-toc=\"true\"></div><h1>封面</h1><h2>章节</h2><h3>小节</h3><h4>细节</h4>").map { it.level })
+        assertTrue(topicTocHeadings("<h2>章节</h2><h3>小节</h3>").isEmpty())
+        assertTrue(topicTocHeadings("<div data-theme-toc=\"true\"></div><h1>封面</h1>").isEmpty())
     }
     @Test fun animatedSmallAttachmentKeepsHtmlWidthAndOriginalAnimationInsteadOfStaticSrcset() {
         val image = parseArticle("""<img class="animated" src="/small.avif" width="153" height="153" srcset="/still.png 2x">""").single() as ArticleBlock.Image

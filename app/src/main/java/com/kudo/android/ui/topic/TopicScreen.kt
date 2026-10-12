@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.backdrops.layerBackdrop
@@ -34,6 +36,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: () -> Unit, more: () -> Unit, login: () -> Unit, like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit, user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, share: () -> Unit, follow: () -> Unit = {}, react: (Post, String) -> Unit = { _, _ -> }, openBrowser: (String) -> Unit = openLink, loadReplies: (Post, Boolean) -> Unit = { _, _ -> }, resolveContext: () -> Unit = {}, readingEnabled: Boolean = true, onReadingBatch: (TopicReadingBatch) -> Unit = {}, onPostsRead: (Set<Int>) -> Unit = {}, loadBoostRules: () -> Unit = {}, boost: (Post, String, () -> Unit) -> Unit = { _, _, _ -> }, jumpTo: (Int) -> Unit = {}, vote: (Post, String, List<String>) -> Unit = { _, _, _ -> }, openCategory: (Int) -> Unit = {}, openTag: (TopicTag) -> Unit = {}, previous: () -> Unit = {}) {
@@ -63,6 +66,13 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     fun openThread(root: Post) { threadRootId = root.id; threadVisibility.targetState = true }
     val threads = state.threads
     val posts = state.detail?.posts.orEmpty().distinctBy(Post::id).sortedBy(Post::number)
+    val originalPost = posts.firstOrNull { it.number == 1 }
+    val tocEntries = remember(originalPost?.id, originalPost?.cooked) {
+        originalPost?.let { topicTocHeadings(it.cooked) }.orEmpty()
+    }
+    val headingAnchors = remember(originalPost?.id, originalPost?.cooked) { mutableStateMapOf<String, BringIntoViewRequester>() }
+    val tocVisibility = remember { MutableTransitionState(false) }
+    val tocShowing = tocVisibility.currentState || tocVisibility.targetState
     fun dismiss() { visibility.targetState = false }
     fun choose(post: Post) { reactionPostId = post.id; visibility.targetState = true }
     fun replyTo(post: Post?) { threadVisibility.targetState = false; visibility.targetState = false; reply(post) }
@@ -89,6 +99,18 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         snapshotFlow { listState.layoutInfo.totalItemsCount }.first { it > itemIndex }
         delay(16)
         listState.animateScrollToItem(itemIndex)
+    }
+    fun jumpToHeading(entry: ArticleHeading) {
+        tocVisibility.targetState = false
+        scope.launch {
+            val index = posts.indexOfFirst { it.number == 1 }
+            if (index < 0) return@launch
+            scrollToPost(index)
+            val requester = withTimeoutOrNull(2_000) {
+                snapshotFlow { headingAnchors[entry.path] }.first { it != null }
+            }
+            requester?.bringIntoView()
+        }
     }
     fun navigatePost(number: Int) {
         threadVisibility.targetState = false
@@ -193,6 +215,8 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                 PostReadingViewport(110.dp) { viewport ->
                 LazyColumn(state = listState, modifier = Modifier.testTag("topic-posts").then(viewport)
+                    .quickScrollAccessory(tocEntries.isNotEmpty() && !showing && !state.loading && !state.jumping,
+                        Icons.Rounded.FormatListBulleted, "目录") { tocVisibility.targetState = true }
                     .quickScrollTarget(scrolled = listMoved || hasPrevious, enabled = readingEnabled && !showing && !state.loading && !state.jumping,
                         bottomPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 80.dp) {
                         previousAnchor = null
@@ -239,7 +263,10 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                             }
                             Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
                                 TopicPost(post, detail, state, !showing, like, bookmark, ::replyTo, user, image, openLink, ::choose,
-                                    revealOriginal, revealOriginal = { revealOriginal = true }, boost = ::openBoost, vote = vote, login = login)
+                                    revealOriginal, revealOriginal = { revealOriginal = true }, boost = ::openBoost, vote = vote, login = login,
+                                    onHeading = if (post.number == 1 && tocEntries.isNotEmpty()) { heading, requester ->
+                                        if (heading.level == 2 || heading.level == 3) headingAnchors[heading.path] = requester
+                                    } else null)
                                 if (post.number > 1 && thread != null) ReplyPreview(thread, state.replyLoads[post.id], state.hasMoreReplies(post), !showing) {
                                     if (it == null) openThread(post) else navigatePost(it)
                                 }
@@ -258,6 +285,18 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             TopicBottomBar(state, backdrop, glass, !showing, { replyTo(null) }, like, bookmark, share, ::choose,
                 Modifier.align(Alignment.BottomCenter), boost = ::openBoost, currentFloor = currentFloor,
                 floors = { floorRaw = currentFloor.toString(); floorVisibility.targetState = true })
+        }
+        LiquidModal(tocVisibility, "目录", false, modalBackdrop, glass, { tocVisibility.targetState = false },
+            showActions = false, maxDialogHeightFraction = .72f,
+            transformOrigin = TransformOrigin(0.08f, 0.92f), initialScale = .18f) {
+            tocEntries.forEach { entry ->
+                Text(entry.title,
+                    Modifier.fillMaxWidth().clickable { jumpToHeading(entry) }
+                        .padding(start = ((entry.level - 2) * 18).dp, top = 8.dp, bottom = 8.dp)
+                        .testTag("topic-toc-${entry.path}"),
+                    style = if (entry.level == 2) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface)
+            }
         }
         val thread = threads.firstOrNull { it.root.id == threadRootId }
         LaunchedEffect(threadVisibility.targetState, threadRootId) {

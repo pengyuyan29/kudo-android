@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
 import java.util.Locale
@@ -28,7 +29,8 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
     like: (Post) -> Unit, bookmark: (Post) -> Unit, reply: (Post?) -> Unit,
     user: (String) -> Unit, image: (String) -> Unit, openLink: (String) -> Unit, choose: (Post) -> Unit,
     originalRevealed: Boolean = false, revealOriginal: () -> Unit = {}, boost: (Post) -> Unit = {},
-    vote: (Post, String, List<String>) -> Unit = { _, _, _ -> }, login: () -> Unit = {}) {
+    vote: (Post, String, List<String>) -> Unit = { _, _, _ -> }, login: () -> Unit = {},
+    onHeading: ((ArticleHeading, BringIntoViewRequester) -> Unit)? = null) {
     val ignoredUsers = LocalIgnoredUsers.current
     var revealed by remember(post.id, ignoredUsers) { mutableStateOf(false) }
     val ignored = post.author.username.lowercase(Locale.ROOT) in ignoredUsers
@@ -63,6 +65,7 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
                 }
             }
             PostReadingContent(post.number, enabled && !state.loading) {
+                CompositionLocalProvider(LocalArticleHeadingCollector provides onHeading) {
                 RichContent(post.cooked, image, openLink, galleryKey = "post-${post.id}", galleryBottomInset = 110.dp,
                     poll = { name ->
                         val poll = post.polls.firstOrNull { it.name == name }
@@ -72,6 +75,7 @@ internal fun TopicPost(post: Post, detail: TopicDetail, state: TopicState, enabl
                             { vote(post, name, it) }, login, web)
                         else Text("打开网页查看投票", Modifier.clickable(onClick = web), color = MaterialTheme.colorScheme.primary)
                     })
+                }
             }
             UserSignature(post, openLink)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

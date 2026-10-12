@@ -38,6 +38,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.dialog
@@ -75,6 +76,8 @@ internal fun LiquidModal(
     dismissEnabled: Boolean = true,
     maxDialogHeight: Dp = Dp.Infinity,
     maxDialogHeightFraction: Float = 1f,
+    transformOrigin: TransformOrigin = TransformOrigin.Center,
+    initialScale: Float = 0.94f,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (actionSheet) {
@@ -105,7 +108,7 @@ internal fun LiquidModal(
                     .padding(safeInsets).padding(horizontal = 16.dp, vertical = 16.dp)
                     .widthIn(max = 440.dp).fillMaxWidth()
                     .animateEnterExit(
-                        enter = scaleIn(tween(180), initialScale = 0.94f),
+                        enter = scaleIn(tween(180), initialScale = initialScale, transformOrigin = transformOrigin),
                         exit = scaleOut(tween(140), targetScale = 0.96f))
                     .focusRequester(focus)
                     .focusProperties { onExit = { if (visibility.targetState) cancelFocusChange() } }

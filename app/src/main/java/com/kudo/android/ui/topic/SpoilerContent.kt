@@ -67,7 +67,7 @@ internal fun redactedSpoilerText(text: AnnotatedString, hidden: List<AnnotatedSt
 
 @Composable
 internal fun SpoilerArticleText(article: InlineArticle, contentKey: String, tag: String, style: TextStyle, color: Color,
-    blurSupported: Boolean = Build.VERSION.SDK_INT >= 31) {
+    blurSupported: Boolean = Build.VERSION.SDK_INT >= 31, modifier: Modifier = Modifier) {
     val ranges = remember(article) { article.text.getStringAnnotations("spoiler", 0, article.text.length).filter { it.start < it.end } }
     var shown by rememberSaveable(contentKey) { mutableStateOf(emptyList<String>()) }
     val hidden = ranges.filter { it.item !in shown }
@@ -86,7 +86,7 @@ internal fun SpoilerArticleText(article: InlineArticle, contentKey: String, tag:
         customActions = ranges.mapIndexed { index, range -> CustomAccessibilityAction(
             (if (range.item in shown) "隐藏" else "显示") + "第 ${index + 1} 处剧透") { toggle(range.item); true } }
     }
-    Box(Modifier.fillMaxWidth().testTag(tag).then(semantics)
+    Box(Modifier.fillMaxWidth().testTag(tag).then(semantics).then(modifier)
         .pointerInput(article.text, shown) {
             if (ranges.isEmpty()) return@pointerInput
             awaitEachGesture {

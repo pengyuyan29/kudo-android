@@ -51,6 +51,7 @@ private val ScrollTopIcon = ImageVector.Builder("ScrollTop", 24.dp, 24.dp, 24f, 
     }
 }.build()
 private val LocalQuickScrollTargets = staticCompositionLocalOf<MutableList<QuickScrollTarget>?> { null }
+private val LocalQuickScrollAccessories = staticCompositionLocalOf<MutableList<QuickScrollAccessory>?> { null }
 
 private class QuickScrollTarget {
     var bounds by mutableStateOf(Rect.Zero)
@@ -60,9 +61,18 @@ private class QuickScrollTarget {
     var scrollToTop: suspend () -> Unit = {}
 }
 
+private class QuickScrollAccessory {
+    var bounds by mutableStateOf(Rect.Zero)
+    var enabled by mutableStateOf(false)
+    var icon by mutableStateOf<ImageVector?>(null)
+    var description by mutableStateOf("")
+    var onClick by mutableStateOf<() -> Unit>({})
+}
+
 @Composable
 internal fun QuickScrollToTopHost(content: @Composable () -> Unit) {
     val targets = remember { mutableStateListOf<QuickScrollTarget>() }
+    val accessories = remember { mutableStateListOf<QuickScrollAccessory>() }
     val backdrop = rememberLayerBackdrop()
     var bounds by remember { mutableStateOf(Rect.Zero) }
     val density = LocalDensity.current
@@ -71,8 +81,10 @@ internal fun QuickScrollToTopHost(content: @Composable () -> Unit) {
     val navigation = WindowInsets.navigationBars.getBottom(density)
     val target = targets.filter { it.enabled && it.bounds.width > 0 && it.bounds.height > 0 }
         .maxByOrNull { it.bounds.width * it.bounds.height }
+    val accessory = accessories.filter { it.enabled && it.bounds.width > 0 && it.bounds.height > 0 && it.icon != null }
+        .maxByOrNull { it.bounds.width * it.bounds.height }
     Box(Modifier.fillMaxSize().onGloballyPositioned { bounds = it.boundsInWindow() }) {
-        CompositionLocalProvider(LocalQuickScrollTargets provides targets) {
+        CompositionLocalProvider(LocalQuickScrollTargets provides targets, LocalQuickScrollAccessories provides accessories) {
             Box(Modifier.fillMaxSize().layerBackdrop(backdrop)) { content() }
         }
         if (target != null) key(target) {
@@ -87,24 +99,44 @@ internal fun QuickScrollToTopHost(content: @Composable () -> Unit) {
                 bounds.bottom - navigation - with(density) { 12.dp.toPx() })
             val x = target.bounds.center.x - bounds.left - size / 2
             val y = bottom - bounds.top - size + touchInset
-            AnimatedVisibility(settings.showScrollToTop && target.scrolled && ime == 0 && y >= 0,
-                modifier = Modifier.offset { IntOffset(x.roundToInt(), y.roundToInt()) },
-                enter = fadeIn(), exit = fadeOut()) {
-                Box(Modifier.size(48.dp).testTag("quick-scroll-to-top").clickable(
-                    enabled = !scrolling, interactionSource = interaction, indication = null, onClick = {
-                    if (!scrolling) scope.launch {
-                        scrolling = true
-                        try { target.scrollToTop() } finally { scrolling = false }
+            val showTop = settings.showScrollToTop && target.scrolled && ime == 0 && y >= 0
+            val showAccessory = accessory != null && ime == 0 && y >= 0
+            if (showTop || showAccessory) {
+                val rowX = target.bounds.center.x - bounds.left -
+                    size * (if (showTop && showAccessory) 1.5f else .5f)
+                Row(Modifier.offset { IntOffset(rowX.roundToInt(), y.roundToInt()) }) {
+                    AnimatedVisibility(showAccessory, enter = fadeIn(), exit = fadeOut()) {
+                        Box(Modifier.size(48.dp).testTag("quick-scroll-accessory").clickable(
+                            enabled = !scrolling, interactionSource = null, indication = null,
+                            onClick = { accessory?.onClick?.invoke() }), contentAlignment = Alignment.Center) {
+                            LiquidButton(onClick = null, isInteractive = false,
+                                backdrop = backdrop, mode = settings.glass, enabled = !scrolling,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = .3f),
+                                contentPadding = PaddingValues(0.dp), modifier = Modifier.size(QuickScrollButtonSize)
+                                    .testTag("quick-scroll-accessory-surface")) {
+                                Icon(accessory?.icon ?: ScrollTopIcon, accessory?.description, Modifier.size(18.dp))
+                            }
+                        }
                     }
-                }), contentAlignment = Alignment.Center) {
-                LiquidButton(onClick = null, isInteractive = false,
-                    backdrop = backdrop, mode = settings.glass, enabled = !scrolling,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = .3f),
-                    contentPadding = PaddingValues(0.dp), modifier = Modifier.size(QuickScrollButtonSize)
-                        .graphicsLayer { scaleX = scale; scaleY = scale }.testTag("quick-scroll-to-top-surface")) {
-                    Icon(ScrollTopIcon, "回到顶部", Modifier.size(18.dp))
-                }
+                    AnimatedVisibility(showTop, enter = fadeIn(), exit = fadeOut()) {
+                        Box(Modifier.size(48.dp).testTag("quick-scroll-to-top").clickable(
+                            enabled = !scrolling, interactionSource = null, indication = null, onClick = {
+                            if (!scrolling) scope.launch {
+                                scrolling = true
+                                try { target.scrollToTop() } finally { scrolling = false }
+                            }
+                        }), contentAlignment = Alignment.Center) {
+                            LiquidButton(onClick = null, isInteractive = false,
+                                backdrop = backdrop, mode = settings.glass, enabled = !scrolling,
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = .3f),
+                                contentPadding = PaddingValues(0.dp), modifier = Modifier.size(QuickScrollButtonSize)
+                                    .graphicsLayer { scaleX = scale; scaleY = scale }.testTag("quick-scroll-to-top-surface")) {
+                                Icon(ScrollTopIcon, "杩斿洖椤堕儴", Modifier.size(18.dp))
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -129,6 +161,23 @@ internal fun Modifier.quickScrollTarget(scrolled: Boolean, enabled: Boolean = tr
         onDispose { targets -= target }
     }
     return onGloballyPositioned { target.bounds = it.boundsInWindow() }
+}
+
+@Composable
+internal fun Modifier.quickScrollAccessory(enabled: Boolean, icon: ImageVector, description: String, onClick: () -> Unit): Modifier {
+    val accessories = LocalQuickScrollAccessories.current ?: return this
+    val accessory = remember(accessories) { QuickScrollAccessory() }
+    SideEffect {
+        accessory.enabled = enabled
+        accessory.icon = icon
+        accessory.description = description
+        accessory.onClick = onClick
+    }
+    DisposableEffect(accessories, accessory) {
+        accessories += accessory
+        onDispose { accessories -= accessory }
+    }
+    return onGloballyPositioned { accessory.bounds = it.boundsInWindow() }
 }
 
 private data class ScrollTopRow(val index: Int, val key: Any, val size: Int)
