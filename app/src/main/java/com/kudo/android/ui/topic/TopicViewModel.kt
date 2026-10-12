@@ -24,6 +24,7 @@ data class TopicState(
     val boostEmojis: Set<String>? = null, val boostRulesLoading: Boolean = false, val boostRulesError: String? = null,
     val jumping: Boolean = false, val jumpError: String? = null, val targetRevision: Long = 0,
     val loadingPrevious: Boolean = false, val previousError: Throwable? = null,
+    val replyingUsers: List<Member> = emptyList(),
 ) {
     fun pageIds(previous: Boolean): List<Int> {
         val detail = detail ?: return emptyList()
@@ -65,13 +66,16 @@ class TopicViewModel(
     private var initialLoadCompleted = false
     private var updatesActive = false
     private var updatesJob: Job? = null
+    private var updatesGeneration = 0L
     private val messages = Channel<String>(Channel.BUFFERED)
     val events = messages.receiveAsFlow()
     init { refresh() }
 
     fun setUpdatesActive(active: Boolean) {
+        if (!active) _state.update { it.copy(replyingUsers = emptyList()) }
         if (updatesActive == active) return
         updatesActive = active
+        val subscription = ++updatesGeneration
         updatesJob?.cancel()
         val source = updates ?: return
         if (!active) return
@@ -80,11 +84,22 @@ class TopicViewModel(
                 val signals = Channel<Unit>(Channel.CONFLATED)
                 launch {
                     try {
-                        source.observeTopic(updateUser, topicId).collect { signals.trySend(Unit) }
+                        source.observeActivity(updateUser, topicId).collect { activity ->
+                            if (subscription != updatesGeneration) return@collect
+                            activity.replyingUsers?.let { users ->
+                                _state.update { state -> state.copy(replyingUsers = users
+                                    .filter { it.id > 0 && it.id != state.viewerId }.distinctBy(Member::id)) }
+                            }
+                            if (activity.checkReplies) signals.trySend(Unit)
+                        }
                     } catch (e: CancellationException) { throw e }
                     catch (_: Exception) {
                         // The push origin cannot diagnose the main site's login or clearance.
-                        updatesActive = false
+                    } finally {
+                        if (subscription == updatesGeneration) {
+                            updatesActive = false
+                            _state.update { it.copy(replyingUsers = emptyList()) }
+                        }
                         signals.close()
                     }
                 }

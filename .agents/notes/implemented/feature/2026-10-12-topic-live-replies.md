@@ -34,6 +34,8 @@ KudoApp 的话题路由按账号创建 ViewModel，注入 DiscourseMessageBus �
 
 头像变化立即更新，不等待新回复的3秒合并窗口，也不触发话题目录查询。断线、暂停、退出或更换账号清空头像；Presence 无权限、关闭或读取失败不阻断原有新回复订阅，失败后退避补查。匿名不读取受限 Presence。按钮文字被最多3个重叠头像替代，超过3人在第3个头像上覆盖 +N（5人是+2）；头像使用 PLAIN，不加载身份或状态角标。保留写回复图标和点击打开回复框的行为，无人时恢复原文字，窄屏也保留可点击区域。
 
+TopicState.replyingUsers 保存当前订阅名单，TopicActivity 将目录补查信号与头像快照分开。ViewModel 的订阅代次隔离暂停前的清理任务，旧任务不能清空新订阅名单；源完成、异常、页面暂停均清空名单，并保留已加载正文和阅读状态。
+
 协议依据为 Discourse 的 presence service、PresenceController、PresenceChannelStateSerializer 和 discourse-presence 插件。此扩展沿用当前笔记的频道、生命周期及账号边界；活跃笔记检索无独立 Presence 决策需要归档。新增协议、状态及头像布局验证随各小单元记录。
 
 ## Alternatives considered
@@ -47,6 +49,7 @@ KudoApp 的话题路由按账号创建 ViewModel，注入 DiscourseMessageBus �
 ## Testing
 
 - Presence 协议新增 TopicPresenceTest 6项，连同 TopicMessageBusTest、MessageBusTest 共16项通过，覆盖初始名单、自身过滤、多会话去重、加入离开、游标缺口补查、首次连接失败恢复、权限降级、匿名与凭据隔离。日志 artifacts/topic-presence-transport-tests.txt。
+- 页面状态新增3项 Presence 用例，TopicUpdatesTest（11项）与 TopicViewModelTest（9项）共20项通过：头像事件不查目录、不改阅读状态，暂停清空、恢复换用新名单，源异常清空但不覆盖正文。日志 artifacts/topic-presence-state-tests.txt。
 - TopicMessageBusTest 与既有 MessageBusTest 共10项通过，覆盖频道隔离、游标去重与重置、初始及重连补查、取消及凭据隔离。日志 artifacts/topic-live-transport-tests.txt。
 - TopicUpdatesTest、TopicViewModelTest、TopicFloorNavigationTest、TopicResumeReadingTest 相关 JVM 测试通过；补充刷新竞态后 TopicUpdatesTest 全部8项通过，覆盖末尾追加、前面阅读不跨楼层、通知合并、刷新/跳转竞态、失败不丢正文、暂停取消及恢复补查。日志 artifacts/topic-live-state-tests.txt、artifacts/topic-live-state-final-tests.txt。
 - RMX2202 / Android 13 真机运行 TopicLiveRepliesUiTest（2项离线场景）、TopicContinuationUiTest（4项）、TopicBackwardPaginationUiTest（6项），共12项通过。追加前后第10楼的屏幕坐标误差不超过2px；暂停后订阅数归零，恢复无通知也补查，前面阅读时仍按21..40顺序加载。截图 artifacts/topic-live-before.png、artifacts/topic-live-after.png，日志 artifacts/topic-live-device-tests.txt。测试用本地拦截数据，不向社区发帖。

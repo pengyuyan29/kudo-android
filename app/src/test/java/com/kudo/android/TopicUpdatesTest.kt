@@ -5,6 +5,9 @@ import com.kudo.android.data.*
 import com.kudo.android.ui.topic.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.test.*
 import okhttp3.mockwebserver.*
@@ -18,6 +21,60 @@ import java.util.concurrent.atomic.AtomicReference
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TopicUpdatesTest {
+    @Test fun presenceChangesAreImmediateAndDoNotFetchRepliesOrChangeReading() = runBlocking {
+        Fixture().use { f ->
+            f.ready()
+            val before = f.vm.state.value
+            val checks = f.snapshots.get()
+            f.total.set(3)
+            f.act { f.activities.tryEmit(TopicActivity(replyingUsers = listOf(Member(2, "two", "", ""), Member(7, "self", "", ""), Member(2, "two", "", "")))) }
+            f.until { f.vm.state.value.replyingUsers.size == 1 }
+            delay(200)
+            assertEquals(listOf(2), f.vm.state.value.replyingUsers.map(Member::id))
+            assertEquals(checks, f.snapshots.get())
+            assertEquals(before.detail, f.vm.state.value.detail)
+            assertEquals(before.targetRevision, f.vm.state.value.targetRevision)
+            assertEquals(before.readNumbers, f.vm.state.value.readNumbers)
+            f.hint()
+            f.until { f.vm.state.value.detail!!.posts.size == 3 }
+            assertEquals(listOf(2), f.vm.state.value.replyingUsers.map(Member::id))
+            f.act { f.activities.tryEmit(TopicActivity(replyingUsers = emptyList())) }
+            f.until { f.vm.state.value.replyingUsers.isEmpty() }
+        }
+    }
+
+    @Test fun pauseClearsPresenceAndResumeOnlyShowsTheNewSubscriptionState() = runBlocking {
+        Fixture().use { f ->
+            f.ready()
+            f.act { f.activities.tryEmit(TopicActivity(replyingUsers = listOf(Member(2, "two", "", "")))) }
+            f.until { f.vm.state.value.replyingUsers.isNotEmpty() }
+            f.act { f.vm.setUpdatesActive(false) }
+            assertTrue(f.vm.state.value.replyingUsers.isEmpty())
+            f.act { f.activities.tryEmit(TopicActivity(replyingUsers = listOf(Member(3, "old", "", "")))) }
+            f.act { f.vm.setUpdatesActive(true) }
+            f.until { f.subscriptions.get() == 2 }
+            f.act { f.activities.tryEmit(TopicActivity(replyingUsers = listOf(Member(4, "new", "", "")))) }
+            f.until { f.vm.state.value.replyingUsers.map(Member::id) == listOf(4) }
+        }
+    }
+
+    @Test fun subscriptionFailureClearsPresenceAndLeavesThePageAvailableForResuming() = runBlocking {
+        Fixture().use { f ->
+            f.ready()
+            val before = f.vm.state.value.detail
+            f.act { f.activities.tryEmit(TopicActivity(replyingUsers = listOf(Member(2, "two", "", "")))) }
+            f.until { f.vm.state.value.replyingUsers.isNotEmpty() }
+            f.act { f.failures.tryEmit(IllegalStateException("fixture failure")) }
+            f.until { f.vm.state.value.replyingUsers.isEmpty() }
+            assertEquals(before, f.vm.state.value.detail)
+            assertNull(f.vm.state.value.error)
+            f.act { f.vm.setUpdatesActive(true) }
+            f.until { f.subscriptions.get() == 2 }
+            f.act { f.activities.tryEmit(TopicActivity(replyingUsers = listOf(Member(3, "three", "", "")))) }
+            f.until { f.vm.state.value.replyingUsers.map(Member::id) == listOf(3) }
+        }
+    }
+
     @Test fun coalescesNewRepliesAndAppendsWithoutResettingExistingPostsOrReadingState() = runBlocking {
         Fixture().use { f ->
             f.ready()
@@ -142,6 +199,8 @@ class TopicUpdatesTest {
     private class Fixture(initialTotal: Int = 2) : AutoCloseable {
         val main = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
         val hints = MutableSharedFlow<Unit>(extraBufferCapacity = 64)
+        val activities = MutableSharedFlow<TopicActivity>(extraBufferCapacity = 16)
+        val failures = MutableSharedFlow<Throwable>(extraBufferCapacity = 1)
         val total = AtomicInteger(initialTotal)
         val snapshots = AtomicInteger()
         val subscriptions = AtomicInteger()
@@ -172,9 +231,14 @@ class TopicUpdatesTest {
             }
             server.start()
             vm = TopicViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))), 5, viewerId = 7,
-                updates = TopicUpdates { _, id ->
-                    check(id == 5)
-                    hints.onStart { subscriptions.incrementAndGet() }
+                updates = object : TopicUpdates {
+                    override fun observeTopic(user: Member?, topicId: Int): Flow<Unit> {
+                        check(topicId == 5)
+                        return hints.onStart { subscriptions.incrementAndGet() }
+                    }
+                    override fun observeActivity(user: Member?, topicId: Int): Flow<TopicActivity> = merge(
+                        observeTopic(user, topicId).map { TopicActivity(checkReplies = true) },
+                        activities, failures.map { throw it })
                 }, updateIntervalMillis = 80)
         }
         suspend fun act(block: () -> Unit) = withContext(main) { block() }
