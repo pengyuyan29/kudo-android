@@ -66,6 +66,47 @@ cargo() { printf 'cargo %s\\n' "$*" >> calls.txt; }
         self.assertLess(self.workflow.index("name: Set up Rust"), self.workflow.index("name: Test native DoH"))
         self.assertLess(self.workflow.index("name: Test native DoH"), self.workflow.index("name: Unit tests and Android Lint"))
 
+    def cache_paths(self, step):
+        match = re.search(r"          path: \|\n((?:            [^\n]+\n)+)", step)
+        self.assertIsNotNone(match, "Cache paths must be an explicit allowlist")
+        return [line.strip() for line in match.group(1).splitlines()]
+
+    def test_dependency_caches_exclude_signing_and_build_state_and_save_after_failure(self):
+        restore = self.step("Restore dependency cache")
+        save = self.step("Save dependency cache")
+        allowed = ["~/.gradle/caches/modules-2", "~/.gradle/wrapper/dists", "~/.cargo/registry", "~/.cargo/git", "~/.npm/_cacache"]
+        self.assertEqual(allowed, self.cache_paths(restore))
+        self.assertEqual(allowed, self.cache_paths(save))
+        self.assertRegex(restore, r"uses: actions/cache/restore@[0-9a-f]{40}")
+        self.assertRegex(save, r"uses: actions/cache/save@[0-9a-f]{40}")
+        self.assertIn("hashFiles(", restore)
+        for source in ("native/doh/Cargo.lock", "**/*.gradle.kts", "gradle/wrapper/gradle-wrapper.properties", "package.json"):
+            self.assertIn(source, restore)
+        self.assertIn("restore-keys:", restore)
+        self.assertIn("always()", save)
+        self.assertIn("steps.dependency-cache.outcome == 'success'", save)
+        self.assertIn("steps.dependency-cache.outputs.cache-hit != 'true'", save)
+        self.assertIn("steps.dependency-cache.outputs.cache-primary-key", save)
+        self.assertLess(self.workflow.index("name: Restore dependency cache"), self.workflow.index("name: Test release tooling"))
+        self.assertLess(self.workflow.index("name: Remove temporary signing key"), self.workflow.index("name: Save dependency cache"))
+
+    def test_native_toolchain_cache_is_versioned_and_saved_before_compilation(self):
+        restore = self.step("Restore native toolchain cache")
+        save = self.step("Save native toolchain cache")
+        paths = self.cache_paths(restore)
+        self.assertEqual(paths, self.cache_paths(save))
+        self.assertEqual([
+            "${{ steps.cache-paths.outputs.sdk }}/ndk/27.0.12077973",
+            "${{ steps.cache-paths.outputs.sdk }}/cmake/3.22.1",
+            "~/.rustup/toolchains/1.96.1-x86_64-unknown-linux-gnu",
+        ], paths)
+        for version in ("1.96.1", "27.0.12077973", "3.22.1", "arm64"):
+            self.assertIn(version, re.search(r"          key: ([^\n]+)", restore).group(1))
+        self.assertIn("steps.native-cache.outputs.cache-hit != 'true'", save)
+        self.assertLess(self.workflow.index("name: Restore native toolchain cache"), self.workflow.index("name: Set up Android SDK"))
+        self.assertLess(self.workflow.index("name: Set up Rust"), self.workflow.index("name: Save native toolchain cache"))
+        self.assertLess(self.workflow.index("name: Save native toolchain cache"), self.workflow.index("name: Test native DoH"))
+
 
 if __name__ == "__main__":
     unittest.main()

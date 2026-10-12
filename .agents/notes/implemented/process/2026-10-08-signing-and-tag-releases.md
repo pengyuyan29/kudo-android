@@ -52,6 +52,10 @@ Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移�
 
 工具链修复的 3 项回归先全部失败（`cloud-repair/toolchain-repro-tests.txt`），补齐后全部通过（`toolchain-fixed-tests.txt`）；actionlint 与 89 篇笔记检查通过。此时仅证明工作流准备契约，真实 Ubuntu 编译与发布仍由重推 Tag 后的云端运行验收。
 
+依赖缓存采用 actions/cache v6.1.0 的 restore / save 子动作，固定官方完整 SHA `55cc8345863c7cc4c66a329aec7e433d2d1c52a9`（已读取两份 action.yml，均为 node24）。仅缓存 Gradle modules-2 / Wrapper 分发、Cargo registry / git 与 npm 内容缓存，以锁文件、Gradle 文件和 package.json 哈希失效并允许恢复同平台旧依赖。另按确切版本缓存 NDK、CMake 和 Rust 工具链；SDK 位置从 runner 环境读取。原生工具准备成功即保存；依赖缓存在临时签名清理后、失败路径也可保存，减少后续重试下载。禁止缓存整个 ~/.gradle、配置缓存、daemon 日志、构建输出、签名文件、Cargo 凭据或 npm 配置，setup-gradle 的通用缓存继续关闭。缓存只加速已锁定依赖下载，命中后仍执行测试、签名和打包校验。
+
+缓存白名单、锁文件失效/回退和失败路径保存的两项测试先复现缺失（`cloud-repair/cache-repro-tests.txt`）。修复后 35 项全部发布工具测试通过（`all-tool-tests.txt`，14.483 秒），两份工作流 actionlint 与 89 篇笔记检查通过。用户明确要求修复后删除远端 v0.2.0 再推送同名 Tag；原 Tag 对象为 `755cbfc6c0ea341616256b54085dc76a72bf7ef7`，指向 `845ad45238c176295f55159139a734ffb511c230`，仅在远端仍为该对象时替换，不修改其他版本。
+
 新版上传支持不压缩的单文件制品，但发布需要 APK、摘要和正文三个文件，因此显式使用 archive: true；下载显式使用 skip-decompress: false，让文件继续直接解压到 dist。digest-mismatch: error 使 Actions 制品摘要不一致时立即失败，发布 shell 仍单独核对 APK 的 SHA256。Tag 触发、权限拆分、临时密钥清理和草稿上传完才公开的契约保持一致。
 
 ## Related decisions
@@ -65,6 +69,7 @@ Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移�
 - 用GitHub run_number作为versionCode：重跑和构建次数容易递增，但依赖工作流历史，不能由Tag独立复现；使用有范围校验的三段版本映射。
 - 同时支持任意预发布Tag：适合复杂发布通道，但需要额外约束alpha、beta、rc及正式版的安装升级顺序；当前只支持已批准的三段正式版本。
 - 保留旧 Action 并依赖 GitHub 强制切换 Node 24：改动最少且 v0.1.5 已在兼容模式下发布成功，但上游仍声明已弃用的 Node 20，不能消除运行时和 setup-java 的版本弃用问题；升级到官方声明 node24 的稳定版本，不通过强制环境变量掩盖警告。
+- 重新开启 setup-gradle 的整个用户目录缓存：能同时复用编译脚本和更多构建状态，速度收益更大；本项目同一作业稍后接触正式签名，选择公开依赖目录白名单，避免持久化潜在签名相关状态。
 - 移除 setup-android，直接使用 runner 的 sdkmanager：可以减少一个第三方 Action，但需要自行维护命令行工具、许可证和安装路径；上游 v4.0.4 已支持 Node 24，保留原有 SDK 安装接口。
 
 ## Verification

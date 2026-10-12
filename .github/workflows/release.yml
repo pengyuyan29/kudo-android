@@ -53,6 +53,36 @@ jobs:
           # Signing configuration must not be persisted in a shared cache.
           cache-disabled: true
 
+      - name: Locate native toolchain cache
+        id: cache-paths
+        run: |
+          test -n "$ANDROID_HOME"
+          printf 'sdk=%s\n' "$ANDROID_HOME" >> "$GITHUB_OUTPUT"
+
+      - name: Restore native toolchain cache
+        id: native-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ steps.cache-paths.outputs.sdk }}/ndk/27.0.12077973
+            ${{ steps.cache-paths.outputs.sdk }}/cmake/3.22.1
+            ~/.rustup/toolchains/1.96.1-x86_64-unknown-linux-gnu
+          key: ${{ runner.os }}-${{ runner.arch }}-native-v1-rust-1.96.1-arm64-ndk-27.0.12077973-cmake-3.22.1
+
+      - name: Restore dependency cache
+        id: dependency-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.npm/_cacache
+          key: ${{ runner.os }}-${{ runner.arch }}-release-deps-v1-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', '**/*.gradle.kts', 'native/doh/Cargo.lock', 'package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-release-deps-v1-
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
         with:
@@ -67,6 +97,16 @@ jobs:
           rustup default "$RUST_VERSION"
           rustc --version
           cargo --version
+
+      - name: Save native toolchain cache
+        if: steps.native-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ${{ steps.cache-paths.outputs.sdk }}/ndk/27.0.12077973
+            ${{ steps.cache-paths.outputs.sdk }}/cmake/3.22.1
+            ~/.rustup/toolchains/1.96.1-x86_64-unknown-linux-gnu
+          key: ${{ steps.native-cache.outputs.cache-primary-key }}
 
       - name: Test release tooling
         run: python3 -m unittest discover -s scripts/tests -v
@@ -150,6 +190,18 @@ jobs:
           retention-days: 14
           compression-level: 0
           archive: true
+
+      - name: Save dependency cache
+        if: always() && steps.dependency-cache.outcome == 'success' && steps.dependency-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.npm/_cacache
+          key: ${{ steps.dependency-cache.outputs.cache-primary-key }}
 
   publish:
     needs: build
