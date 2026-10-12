@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceIn
@@ -59,7 +61,6 @@ internal fun LiquidSlider(
     value: () -> Float,
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
-    visibilityThreshold: Float,
     backdrop: Backdrop,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
@@ -74,51 +75,56 @@ internal fun LiquidSlider(
     val latestValue by rememberUpdatedState(value)
     val latestChange by rememberUpdatedState(onValueChange)
     val canInteract by rememberUpdatedState(enabled && valueRange.endInclusive > valueRange.start)
-    // DampedDragAnimation normalizes its range; keep a single-floor topic finite.
-    val animationRange = if (valueRange.endInclusive > valueRange.start) valueRange
-        else valueRange.start..(valueRange.start + 1f)
+    val span = valueRange.endInclusive - valueRange.start
+    fun normalize(value: Float) = if (span > 0f) ((value - valueRange.start) / span).coerceIn(0f, 1f) else 0f
 
     BoxWithConstraints(
         modifier.fillMaxWidth(),
         contentAlignment = Alignment.CenterStart
     ) {
         val trackWidth = constraints.maxWidth
+        val latestTrackWidth by rememberUpdatedState(trackWidth.coerceAtLeast(1))
 
         val isLtr = LocalLayoutDirection.current == LayoutDirection.Ltr
         val animationScope = rememberCoroutineScope()
         var didDrag by remember { mutableStateOf(false) }
-        val dampedDragAnimation = remember(animationScope, animationRange, visibilityThreshold, isLtr, trackWidth) {
-            var dragValue = value()
+        var dragging by remember { mutableStateOf(false) }
+        var settleRevision by remember { mutableIntStateOf(0) }
+        // Position is a continuous fraction, independent of the number of floors or layout width.
+        val dampedDragAnimation = remember(animationScope, valueRange, isLtr) {
+            var dragValue = normalize(value())
             DampedDragAnimation(
                 animationScope = animationScope,
-                initialValue = value(),
-                valueRange = animationRange,
-                visibilityThreshold = visibilityThreshold,
+                initialValue = normalize(value()),
+                valueRange = 0f..1f,
+                visibilityThreshold = .0001f,
                 initialScale = 1f,
                 pressedScale = 1.5f,
-                onDragStarted = { didDrag = false; dragValue = latestValue() },
+                onDragStarted = { didDrag = false; dragging = true; dragValue = this.value },
                 onDragStopped = {
-                    if (canInteract && didDrag) {
-                        latestChange(dragValue)
-                    }
+                    if (didDrag) settleRevision++
+                    dragging = false
                 },
                 onDrag = { _, dragAmount ->
-                    if (!canInteract) return@DampedDragAnimation
-                    if (!didDrag) {
-                        didDrag = dragAmount.x != 0f
-                    }
-                    val delta = (valueRange.endInclusive - valueRange.start) * (dragAmount.x / trackWidth)
-                    dragValue = (dragValue + if (isLtr) delta else -delta).coerceIn(valueRange)
-                    latestChange(dragValue)
+                    if (!canInteract || dragAmount.x == 0f) return@DampedDragAnimation
+                    didDrag = true
+                    val delta = dragAmount.x / latestTrackWidth
+                    dragValue = (dragValue + if (isLtr) delta else -delta).coerceIn(0f, 1f)
+                    updateValue(dragValue)
+                    latestChange(valueRange.start + dragValue * span)
                 }
             )
         }
         LaunchedEffect(dampedDragAnimation) {
-            snapshotFlow { latestValue() }
-                .collectLatest { value ->
-                    if (dampedDragAnimation.targetValue != value) {
-                        dampedDragAnimation.updateValue(value)
-                    }
+            var handledRevision = settleRevision
+            snapshotFlow { if (dragging) null else latestValue() to settleRevision }
+                .collectLatest { update ->
+                    val (value, revision) = update ?: return@collectLatest
+                    val target = normalize(value)
+                    if (revision != handledRevision) {
+                        handledRevision = revision
+                        dampedDragAnimation.animatePressedValue(target)
+                    } else if (dampedDragAnimation.targetValue != target) dampedDragAnimation.updateValue(target)
                 }
         }
 
@@ -128,7 +134,8 @@ internal fun LiquidSlider(
                     val delta = (valueRange.endInclusive - valueRange.start) * (position.x / trackWidth)
                     val targetValue = (if (isLtr) valueRange.start + delta
                         else valueRange.endInclusive - delta).coerceIn(valueRange)
-                    dampedDragAnimation.animateToValue(targetValue)
+                    settleRevision++
+                    dampedDragAnimation.animateToValue(normalize(targetValue))
                     latestChange(targetValue)
                 }
             }
@@ -220,6 +227,7 @@ internal fun LiquidSlider(
                     }
                 )
                 .size(40f.dp, 24f.dp)
+                .testTag("liquid-slider-thumb")
         )
     }
 }

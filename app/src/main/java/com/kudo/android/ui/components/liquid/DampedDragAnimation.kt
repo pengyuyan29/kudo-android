@@ -78,7 +78,8 @@ internal class DampedDragAnimation(
     val scaleY: Float get() = scaleYAnimation.value
     val velocity: Float get() = velocityAnimation.value
 
-    val modifier: Modifier = Modifier.pointerInput(animationScope) {
+    // A new animation instance must also own a new gesture coroutine (e.g. range changes).
+    val modifier: Modifier = Modifier.pointerInput(this@DampedDragAnimation) {
         var distance = Offset.Zero
         inspectDragGestures(
             onDragStart = { down ->

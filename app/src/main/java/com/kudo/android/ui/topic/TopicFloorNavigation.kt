@@ -53,7 +53,7 @@ internal fun FloorNavigationBar(
             LiquidSlider(
                 value = { (number ?: 1).coerceIn(1, highest).toFloat() },
                 onValueChange = { change(it.roundToInt().coerceIn(1, highest).toString()) },
-                valueRange = 1f..highest.toFloat(), visibilityThreshold = 1f, backdrop = backdrop,
+                valueRange = 1f..highest.toFloat(), backdrop = backdrop,
                 enabled = !jumping,
                 modifier = Modifier.weight(1f).height(48.dp).testTag("floor-slider")
                     .semantics {

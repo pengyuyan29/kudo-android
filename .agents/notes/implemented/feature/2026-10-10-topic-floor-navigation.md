@@ -56,6 +56,8 @@ TopicFloorNavigationTest覆盖真实最高编号、已加载和重复目标零�
 
 滑块复用 Backdrop 官方 catalog 的 `LiquidSlider`，轨道强调色采用 `LogoYellow`。楼层输入按最高楼层的位数测量宽度，保留总楼层与48dp确认按钮，滑块通过 weight 占满剩余空间；不再给数字区域固定140dp最大布局宽度。轨道整行48dp可点击，拖动保留官方液态镜片。单楼层话题使用有限动画范围，定位期间禁用触摸和语义调整。内联表单不参与模态窗口的语义和焦点屏蔽，否则会阻断输入与错误提示；正文曝光仍在编辑期间暂停。
 
+镜片和填充条使用0..1连续位置，拖动立即更新，不等待父层取整后的楼层号回传。父层整数只用于文本和目标，拖动时不覆盖本地连续值；松手或轨道点击通过交互修订号对齐实际所选楼层，手动输入直接同步。动画对象不依赖轨道宽度，最新宽度只参与位移换算；新范围创建新动画实例时，手势协程也绑定该实例，避免保留旧闭包。
+
 ## Inline control verification
 
 `TopicFloorNavigationUiTest` 继续覆盖滑块预览、输入校验、远距离定位、定位失败保留表单、阅读暂停和窄屏大字号；新增断言展开态隐藏 `topic-reply` 与 `topic-actions`，确认后恢复，并使用返回键验证内联控件关闭。
@@ -65,3 +67,5 @@ TopicFloorNavigationTest覆盖真实最高编号、已加载和重复目标零�
 2026-10-13：19项相关JVM测试通过；楼层导航、续载及键盘共17项不同真机用例通过（artifacts/floor-inline-final-device.txt 中16项，键盘用例修正短帖尾部计数假设后在 floor-keyboard-final-device.txt 单独通过）。覆盖黄色轨道像素、滑块余量宽度、触摸拖动与点击、输入同步、失败保留、前后分页和阅读暂停，以及键盘上方确认与恢复两侧按钮。已查看离线夹具浅色、深色窄屏及键盘截图 floor-inline-*.png。Debug、AndroidTest与Lint通过，Lint为0错误、43警告、1提示；以真机相同的0.2.2-dev / 2005及相同签名通过install -r覆盖，未卸载或清数据。
 
 关闭动作的两项旧版复现失败（artifacts/floor-motion-repro-device-v2.txt），修复后FloorSelectorActionsUiTest两项真机通过（artifacts/floor-actions-device.txt）：未修改直接关闭零跳转、修改再改回恢复关闭零跳转。与系统返回共用关闭路径，保留键盘收起。
+
+连续拖动先复现约40px移动但轨道边缘330→330px（artifacts/floor-motion-repro-device-v2.txt）。FloorSelectorMotionUiTest三项真机通过（artifacts/floor-motion-fixed-device-v2.txt）：同一整楼内也更新实际绘制、2/3/5/100000楼在4/8/16ms输入期间双向逐帧跟随、轨道点击和输入同步及单楼层有限值。两端语义边界会裁切镜片，逐帧光学中心检查位于轨道内部；端点另验证选中值与有限坐标。
