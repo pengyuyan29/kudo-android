@@ -26,6 +26,8 @@ Status: implemented
 
 三项 CLI 复现先失败，旧脚本没有准备草稿和使用已整理文件的入口（artifacts/prepared-release-notes-repro.txt）。17项日志脚本测试通过，临时 Git 仓库验证多次提交合并、原始候选保留、未打 Tag 时从 HEAD 准备、文档和测试不影响来源、后续 App 修复及基线变化过期、错误元数据/标题/比较链接/分类/重复项拒绝、已有文件不覆盖、无 App 变化不可凭空新增条目；原有基线、路径和类型过滤、实际发布 shell 的草稿及失败保护继续通过（artifacts/prepared-release-notes-script-tests.txt）。
 
+日志工作流先补复现，证明旧命令未读取已整理文件、未保留原始候选，且无效或过期文件没有阻止生成（artifacts/prepared-release-notes-workflow-repro.txt）。接入后26项日志与工作流测试通过（artifacts/prepared-release-notes-workflow-tests.txt）：从实际 YAML 提取 shell，查询接口使用离线替身，日志命令运行真实 Python 脚本及临时 Git 仓库，验证摘要替换、无文件回退、错误分组拒绝、后续 App 提交使来源过期及原始候选保留。上传产物包含 `release-notes.raw.md`，公开 Release 仍仅上传 APK 和校验摘要并使用 `release-notes.md` 正文。actionlint 检查通过，本轮没有执行远端发布。
+
 ## Consequences
 
 来源指纹只能证明整理时使用了当前候选范围，不能证明摘要语义完整，发布前仍需 AI 对照原始候选检查遗漏或夸大。手动漏做准备且没有文件时仍能回退发布，但日志不会自动精简；仓库发布规则要求先准备并检查文件。

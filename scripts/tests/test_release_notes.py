@@ -392,9 +392,64 @@ python3() { printf '%s\\n' "$@" > arguments.txt; }
                 else:
                     values = arguments.read_text().splitlines()
                     self.assertNotIn("--previous-tag", values)
+                    self.assertEqual("release-notes", values[values.index("--prepared-notes-dir") + 1])
+                    raw_file = Path(values[values.index("--raw-output") + 1])
+                    self.assertEqual(self.root / "kudo-release-dist/release-notes.raw.md", raw_file)
                     published_file = Path(values[values.index("--published-releases") + 1])
                     self.assertEqual(self.root / "published-releases.json", published_file)
                     self.assertEqual(published, json.loads(published_file.read_text(encoding="utf-8")))
+
+    def test_actual_workflow_uses_prepared_notes_retains_raw_and_rejects_invalid_sources(self):
+        bash = r"C:\Program Files\Git\bin\bash.exe" if os.name == "nt" else shutil.which("bash")
+        if not bash or not Path(bash).is_file():
+            self.skipTest("Bash is required for the workflow shell fixture")
+        project = Path(__file__).resolve().parents[2]
+        workflow = (project / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        block = workflow.split("      - name: Organize release notes from commits\n", 1)[1].split("      - name:", 1)[0]
+        shell = "\n".join(line[10:] for line in block.split("        run: |\n", 1)[1].splitlines())
+        stub = '''set -euo pipefail
+gh() { printf '%s' "$PUBLISHED_PAGES"; }
+python3() { "$PYTHON_EXECUTABLE" "$@"; }
+'''
+        (self.root / "notes.sh").write_text(stub + shell, encoding="utf-8", newline="\n")
+        (self.root / "scripts").mkdir()
+        for filename in ("release_notes.py", "release_version.py"):
+            shutil.copyfile(project / "scripts" / filename, self.root / "scripts" / filename)
+        prepared, template, summary = self.prepare_summary()
+        reviewed = prepared.read_text(encoding="utf-8")
+        self.git("add", "release-notes/v0.1.1.md")
+        self.git("-c", "commit.gpgsign=false", "commit", "-m", "doc: 整理发布说明")
+        self.git("tag", "v0.1.1")
+        output = self.root / "kudo-release-dist/release-notes.md"
+        raw = output.with_name("release-notes.raw.md")
+        pages = [[{"tag_name": "v0.1.0", "draft": False, "prerelease": False, "published_at": "2026-10-01T00:00:00Z"}]]
+        for scenario in ("prepared", "missing", "invalid", "stale"):
+            with self.subTest(scenario=scenario):
+                output.unlink(missing_ok=True)
+                raw.unlink(missing_ok=True)
+                prepared.write_text(reviewed, encoding="utf-8")
+                if scenario == "missing":
+                    prepared.unlink()
+                elif scenario == "invalid":
+                    prepared.write_text(reviewed.replace("## 新增", "## 工具链"), encoding="utf-8")
+                elif scenario == "stale":
+                    self.commit("fix: 补齐新回复的失败处理")
+                    self.git("tag", "-f", "v0.1.1")
+                result = subprocess.run([bash, "notes.sh"], cwd=self.root, capture_output=True, encoding="utf-8",
+                    env={**os.environ, "PUBLISHED_PAGES": json.dumps(pages), "PYTHON_EXECUTABLE": Path(sys.executable).as_posix(),
+                        "PYTHONIOENCODING": "utf-8", "RELEASE_TAG": "v0.1.1", "RELEASE_REPOSITORY": "owner/repo",
+                        "RUNNER_TEMP": self.root.as_posix()})
+                self.assertEqual(scenario in ("prepared", "missing"), result.returncode == 0, result.stderr)
+                self.assertIn("修复新回复加载时的位置重置", raw.read_text(encoding="utf-8"))
+                if scenario == "prepared":
+                    self.assertEqual(summary, output.read_text(encoding="utf-8"))
+                elif scenario == "missing":
+                    self.assertEqual(template.partition("\n")[2], output.read_text(encoding="utf-8"))
+                else:
+                    self.assertFalse(output.exists())
+                    self.assertIn("过期" if scenario == "stale" else "只允许", result.stderr)
+        upload = workflow.split("      - name: Upload verified release files\n", 1)[1].split("      - name:", 1)[0]
+        self.assertIn("kudo-release-dist/release-notes.raw.md", upload)
 
 
 if __name__ == "__main__":

@@ -193,6 +193,8 @@ jobs:
           python3 scripts/release_notes.py --tag "$RELEASE_TAG" \
             --repository "$RELEASE_REPOSITORY" \
             --published-releases "$RUNNER_TEMP/published-releases.json" \
+            --prepared-notes-dir release-notes \
+            --raw-output "$RUNNER_TEMP/kudo-release-dist/release-notes.raw.md" \
             --output "$RUNNER_TEMP/kudo-release-dist/release-notes.md"
 
       - name: Upload verified release files
@@ -204,6 +206,7 @@ jobs:
             ${{ runner.temp }}/kudo-release-dist/*.apk
             ${{ runner.temp }}/kudo-release-dist/*.sha256
             ${{ runner.temp }}/kudo-release-dist/release-notes.md
+            ${{ runner.temp }}/kudo-release-dist/release-notes.raw.md
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
