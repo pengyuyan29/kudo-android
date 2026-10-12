@@ -81,7 +81,7 @@ class ThreadAndDecorationTest {
         assertTrue(signatureBlocks("<script>bad()</script>").isEmpty())
         assertTrue(signatureBlocks("<p>文字签名</p><img src='/signature.png'>").any { it is ArticleBlock.Image })
         assertEquals("", DiscourseParser.post(JSONObject(json(2)).put("user_signature", JSONObject())).signature)
-        assertFalse(DisplaySettings().showSignatures)
+        assertTrue(DisplaySettings().showSignatures)
     }
 
     @Test fun deepFloorResolvesAncestorsWithoutReplacingTheMainReadingStream() = runTest {

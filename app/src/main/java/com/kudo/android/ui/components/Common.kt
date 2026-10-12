@@ -93,6 +93,10 @@ fun SectionLabel(text: String, trailing: String? = null) {
 
 @Composable
 fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (String) -> Unit) {
+    if (topic.pinned && com.kudo.android.ui.theme.LocalDisplaySettings.current.compactPinnedTopics) {
+        CompactPinnedTopicRow(topic, category, onClick)
+        return
+    }
     val resolvedCategory = category ?: LocalTopicPresentation.current.categories.firstOrNull { it.id == topic.categoryId }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surface)
         .clickable(onClick = onClick)

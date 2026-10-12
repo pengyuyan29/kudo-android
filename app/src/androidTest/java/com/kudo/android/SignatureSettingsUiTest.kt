@@ -13,7 +13,7 @@ import org.junit.Test
 
 class SignatureSettingsUiTest {
     @get:Rule val compose = createComposeRule()
-    @Test fun signaturePreferenceDefaultsOffTogglesAndSurvivesReconstruction() {
+    @Test fun signaturePreferenceDefaultsOnTogglesAndSurvivesReconstruction() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val prefs = context.getSharedPreferences("kudo_preferences", 0)
         val had = prefs.contains("show_signatures")
@@ -21,13 +21,13 @@ class SignatureSettingsUiTest {
         try {
             prefs.edit().remove("show_signatures").commit()
             val store = AppSettings(context)
-            assertFalse(store.display.value.showSignatures)
+            assertTrue(store.display.value.showSignatures)
             var settings by mutableStateOf(store.display.value)
             compose.setContent { KudoTheme(settings) { SettingsScreen(settings, { settings = it; store.update(it) }, null, {}, {}, {}) } }
-            compose.onNodeWithTag("show-signatures").performScrollTo().assertIsOff().performClick().assertIsOn()
-            assertTrue(AppSettings(context).display.value.showSignatures)
-            compose.onNodeWithTag("show-signatures").performClick().assertIsOff()
+            compose.onNodeWithTag("show-signatures").performScrollTo().assertIsOn().performClick().assertIsOff()
             assertFalse(AppSettings(context).display.value.showSignatures)
+            compose.onNodeWithTag("show-signatures").performClick().assertIsOn()
+            assertTrue(AppSettings(context).display.value.showSignatures)
         } finally { if (had) prefs.edit().putBoolean("show_signatures", previous).commit() else prefs.edit().remove("show_signatures").commit() }
     }
 }

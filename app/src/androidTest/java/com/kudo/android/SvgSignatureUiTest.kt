@@ -72,8 +72,8 @@ class SvgSignatureUiTest {
         compose.waitUntil(3000) { views.all { it.released } }
     }
 
-    @Test fun cssAnimatedSvgDefaultsOffRendersFramesAndReleasesWhenDisabled() {
-        var settings by mutableStateOf(DisplaySettings())
+    @Test fun cssAnimatedSvgMakesNoRequestsWhenDisabledRendersFramesAndReleasesWhenDisabled() {
+        var settings by mutableStateOf(DisplaySettings(showSignatures = false))
         compose.setContent { KudoTheme(settings) {
             Column(Modifier.fillMaxWidth().statusBarsPadding().padding(16.dp)) { UserSignature(sample, {}, ::create) }
         } }

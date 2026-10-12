@@ -227,8 +227,8 @@ class AvatarUiTest {
         compose.waitUntil(5000) { running() }
     }
 
-    @Test fun signaturesDefaultToHiddenAndAllThreeAnimationFormatsRenderFramesAndPause() {
-        var settings by mutableStateOf(DisplaySettings())
+    @Test fun disabledSignaturesMakeNoRequestsAndAllThreeAnimationFormatsRenderFramesAndPause() {
+        var settings by mutableStateOf(DisplaySettings(showSignatures = false))
         var signature by mutableStateOf("https://avatar.test/signature.gif")
         val post = Post(50, 1, member, "正文", "", 0, false, null, null, false)
         compose.setContent { Content(settings) { Column(Modifier.padding(24.dp)) {
