@@ -8,7 +8,7 @@ Status: implemented
 
 ## Decision
 
-删除标题下“xx个楼层”，底部中间加入主题材质的液态玻璃按钮，显示当前真实楼层/最高楼层，并用LogoYellow半透明进度填充。以实际可见内容更新当前位置，Boost不占楼层。详情面板使用现有可拖动关闭的液态面板，支持数字输入、滑动选择和明确跳转；不使用Material默认表单外观。
+删除标题下“xx个楼层”，底部中间加入主题材质的液态玻璃按钮，显示当前真实楼层/最高楼层，并用LogoYellow半透明进度填充。以实际可见内容更新当前位置，Boost不占楼层。点击后在底栏内联展开数字输入、滑动选择和明确跳转，通过横向动画挤出与恢复两侧按钮；不使用Material默认表单外观。
 
 最高楼层使用highest_post_number，缺字段时退回最大已加载楼层/stream长度。索引使用主时间线可见帖子的真实Post.number；正文标题与摘要不作为楼层，[只读楼中楼](2026-10-10-reply-timeline-and-preview.md)不更新原帖阅读位置。楼层按钮复用LiquidButton的真实Backdrop材质，黄色填充在胶囊surface内绘制；底栏两侧16dp、组间8dp，写回复与点赞/Boost按内容撑开，中央占余量。窄屏、大字号或长楼层号时写回复仅显示笔图标，仍保留语义，索引数字可适度缩小。
 
@@ -47,6 +47,19 @@ TopicFloorNavigationTest覆盖真实最高编号、已加载和重复目标零�
 
 ## Consequences
 
+
 楼层水印按最新界面要求使用 # 前缀、11sp 常规字重和12%前景色，独立叠放于整条回复最右上角，距顶2dp/右4dp，不受正文16dp padding影响。此前大号加粗且无前缀便于快速定位，但过于醒目，用户要求恢复为不起眼的水印。TopicReadingUiTest 真机验证外层边缘位置、字号及字重，8项阅读相关用例通过（artifacts/floor-window-final-device-20261011.txt）。
 
 删除或不可见楼层会造成楼层编号空洞，按网站真实号码显示且明确反馈不可达；末楼不可访问时允许出现 6/7 这样的真实编号。长文当前位置表示当前可见楼层，完整末尾表示最后可访问楼层，不替代实际曝光计时，也不表示整篇已读完。
+
+楼层跳转现改为底部栏内联展开：展开时以同一 Backdrop 液态容器显示可拖动滑块、可编辑楼层数字和确认按钮，回复与回应/Boost 两侧控件通过横向收缩动画退出；确认定位完成后自动恢复原底栏，返回键可取消展开。楼层表单不再创建弹窗窗口，阅读状态仍在展开、加载和定位期间暂停。
+
+滑块复用 Backdrop 官方 catalog 的 `LiquidSlider`，轨道强调色采用 `LogoYellow`。楼层输入按最高楼层的位数测量宽度，保留总楼层与48dp确认按钮，滑块通过 weight 占满剩余空间；不再给数字区域固定140dp最大布局宽度。轨道整行48dp可点击，拖动保留官方液态镜片。单楼层话题使用有限动画范围，定位期间禁用触摸和语义调整。内联表单不参与模态窗口的语义和焦点屏蔽，否则会阻断输入与错误提示；正文曝光仍在编辑期间暂停。
+
+## Inline control verification
+
+`TopicFloorNavigationUiTest` 继续覆盖滑块预览、输入校验、远距离定位、定位失败保留表单、阅读暂停和窄屏大字号；新增断言展开态隐藏 `topic-reply` 与 `topic-actions`，确认后恢复，并使用返回键验证内联控件关闭。
+
+内联编辑期间底栏使用 IME inset 避让数字键盘，确认成功后收起键盘并恢复原底栏。`TopicFloorKeyboardUiTest` 在实际 edge-to-edge / adjustResize 窗口下先复现确认按钮被键盘遮挡（artifacts/floor-keyboard-repro-device.txt），修复后需保持输入与确认均在键盘上方。滑块当前值通过 rememberUpdatedState 参与观察，拖动累计保留连续浮点值，避免整楼取整丢失位移或输入变化后镜片停在旧位置。
+
+2026-10-13：19项相关JVM测试通过；楼层导航、续载及键盘共17项不同真机用例通过（artifacts/floor-inline-final-device.txt 中16项，键盘用例修正短帖尾部计数假设后在 floor-keyboard-final-device.txt 单独通过）。覆盖黄色轨道像素、滑块余量宽度、触摸拖动与点击、输入同步、失败保留、前后分页和阅读暂停，以及键盘上方确认与恢复两侧按钮。已查看离线夹具浅色、深色窄屏及键盘截图 floor-inline-*.png。Debug、AndroidTest与Lint通过，Lint为0错误、43警告、1提示；以真机相同的0.2.2-dev / 2005及相同签名通过install -r覆盖，未卸载或清数据。

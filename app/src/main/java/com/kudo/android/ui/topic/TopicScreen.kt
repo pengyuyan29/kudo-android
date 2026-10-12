@@ -1,5 +1,6 @@
 package com.kudo.android.ui.topic
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
@@ -56,13 +57,19 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     val floorShowing = floorVisibility.currentState || floorVisibility.targetState
     val reactionShowing = visibility.currentState || visibility.targetState
     val overlayShowing = reactionShowing || boostShowing || floorShowing
-    val showing = overlayShowing || threadVisibility.currentState || threadVisibility.targetState
+    val threadShowing = threadVisibility.currentState || threadVisibility.targetState
+    val showing = overlayShowing || threadShowing
+    val modalShowing = reactionShowing || boostShowing || threadShowing
+    val bottomEnabled = !reactionShowing && !boostShowing && !threadShowing
     fun openBoost(post: Post) {
         if (state.viewerId == null) { login(); return }
         if (!post.canBoost) return
         boostPostId = post.id; loadBoostRules(); boostVisibility.targetState = true
     }
     fun closeBoost() { keyboard?.hide(); boostVisibility.targetState = false }
+    BackHandler(enabled = floorShowing && !state.jumping) {
+        keyboard?.hide(); floorVisibility.targetState = false
+    }
     fun openThread(root: Post) { threadRootId = root.id; threadVisibility.targetState = true }
     val threads = state.threads
     val posts = state.detail?.posts.orEmpty().distinctBy(Post::id).sortedBy(Post::number)
@@ -207,8 +214,8 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         !showing && (state.targetNumber == null || located), onReadingBatch, onPostsRead) {
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Box(Modifier.fillMaxSize().layerBackdrop(modalBackdrop)
-            .then(if (showing) Modifier.clearAndSetSemantics {} else Modifier)
-            .focusProperties { onEnter = { if (showing) cancelFocusChange() } }.focusGroup()) {
+            .then(if (modalShowing) Modifier.clearAndSetSemantics {} else Modifier)
+            .focusProperties { onEnter = { if (modalShowing) cancelFocusChange() } }.focusGroup()) {
             Column(Modifier.fillMaxSize().layerBackdrop(backdrop)) {
                 TopicTopBar(state, !showing, back, user, follow) { detail?.let { actions.openDetail(it.id, it.originalPost, bookmark) } }
                 returnTopError?.let { Text(it, Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
@@ -282,9 +289,12 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                 }
                 }
             }
-            TopicBottomBar(state, backdrop, glass, !showing, { replyTo(null) }, like, bookmark, share, ::choose,
+            TopicBottomBar(state, backdrop, glass, bottomEnabled, { replyTo(null) }, like, bookmark, share, ::choose,
                 Modifier.align(Alignment.BottomCenter), boost = ::openBoost, currentFloor = currentFloor,
-                floors = { floorRaw = currentFloor.toString(); floorVisibility.targetState = true })
+                floors = { floorRaw = currentFloor.toString(); floorVisibility.targetState = true },
+                floorEditing = floorShowing, floorRaw = floorRaw,
+                floorChange = { floorRaw = it }, floorHighest = detail?.highestPostNumber ?: 1,
+                floorJumping = state.jumping, floorError = state.jumpError, floorConfirm = jumpTo)
         }
         LiquidModal(tocVisibility, "目录", false, modalBackdrop, glass, { tocVisibility.targetState = false },
             showActions = false, maxDialogHeightFraction = .72f,
@@ -343,10 +353,6 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             BoostForm(boostRaw, { boostRaw = it }, state, boosting,
                 send = { boostPost?.let { post -> boost(post, boostRaw) { boostRaw = ""; closeBoost() } } },
                 close = ::closeBoost, retry = loadBoostRules, username = boostPost?.author?.username.orEmpty())
-        }
-        CommunitySheet(floorVisibility, "楼层跳转", { if (!state.jumping) { keyboard?.hide(); floorVisibility.targetState = false } },
-            dismissEnabled = !state.jumping, showActions = false) {
-            FloorNavigationForm(floorRaw, { floorRaw = it }, detail?.highestPostNumber ?: 1, state.jumping, state.jumpError, jumpTo)
         }
     }
     }

@@ -1,5 +1,10 @@
 package com.kudo.android.ui.topic
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -134,61 +139,78 @@ internal fun TopicBottomBar(
     choose: (Post) -> Unit, modifier: Modifier = Modifier,
     boost: (Post) -> Unit = {},
     currentFloor: Int = 1, floors: () -> Unit = {},
+    floorEditing: Boolean = false, floorRaw: String = currentFloor.toString(),
+    floorChange: (String) -> Unit = {}, floorHighest: Int = 1,
+    floorJumping: Boolean = false, floorError: String? = null, floorConfirm: (Int) -> Unit = {},
 ) {
     val detail = state.detail ?: return
     val first = detail.originalPost
     val available = enabled && !state.loading && first != null && first.id !in state.busy
-    BoxWithConstraints(modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 20.dp).fillMaxWidth()) {
+    BoxWithConstraints(modifier.navigationBarsPadding().then(if (floorEditing) Modifier.imePadding() else Modifier)
+        .padding(horizontal = 16.dp, vertical = 20.dp).fillMaxWidth()) {
     val compact = maxWidth < 320.dp || (LocalDensity.current.fontScale > 1.2f && maxWidth < 360.dp) || (detail.highestPostNumber >= 10000 && maxWidth < 380.dp)
     val replying = state.replyingUsers
+    val floor = currentFloor.coerceIn(1, detail.highestPostNumber)
+    val horizontalEnter = fadeIn() + expandHorizontally(expandFrom = Alignment.CenterHorizontally)
+    val horizontalExit = fadeOut() + shrinkHorizontally(shrinkTowards = Alignment.CenterHorizontally)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        LiquidButton(onClick = reply, enabled = enabled && !detail.closed, backdrop = backdrop, mode = glass,
-            surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-            contentColor = MaterialTheme.colorScheme.onSurface,
-            contentPadding = PaddingValues(horizontal = if (compact) 14.dp else 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start),
-            modifier = Modifier.testTag("topic-reply").semantics {
-                contentDescription = "写回复"
-                if (replying.isNotEmpty()) stateDescription = "${replying.size}人正在回复"
-            }) {
-            if (compact) {
-                Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Outlined.DriveFileRenameOutline, null,
-                        Modifier.size(20.dp).alpha(if (replying.isEmpty()) 1f else 0f).testTag("topic-reply-icon"))
-                    if (replying.isNotEmpty()) ReplyingAvatars(replying, true, Modifier.requiredSize(40.dp, 20.dp))
-                }
-            } else {
-                Icon(Icons.Outlined.DriveFileRenameOutline, null, Modifier.size(20.dp).testTag("topic-reply-icon"))
-                Box(Modifier.heightIn(min = 24.dp), contentAlignment = Alignment.Center) {
-                    // Keep the label measured even while avatars cover its original space.
-                    Text("写回复", if (replying.isEmpty()) Modifier else Modifier.alpha(0f).clearAndSetSemantics {},
-                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Normal, maxLines = 1)
-                    if (replying.isNotEmpty()) ReplyingAvatars(replying, false, Modifier.matchParentSize())
+        AnimatedVisibility(!floorEditing, enter = horizontalEnter, exit = horizontalExit) {
+            LiquidButton(onClick = reply, enabled = enabled && !detail.closed, backdrop = backdrop, mode = glass,
+                surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                contentPadding = PaddingValues(horizontal = if (compact) 14.dp else 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start),
+                modifier = Modifier.testTag("topic-reply").semantics {
+                    contentDescription = "写回复"
+                    if (replying.isNotEmpty()) stateDescription = "${replying.size}人正在回复"
+                }) {
+                if (compact) {
+                    Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.DriveFileRenameOutline, null,
+                            Modifier.size(20.dp).alpha(if (replying.isEmpty()) 1f else 0f).testTag("topic-reply-icon"))
+                        if (replying.isNotEmpty()) ReplyingAvatars(replying, true, Modifier.requiredSize(40.dp, 20.dp))
+                    }
+                } else {
+                    Icon(Icons.Outlined.DriveFileRenameOutline, null, Modifier.size(20.dp).testTag("topic-reply-icon"))
+                    Box(Modifier.heightIn(min = 24.dp), contentAlignment = Alignment.Center) {
+                        Text("写回复", if (replying.isEmpty()) Modifier else Modifier.alpha(0f).clearAndSetSemantics {},
+                            style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Normal, maxLines = 1)
+                        if (replying.isNotEmpty()) ReplyingAvatars(replying, false, Modifier.matchParentSize())
+                    }
                 }
             }
         }
-        val floor = currentFloor.coerceIn(1, detail.highestPostNumber)
-        LiquidButton(onClick = floors, enabled = enabled && !state.loading, backdrop = backdrop, mode = glass,
-            surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = .45f),
-            progress = floor.toFloat() / detail.highestPostNumber, progressColor = LogoYellow.copy(alpha = .27f),
-            contentPadding = PaddingValues(horizontal = 8.dp),
-            modifier = Modifier.weight(1f).testTag("topic-floor-index").semantics {
-                contentDescription = "楼层索引，当前第 $floor 楼，共 ${detail.highestPostNumber} 楼"
-                progressBarRangeInfo = ProgressBarRangeInfo(floor.toFloat(), 1f..detail.highestPostNumber.toFloat())
-            }) {
-            BasicText("$floor / ${detail.highestPostNumber}", style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.sp, stepSize = .5.sp))
+        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            androidx.compose.animation.AnimatedVisibility(floorEditing, modifier = Modifier.fillMaxWidth(), enter = horizontalEnter, exit = horizontalExit) {
+                FloorNavigationBar(floorRaw, floorChange, floorHighest, floorJumping, floorError, floorConfirm,
+                    backdrop, glass, Modifier.fillMaxWidth())
+            }
+            androidx.compose.animation.AnimatedVisibility(!floorEditing, modifier = Modifier.fillMaxWidth(), enter = horizontalEnter, exit = horizontalExit) {
+                LiquidButton(onClick = floors, enabled = enabled && !state.loading, backdrop = backdrop, mode = glass,
+                    surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = .45f),
+                    progress = floor.toFloat() / detail.highestPostNumber, progressColor = LogoYellow.copy(alpha = .27f),
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    modifier = Modifier.fillMaxWidth().testTag("topic-floor-index").semantics {
+                        contentDescription = "楼层索引，当前第 $floor 楼，共 ${detail.highestPostNumber} 楼"
+                        progressBarRangeInfo = ProgressBarRangeInfo(floor.toFloat(), 1f..detail.highestPostNumber.toFloat())
+                    }) {
+                    BasicText("$floor / ${detail.highestPostNumber}", style = MaterialTheme.typography.labelMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                        maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.sp, stepSize = .5.sp))
+                }
+            }
         }
-        LiquidButton(onClick = null, backdrop = backdrop, mode = glass,
-            surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-            contentPadding = PaddingValues(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier.testTag("topic-actions")) {
-            TopicReactionButton(first, available && (state.viewerId == null || first?.canReact == true),
-                choose = if (first?.reactionsAvailable == true && detail.validReactions.isNotEmpty()) ({ choose(first) }) else null,
-                click = { first?.let(like) }, bottom = true)
-            IconButton(onClick = { first?.let(boost) }, enabled = available && (state.viewerId == null || first?.canBoost == true)) {
-                Icon(CategoryIcons.get("rocket"), "Boost 主帖", Modifier.size(19.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .75f * LocalContentColor.current.alpha))
+        AnimatedVisibility(!floorEditing, enter = horizontalEnter, exit = horizontalExit) {
+            LiquidButton(onClick = null, backdrop = backdrop, mode = glass,
+                surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
+                contentPadding = PaddingValues(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier.testTag("topic-actions")) {
+                TopicReactionButton(first, available && (state.viewerId == null || first?.canReact == true),
+                    choose = if (first?.reactionsAvailable == true && detail.validReactions.isNotEmpty()) ({ choose(first) }) else null,
+                    click = { first?.let(like) }, bottom = true)
+                IconButton(onClick = { first?.let(boost) }, enabled = available && (state.viewerId == null || first?.canBoost == true)) {
+                    Icon(CategoryIcons.get("rocket"), "Boost 主帖", Modifier.size(19.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .75f * LocalContentColor.current.alpha))
+                }
             }
         }
     }

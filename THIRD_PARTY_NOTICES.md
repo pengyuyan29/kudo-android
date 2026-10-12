@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | [AndroidX / Jetpack Compose](https://android.googlesource.com/platform/frameworks/support/) | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) | 原生界面、生命周期、导航与测试 |
 | [Kotlin](https://github.com/JetBrains/kotlin) / [kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) | Apache-2.0 | 语言运行库与协程 |
-| [Kyant Backdrop 1.0.6](https://github.com/Kyant0/AndroidLiquidGlass) | Apache-2.0 | 背景采样、模糊、玻璃折射及官方底栏、按钮与 Dialog 示例源码 |
+| [Kyant Backdrop 1.0.6](https://github.com/Kyant0/AndroidLiquidGlass) | Apache-2.0 | 背景采样、模糊、玻璃折射及官方底栏、按钮、Slider 与 Dialog 示例源码 |
 | [Kyant Shapes 1.2.0](https://github.com/Kyant0/Shapes) | Apache-2.0 | 官方示例的 Capsule 胶囊形状 |
 | [OkHttp](https://github.com/square/okhttp) / [Okio](https://github.com/square/okio) | Apache-2.0 | HTTP 与 I/O |
 | [Coil](https://github.com/coil-kt/coil) | Apache-2.0 | 图片加载 |
@@ -23,7 +23,7 @@
 
 DoH / ECH 原生代码由本项目独立实现，没有复用 FluxDO 的 Rust 子模块。确切版本固定在 `native/doh/Cargo.lock`；[完整原生组件许可与 NOTICE](app/src/main/assets/licenses/native-doh-NOTICES.txt)随 APK 分发，含 AWS-LC 保留的第三方条款与 Fiat 许可。`python scripts/native_notices.py` 根据 Android 依赖图重新生成，`--check` 校验同步。jni-sys-macros 0.4.1 发布包缺少工作区许可，补存自其 `.cargo_vcs_info.json` 指定提交 `64d77b7a5f119d7b55b4e2c169a4668067ff59e6` 的原始 LICENSE-MIT / LICENSE-APACHE。
 
-底部导航与详情操作栏改编自 [AndroidLiquidGlass catalog 的 Android 1.0.6 版本](https://github.com/Kyant0/AndroidLiquidGlass/tree/896a94a3ade1cc1a940b92365f942a34971fecda/catalog/src/main/java/com/kyant/backdrop/catalog)。接入 LiquidBottomTabs、LiquidBottomTab、LiquidButton、DampedDragAnimation、InteractiveHighlight、DragGestureInspector 六份源码，作者为 Kyant0，许可为 Apache-2.0；修改包名、主题与尺寸、兼容材质、滑动预选、发布隔离和采样层语义，高频拖动直接跟随触点并保留点击弹性与停顿速度复位，按钮增加禁用状态与独立子操作容器。Surface Liquid Button 为官方 LiquidButton 的30%表面色样式。源码位于 `app/src/main/java/com/kudo/android/ui/components/liquid/`，文件头保留来源版本和修改说明；[完整许可](app/src/main/assets/licenses/backdrop-demo-LICENSE.txt) 随 APK 放入 `assets/licenses/`。
+底部导航与详情操作栏改编自 [AndroidLiquidGlass catalog 的 Android 1.0.6 版本](https://github.com/Kyant0/AndroidLiquidGlass/tree/896a94a3ade1cc1a940b92365f942a34971fecda/catalog/src/main/java/com/kyant/backdrop/catalog)。接入 LiquidBottomTabs、LiquidBottomTab、LiquidButton、LiquidSlider、DampedDragAnimation、InteractiveHighlight、DragGestureInspector 七份源码，作者为 Kyant0，许可为 Apache-2.0；修改包名、主题与尺寸、兼容材质、滑动预选、发布隔离和采样层语义，高频拖动直接跟随触点并保留点击弹性与停顿速度复位，按钮增加禁用状态与独立子操作容器，滑块适配主题黄色、整行点击、禁用状态与单值范围。Surface Liquid Button 为官方 LiquidButton 的30%表面色样式。源码位于 `app/src/main/java/com/kudo/android/ui/components/liquid/`，文件头保留来源版本和修改说明；[完整许可](app/src/main/assets/licenses/backdrop-demo-LICENSE.txt) 随 APK 放入 `assets/licenses/`。
 
 设置页的 LiquidModal 材质另外改编自同一版本 `destinations/DialogContent.kt`，保留色彩控制、模糊、深度折射与Plain高光；增加同窗口模态关闭、焦点和背景可访问隔离、底部ActionSheet、主题与兼容材质、安全区及内容滚动。来源与修改说明保留在文件头，使用上述完整Apache-2.0许可。
 

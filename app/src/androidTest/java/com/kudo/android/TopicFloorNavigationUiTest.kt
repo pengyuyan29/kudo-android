@@ -2,10 +2,12 @@ package com.kudo.android
 
 import android.graphics.Bitmap
 import android.os.SystemClock
+import android.accessibilityservice.AccessibilityService
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -26,6 +28,18 @@ class TopicFloorNavigationUiTest {
     private fun post(number: Int, parent: Int? = null) = Post(number, number, author, "<p>正文第 $number 楼</p>", "", 0, false, null, parent, true)
     private val posts = listOf(post(1), post(2), post(8), post(20), post(80, 8))
     private val detail = TopicDetail(5, "真实楼层索引", 1, posts, posts.map(Post::id), false, highestPostNumber = 100)
+
+    private fun openFloorEditor() {
+        compose.onNodeWithTag("topic-floor-index").performClick()
+        compose.waitUntil(3_000) {
+            compose.onAllNodesWithTag("floor-input", useUnmergedTree = true).fetchSemanticsNodes()
+                .any { it.boundsInRoot.width > 0f && it.boundsInRoot.height > 0f }
+        }
+    }
+
+    private fun floorInput() = compose.onNodeWithTag("floor-input", useUnmergedTree = true)
+    private fun floorConfirm() = compose.onNodeWithTag("floor-confirm", useUnmergedTree = true)
+    private fun floorSlider() = compose.onNodeWithTag("floor-slider", useUnmergedTree = true)
 
     @Test fun aShortTopicShowsTheLastFloorAtTheBottomAndResumesVisibleFloorWhenScrollingBack() {
         val loaded = (1..7).map(::post)
@@ -91,21 +105,40 @@ class TopicFloorNavigationUiTest {
         } }
         compose.onNodeWithText("5 个楼层").assertDoesNotExist()
         compose.onNodeWithTag("topic-floor-index").assertIsDisplayed().performClick()
-        compose.onNodeWithTag("floor-slider").performSemanticsAction(SemanticsActions.SetProgress) { it(60f) }
-        compose.onNodeWithTag("floor-input").assertTextEquals("60")
-        capture("floor-jump-sheet-light.png")
-        compose.onNodeWithTag("floor-slider").performTouchInput {
-            swipe(centerLeft + androidx.compose.ui.geometry.Offset(1f, 0f), centerRight - androidx.compose.ui.geometry.Offset(1f, 0f), 600)
+        compose.waitUntil(3_000) {
+            compose.onAllNodesWithTag("floor-navigation-bar", useUnmergedTree = true).fetchSemanticsNodes()
+                .any { it.boundsInRoot.width > 0f && it.boundsInRoot.height > 0f }
         }
-        compose.onNodeWithTag("floor-input").assertTextEquals("100")
-        compose.onNodeWithText("首楼").performClick()
-        compose.onNodeWithTag("floor-input").assertTextEquals("1")
+        compose.onNodeWithTag("topic-reply").assertDoesNotExist()
+        compose.onNodeWithTag("topic-actions").assertDoesNotExist()
+        compose.onNodeWithTag("floor-navigation-bar", useUnmergedTree = true).assertIsDisplayed()
+        val bar = compose.onNodeWithTag("floor-navigation-bar", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val slider = floorSlider().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue("slider must receive most of the available width", slider.width > bar.width * .55f)
+        floorSlider().performSemanticsAction(SemanticsActions.SetProgress) { it(60f) }
+        floorInput().assertTextEquals("60")
+        val pixels = floorSlider().captureToImage().toPixelMap()
+        var yellow = 0
+        for (x in 0 until pixels.width) for (y in 0 until pixels.height) {
+            val color = pixels[x, y]
+            if (color.red > .9f && color.green in .5f.. .8f && color.blue < .2f) yellow++
+        }
+        assertTrue("the filled slider track must use LogoYellow", yellow > 20)
+        capture("floor-inline-light.png")
+        floorSlider().performTouchInput {
+            swipe(androidx.compose.ui.geometry.Offset(width * 59f / 99f, center.y), centerRight - androidx.compose.ui.geometry.Offset(1f, 0f), 600)
+        }
+        floorInput().assertTextEquals("100")
+        floorSlider().performTouchInput { click(centerLeft + androidx.compose.ui.geometry.Offset(1f, 0f)) }
+        floorInput().assertTextEquals("1")
         compose.runOnIdle { assertEquals(0, requests) }
-        compose.onNodeWithTag("floor-input").performTextReplacement("101")
-        compose.onNodeWithTag("floor-confirm").assertIsNotEnabled()
-        compose.onNodeWithTag("floor-input").performTextReplacement("80")
-        compose.onNodeWithTag("floor-confirm").assertIsEnabled().performClick()
+        floorInput().performTextReplacement("101")
+        floorConfirm().assertIsNotEnabled()
+        floorInput().performTextReplacement("80")
+        floorConfirm().assertIsEnabled().performClick()
         compose.onNodeWithTag("floor-input").assertDoesNotExist()
+        compose.onNodeWithTag("topic-reply").assertIsDisplayed()
+        compose.onNodeWithTag("topic-actions").assertIsDisplayed()
         compose.onNodeWithTag("thread-posts").assertDoesNotExist()
         compose.onNodeWithTag("post-80").assertIsDisplayed()
         compose.runOnIdle { assertEquals(1, requests) }
@@ -122,9 +155,9 @@ class TopicFloorNavigationUiTest {
             compose.onNodeWithTag("topic-posts").performScrollToIndex(4)
             compose.onNodeWithText("20 / 100").assertIsDisplayed()
             if (it == 0) capture("floor-progress-light.png")
-            compose.onNodeWithTag("topic-floor-index").performClick()
-            compose.onNodeWithTag("floor-input").performTextReplacement("8")
-            compose.onNodeWithTag("floor-confirm").performClick()
+            openFloorEditor()
+            floorInput().performTextReplacement("8")
+            floorConfirm().performClick()
             compose.onNodeWithText("8 / 100").assertIsDisplayed()
             compose.onNodeWithTag("post-8").assertIsDisplayed()
         }
@@ -138,9 +171,9 @@ class TopicFloorNavigationUiTest {
                 jumpTo = { state = state.copy(targetNumber = it, targetRevision = state.targetRevision + 1) })
         } }
         val viewport = compose.onNodeWithTag("topic-posts").fetchSemanticsNode().boundsInRoot
-        compose.onNodeWithTag("topic-floor-index").performClick()
-        compose.onNodeWithTag("floor-input").performTextReplacement("80")
-        compose.onNodeWithTag("floor-confirm").performClick()
+        openFloorEditor()
+        floorInput().performTextReplacement("80")
+        floorConfirm().performClick()
         compose.waitForIdle()
         val targetTop = compose.onNodeWithTag("post-80").fetchSemanticsNode().boundsInRoot.top
         assertTrue("far jump must leave the requested post visible: target=" + targetTop + " viewportBottom=" + viewport.bottom,
@@ -253,16 +286,16 @@ class TopicFloorNavigationUiTest {
             assertFalse(results.single().hasVisualOverflow)
             capture("floor-${glass.name.lowercase()}-narrow-dark-large.png")
         }
-        compose.onNodeWithTag("topic-floor-index").performClick()
-        compose.onNodeWithText("末楼").performClick()
-        compose.onNodeWithTag("floor-input").assertTextEquals("120000")
-        compose.onNodeWithTag("floor-confirm").performClick().assertIsNotEnabled()
+        openFloorEditor()
+        floorInput().performTextReplacement("120000")
+        floorInput().assertTextEquals("120000")
+        floorConfirm().performClick().assertIsNotEnabled()
         compose.runOnIdle { state = state.copy(jumping = false, jumpError = "此楼层暂不可访问") }
+        capture("floor-inline-narrow-dark-error.png")
         compose.onNodeWithText("此楼层暂不可访问").assertIsDisplayed()
-        compose.onNodeWithTag("floor-input").assertTextEquals("120000")
-        compose.onNodeWithTag("sheet-drag-handle").performTouchInput {
-            swipe(center, center + androidx.compose.ui.geometry.Offset(0f, 650f), 600)
-        }
+        floorInput().assertTextEquals("120000")
+        InstrumentationRegistry.getInstrumentation().uiAutomation
+            .performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
         compose.onNodeWithTag("floor-input").assertDoesNotExist()
     }
 
@@ -274,12 +307,12 @@ class TopicFloorNavigationUiTest {
                 readingEnabled = active, onPostsRead = { state = state.copy(readNumbers = state.readNumbers + it) },
                 jumpTo = { state = state.copy(jumping = true) })
         } }
-        compose.onNodeWithTag("topic-floor-index").performClick()
+        openFloorEditor()
         compose.runOnIdle { active = true }
         compose.waitForIdle(); SystemClock.sleep(1300)
         compose.runOnIdle { assertTrue(state.readNumbers.isEmpty()) }
-        compose.onNodeWithTag("floor-input").performTextReplacement("20")
-        compose.onNodeWithTag("floor-confirm").performClick()
+        floorInput().performTextReplacement("20")
+        floorConfirm().performClick()
         compose.waitForIdle(); SystemClock.sleep(1300)
         compose.runOnIdle {
             assertTrue(state.readNumbers.isEmpty())
