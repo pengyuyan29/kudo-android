@@ -1,4 +1,4 @@
-# 酷DO
+﻿# 酷DO
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-yellow.svg)](LICENSE)
 
@@ -44,7 +44,7 @@ Android 13+ 使用完整液态玻璃，Android 12 使用背景模糊，Android 8
 本项目积极参与并认可 [linux.do社区](https://linux.do)。
 
 <details>
-<summary>界面预览（当前源码构建，未登录）</summary>
+<summary>界面预览</summary>
 
 ### 浅色模式
 
@@ -75,3 +75,4 @@ Android 13+ 使用完整液态玻璃，Android 12 使用背景模糊，Android 8
 | ![设置（深色）](docs/readme-preview/settings-dark.png) |
 
 </details>
+
