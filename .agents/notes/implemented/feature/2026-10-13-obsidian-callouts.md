@@ -8,7 +8,7 @@ Status: implemented
 
 ## Decision
 
-在现有 `ArticleBlock` 解析和 Compose 渲染链路中增加 Callout 块。对 cooked HTML 中首段匹配 `[!type]` 的 blockquote 进行识别，移除语法标记，将后续内容交给现有正文解析器；支持标准类型、可选自定义标题及 `+`/`-` 折叠标记。普通引用保持原逻辑。Callout 的正文、图片、代码和链接继续复用已有递归渲染能力，用户签名中的 Callout 只渲染正文内容。
+在现有 `ArticleBlock` 解析和 Compose 渲染链路中增加 Callout 块。识别 cooked HTML 首段第一行的 `[!type]`，同时支持独立段落和实际站点使用的 `<br>` 换行；只移除标题行，保留同段正文的富文本和后续块。支持标准类型、Obsidian 类型别名、自定义标题及 `+`/`-` 折叠标记；只有显式折叠标记才显示折叠按钮。按文档区分蓝色 Note、绿色 Tip、黄色 Warning / Caution、红色 Danger 等颜色。普通引用保持原逻辑。Callout 的正文、图片、代码和链接继续复用已有递归渲染能力，用户签名中的 Callout 只渲染正文内容。
 
 ## Alternatives considered
 
@@ -22,8 +22,10 @@ Status: implemented
 - 自定义标题及折叠状态可用，普通 blockquote 行为不变。
 - 单元测试覆盖解析边界，Compose 测试覆盖显示和折叠。
 
-Callout 识别依赖 cooked HTML 中的 blockquote 分段结构；如果服务端改为专用 HTML 结构，需要补充对应 DOM 适配，但不会影响普通引用。新增块参与图片路径和折叠状态计算，折叠状态在正文重组后仍按路径保存。
+实际帖子 964458 的主帖使用 `<p>[!note]<br>正文</p>`，旧测试只有独立段落，未覆盖真实输入。回归夹具包含真实换行、自定义标题、正文富文本、代码块和普通引用边界；后续新增语法须核对实际 cooked HTML。若服务端改为专用 HTML 结构，需要补充对应 DOM 适配。新增块参与图片路径和折叠状态计算，折叠状态在正文重组后仍按路径保存。
 
 ## Testing
 
 `ContentParserTest.obsidianCalloutsBecomeTypedBlocksAndOrdinaryQuotesStayQuotes` 覆盖类型、正文、自定义标题、折叠标记和普通引用边界。`SpoilerContentUiTest.obsidianCalloutRendersTitleAndCanBeExpanded` 在 RMX2202 / Android 13 真机上通过，验证标题、隐藏正文和展开/收起交互。
+
+真实同段换行夹具 `actualSiteCalloutKeepsSameParagraphBodyAndCode` 在修复前失败（`artifacts/markdown-callout-repro.txt`）；修复后 ContentParserTest、QuoteParserTest、SpoilerParserTest 全部通过（`artifacts/markdown-callout-fixed.txt`），覆盖显式折叠、别名、普通引用以及 `<br>` 后格式化空白不进入正文。新增语法的真机验收在四项改动完成后集中执行。

@@ -14,6 +14,31 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ContentParserTest {
+    @Test fun actualSiteCalloutKeepsSameParagraphBodyAndCode() {
+        val callout = parseArticle("""<blockquote><p>[!warning]+ 别看了<br>快<strong>折起来</strong>。<br>第二行</p><pre><code>&gt; [!warning]+ 别看了</code></pre></blockquote>""").single() as ArticleBlock.Callout
+        assertEquals(ArticleCalloutType.WARNING, callout.type)
+        assertEquals("别看了", callout.title)
+        assertTrue(callout.open)
+        assertEquals("快折起来。\n第二行", parseInlineArticle((callout.blocks[0] as ArticleBlock.TextBlock).html, Color.Blue).text.text)
+        assertTrue((callout.blocks[0] as ArticleBlock.TextBlock).html.contains("<strong>折起来</strong>"))
+        assertTrue(callout.blocks[1] is ArticleBlock.Code)
+        val ordinary = parseArticle("<blockquote><p>前言<br>[!note]<br>普通引用</p></blockquote>").single()
+        assertTrue(ordinary is ArticleBlock.Quote)
+    }
+
+    @Test fun calloutAliasesAndExplicitFoldingKeepTheirMeaning() {
+        assertEquals(ArticleCalloutType.TIP, ArticleCalloutType.of("IMPORTANT"))
+        assertEquals(ArticleCalloutType.ABSTRACT, ArticleCalloutType.of("tldr"))
+        assertEquals(ArticleCalloutType.CAUTION, ArticleCalloutType.of("CAUTION"))
+        val fixed = parseArticle("<blockquote><p>[!note]<br>正文</p></blockquote>").single() as ArticleBlock.Callout
+        assertFalse(fixed.foldable)
+        assertTrue(fixed.open)
+        val folded = parseArticle("<blockquote><p>[!success]- 非常成功<br>确实如此。</p></blockquote>").single() as ArticleBlock.Callout
+        assertTrue(folded.foldable)
+        assertFalse(folded.open)
+        assertEquals("非常成功", folded.title)
+    }
+
     @Test fun markdownHeadingsExposeLevelsAndPlainTitlesForTopicToc() {
         val blocks = parseArticle("<h1>总览 <strong>一</strong></h1><h5>细节</h5><blockquote><h2>引用标题</h2></blockquote><details open><summary>折叠区</summary><h3>正文标题</h3></details>")
         val headings = blocks.articleHeadings()

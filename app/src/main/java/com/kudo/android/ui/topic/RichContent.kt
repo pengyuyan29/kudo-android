@@ -90,7 +90,7 @@ sealed interface ArticleBlock {
         val headingText: String = "",
     ) : ArticleBlock
     data class Quote(val blocks: List<ArticleBlock>, val author: String = "", val avatar: String? = null, val source: String? = null) : ArticleBlock
-    data class Callout(val type: ArticleCalloutType, val title: String, val blocks: List<ArticleBlock>, val open: Boolean = true) : ArticleBlock
+    data class Callout(val type: ArticleCalloutType, val title: String, val blocks: List<ArticleBlock>, val open: Boolean = true, val foldable: Boolean = true) : ArticleBlock
     data class Details(val summary: String, val blocks: List<ArticleBlock>, val open: Boolean = false) : ArticleBlock
     data class Spoiler(val blocks: List<ArticleBlock>) : ArticleBlock
     data class Code(val text: String) : ArticleBlock
@@ -153,12 +153,23 @@ data class ArticleCalloutType(val raw: String) {
         val SUCCESS = ArticleCalloutType("success")
         val QUESTION = ArticleCalloutType("question")
         val WARNING = ArticleCalloutType("warning")
+        val CAUTION = ArticleCalloutType("caution")
         val FAILURE = ArticleCalloutType("failure")
         val DANGER = ArticleCalloutType("danger")
         val BUG = ArticleCalloutType("bug")
         val EXAMPLE = ArticleCalloutType("example")
         val QUOTE = ArticleCalloutType("quote")
-        fun of(raw: String) = ArticleCalloutType(raw.lowercase())
+        fun of(raw: String) = ArticleCalloutType(when (val value = raw.lowercase()) {
+            "summary", "tldr" -> "abstract"
+            "hint", "important" -> "tip"
+            "check", "done" -> "success"
+            "help", "faq" -> "question"
+            "attention" -> "warning"
+            "fail", "missing" -> "failure"
+            "error" -> "danger"
+            "cite" -> "quote"
+            else -> value
+        })
     }
 }
 
@@ -187,12 +198,19 @@ private fun previewSource(element: Element, fallback: String): String {
 
 fun parseArticle(html: String): List<ArticleBlock> {
     val result = mutableListOf<ArticleBlock>()
-    fun calloutHeader(element: Element): Triple<String, String, Boolean>? {
+    fun callout(element: Element): ArticleBlock.Callout? {
         val first = element.children().firstOrNull()?.takeIf { it.normalName() in setOf("p", "div") } ?: return null
-        val match = Regex("^\\[!([A-Za-z][A-Za-z0-9_-]*)\\]([+-])?(?:\\s+(.+))?$").matchEntire(first.text().trim()) ?: return null
+        val lines = first.html().split(Regex("(?i)<br\\s*/?>"), limit = 2)
+        val header = Jsoup.parseBodyFragment(lines[0]).text().trim()
+        val match = Regex("^\\[!([A-Za-z][A-Za-z0-9_-]*)\\]([+-])?(?:\\s+(.+))?$").matchEntire(header) ?: return null
         val type = match.groupValues[1].lowercase()
         val title = match.groupValues[3].trim().ifBlank { type.replace('-', ' ').replace('_', ' ').replaceFirstChar { it.uppercase() } }
-        return Triple(type, title, match.groupValues[2] != "-")
+        val body = element.clone().apply {
+            val paragraph = children().firstOrNull() ?: return null
+            if (lines.size == 1) paragraph.remove() else paragraph.html(lines[1])
+        }
+        return ArticleBlock.Callout(ArticleCalloutType.of(type), title, parseArticle(body.html()),
+            open = match.groupValues[2] != "-", foldable = match.groupValues[2].isNotEmpty())
     }
     fun walk(element: Element, quote: Boolean = false) {
         if (element.hasClass("spoiler")) {
@@ -251,10 +269,7 @@ fun parseArticle(html: String): List<ArticleBlock> {
                 if (element.hasClass("onebox")) {
                     parseOnebox(element)?.let(result::add)
                 } else if (element.normalName() == "blockquote") {
-                    calloutHeader(element)?.let { (type, title, open) ->
-                        val body = element.clone().apply { children().firstOrNull()?.remove() }
-                        result.add(ArticleBlock.Callout(ArticleCalloutType.of(type), title, parseArticle(body.html()), open))
-                    } ?: run {
+                    callout(element)?.let(result::add) ?: run {
                         val body = element.clone()
                         val content = parseArticle(body.html()).map { if (it is ArticleBlock.TextBlock) it.copy(quote = true) else it }
                         if (content.isNotEmpty()) result.add(ArticleBlock.Quote(content))
@@ -369,8 +384,13 @@ internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
     val emojis = linkedMapOf<String, InlineEmoji>()
     var spoilerIndex = 0
     val text = buildAnnotatedString {
+        var afterBreak = false
         fun appendNode(node: Node) {
-            if (node is TextNode) append(node.text())
+            if (node is TextNode) {
+                val value = node.text()
+                append(if (afterBreak) value.trimStart() else value)
+                if (value.isNotBlank()) afterBreak = false
+            }
             else if (node is Element) {
                 val children: AnnotatedString.Builder.() -> Unit = { node.childNodes().forEach(::appendNode) }
                 if (node.hasClass("spoiler")) {
@@ -378,7 +398,7 @@ internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
                     children()
                     pop()
                 } else when (node.normalName()) {
-                    "br" -> append("\n")
+                    "br" -> { append("\n"); afterBreak = true }
                     "strong", "b" -> withStyle(SpanStyle(fontWeight = FontWeight.Bold), children)
                     "em", "i" -> withStyle(SpanStyle(fontStyle = FontStyle.Italic), children)
                     "del", "s" -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough), children)
@@ -389,6 +409,7 @@ internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
                             val id = "emoji-${emojis.size}"
                             emojis[id] = InlineEmoji(url, node.attr("alt").ifBlank { node.attr("title") }.ifBlank { "表情" })
                             appendInlineContent(id, "\uFFFC")
+                            afterBreak = false
                         } else append(node.attr("alt"))
                     }
                     "a" -> {
@@ -497,13 +518,13 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                 val accent = calloutAccent(block.type)
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp))
                     .background(accent.copy(alpha = 0.12f)).testTag("article-callout-$path")) {
-                    Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { toggle(path) }
-                        .semantics { contentDescription = if (hidden) "展开提示" else "收起提示" }
+                    Row(Modifier.fillMaxWidth().then(if (block.foldable) Modifier.clickable(role = Role.Button) { toggle(path) }
+                        .semantics { contentDescription = if (hidden) "展开提示" else "收起提示" } else Modifier)
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(calloutIcon(block.type), null, Modifier.size(18.dp), tint = accent)
                         Text(block.title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, color = accent)
-                        Icon(if (hidden) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess, null,
+                        if (block.foldable) Icon(if (hidden) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess, null,
                             Modifier.size(18.dp), tint = accent)
                     }
                     if (!hidden) Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
@@ -615,7 +636,7 @@ private fun ArticleTable(block: ArticleBlock.Table, path: String, linkHandler: U
 private fun calloutIcon(type: ArticleCalloutType): ImageVector = when (type) {
     ArticleCalloutType.TIP -> Icons.Rounded.Lightbulb
     ArticleCalloutType.TODO, ArticleCalloutType.SUCCESS -> Icons.Rounded.CheckCircle
-    ArticleCalloutType.WARNING -> Icons.Rounded.Warning
+    ArticleCalloutType.WARNING, ArticleCalloutType.CAUTION -> Icons.Rounded.Warning
     ArticleCalloutType.FAILURE, ArticleCalloutType.DANGER -> Icons.Rounded.Error
     ArticleCalloutType.BUG -> Icons.Rounded.BugReport
     ArticleCalloutType.QUESTION -> Icons.Rounded.Help
@@ -625,11 +646,14 @@ private fun calloutIcon(type: ArticleCalloutType): ImageVector = when (type) {
 
 @Composable
 private fun calloutAccent(type: ArticleCalloutType): Color = when (type) {
-    ArticleCalloutType.WARNING -> Color(0xFFE0A000)
+    ArticleCalloutType.WARNING, ArticleCalloutType.CAUTION -> Color(0xFFE0A000)
     ArticleCalloutType.FAILURE, ArticleCalloutType.DANGER, ArticleCalloutType.BUG -> MaterialTheme.colorScheme.error
     ArticleCalloutType.TIP, ArticleCalloutType.SUCCESS -> Color(0xFF00A896)
-    ArticleCalloutType.QUESTION, ArticleCalloutType.EXAMPLE -> MaterialTheme.colorScheme.tertiary
-    else -> MaterialTheme.colorScheme.primary
+    ArticleCalloutType.QUESTION -> Color(0xFFE0A000)
+    ArticleCalloutType.EXAMPLE -> Color(0xFF9B70DA)
+    ArticleCalloutType.ABSTRACT -> Color(0xFF00A9BB)
+    ArticleCalloutType.QUOTE -> MaterialTheme.colorScheme.onSurfaceVariant
+    else -> Color(0xFF448AFF)
 }
 
 @Composable
