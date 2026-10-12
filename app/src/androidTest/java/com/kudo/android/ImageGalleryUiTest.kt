@@ -27,6 +27,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -75,6 +76,7 @@ class ImageGalleryUiTest {
     private val author = Member(21, "gallery", "图片测试作者", "", avatarDetailsLoaded = true)
     private val loaded = CopyOnWriteArrayList<String>()
     private val failOriginal = AtomicBoolean(false)
+    private var imageGate: CompletableDeferred<Unit>? = null
     private lateinit var previousLoader: ImageLoader
     private lateinit var loader: ImageLoader
     private val palette = listOf(0xFFFFCF52.toInt(), 0xFF46C598.toInt(), 0xFF508CF0.toInt(), 0xFFEB819B.toInt(), 0xFF9F81EA.toInt())
@@ -95,6 +97,7 @@ class ImageGalleryUiTest {
                     if (!data.toString().startsWith("https://gallery.test/")) return null
                     return object : Fetcher {
                         override suspend fun fetch(): SourceFetchResult {
+                            imageGate?.await()
                             val name = data.toString().substringAfterLast('/')
                             if (name == "failed.png" && failOriginal.get()) throw IOException("fixture offline")
                             return SourceFetchResult(ImageSource(Buffer().write(bytes.getValue(if (name == "failed.png") "1.png" else name)), options.fileSystem),
@@ -109,7 +112,7 @@ class ImageGalleryUiTest {
         SingletonImageLoader.setUnsafe(loader)
     }
 
-    @After fun restore() { SingletonImageLoader.setUnsafe(previousLoader); loader.shutdown() }
+    @After fun restore() { imageGate?.complete(Unit); SingletonImageLoader.setUnsafe(previousLoader); loader.shutdown() }
 
     private fun html(images: List<ArticleBlock.Image>) = images.joinToString("") { image ->
         """<div class="lightbox-wrapper"><a class="lightbox" href="${image.originalUrl}"><img src="${image.url}" width="${if (image.url.endsWith("wide.png")) 1688 else 800}" height="${if (image.url.endsWith("wide.png")) 339 else 600}" alt="${image.alt}"><div class="meta"><span class="filename">${image.filename}</span><span class="informations">${image.dimensions} ${image.sizeLabel}</span></div></a></div>"""
@@ -141,6 +144,52 @@ class ImageGalleryUiTest {
     private fun third() {
         repeat(2) { compose.onNodeWithTag("image-pager").performTouchInput { swipeLeft(durationMillis = 500) } }
         compose.onNodeWithText("3 / 5").assertIsDisplayed()
+    }
+
+    private val progress = SemanticsMatcher.keyIsDefined(SemanticsProperties.ProgressBarRangeInfo)
+
+    private fun assertTricolorLoading() {
+        val pixels = compose.onNode(progress, useUnmergedTree = true).assertIsDisplayed().captureToImage().toPixelMap()
+        var yellow = 0
+        var white = 0
+        var ink = 0
+        for (y in 0 until pixels.height) for (x in 0 until pixels.width) {
+            val color = pixels[x, y]
+            if (color.red > 0.7f && color.green > 0.5f && color.blue < 0.4f) yellow++
+            if (color.red > 0.8f && color.green > 0.8f && color.blue > 0.8f) white++
+            if (color.red in 0.08f..0.15f && color.green in 0.08f..0.15f && color.blue in 0.08f..0.15f) ink++
+        }
+        assertTrue("图片加载圈应包含黄色段，实际像素数=$yellow", yellow > 5)
+        assertTrue("图片加载圈应包含白色段，实际像素数=$white", white > 5)
+        assertTrue("图片加载圈应包含深色段，实际像素数=$ink", ink > 5)
+    }
+
+    @Test fun fullscreenImageLoadingUsesTheTricolorIndicatorUntilDecodeCompletes() {
+        val gate = CompletableDeferred<Unit>().also { imageGate = it }
+        val gallery = ImageGalleryState().apply { open(pictures.take(1), 0, "loading-fixture") }
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.DARK)) {
+            ImageScreen(gallery, gallery.session!!, {})
+        } }
+        capture("gallery-image-loading-colors.png")
+        assertTricolorLoading()
+        gate.complete(Unit)
+        compose.waitUntil(5_000) { loaded.contains(pictures.first().url) }
+        compose.onAllNodes(progress, useUnmergedTree = true).assertCountEquals(0)
+        compose.onNodeWithTag("gallery-photo-0").assertIsDisplayed()
+    }
+
+    @Test fun deferredAlbumLoadingUsesTheTricolorIndicatorUntilTheAlbumArrives() {
+        val album = CompletableDeferred<List<ArticleBlock.Image>>()
+        compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.DARK)) {
+            ImageGalleryHost({ album.await() }, {}) { DeferredAlbumPreview() }
+        } }
+        compose.waitUntil(5_000) { loaded.contains(pictures.first().url) }
+        compose.onNodeWithTag("deferred-album-image").performTouchInput { click() }
+        capture("gallery-album-loading-colors.png")
+        assertTricolorLoading()
+        album.complete(pictures)
+        compose.onNodeWithText("1 / 5").assertIsDisplayed()
+        compose.onAllNodes(progress, useUnmergedTree = true).assertCountEquals(0)
     }
 
     @Test fun wideImageUsesItsRealHeightAndAutomaticInformationIsHidden() {

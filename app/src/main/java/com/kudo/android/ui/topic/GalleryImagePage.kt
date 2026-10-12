@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil3.asDrawable
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import com.kudo.android.ui.components.CommunityLoadingIndicator
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.currentCoroutineContext
@@ -133,7 +134,7 @@ internal fun GalleryImagePage(
                 if (!active || !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) drawable?.stop()
             })
         }
-        if (!loaded && !failed && placeholder == null) CircularProgressIndicator(Modifier.align(Alignment.Center).size(24.dp), color = Color.White, strokeWidth = 2.dp)
+        if (!loaded && !failed && placeholder == null) CommunityLoadingIndicator(Modifier.align(Alignment.Center).size(24.dp))
         if (failed) Column(Modifier.align(Alignment.Center).background(Color.Black.copy(alpha = 0.7f)).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("图片加载失败", color = Color.White)
             TextButton(onClick = { retry++ }, enabled = enabled) { Text("重试", color = Color.White) }

@@ -43,6 +43,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.kudo.android.ui.components.CommunityLoadingIndicator
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.first
@@ -149,7 +150,7 @@ internal fun ImageScreen(gallery: ImageGalleryState, session: GallerySession, op
         if (moving != null) GalleryTransitionLayer(moving, progress.value)
         Column(Modifier.align(Alignment.BottomCenter).graphicsLayer { alpha = if (interactive) transform.scrimAlpha else 0f }
             .navigationBarsPadding().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            if (session.loading) CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+            if (session.loading) CommunityLoadingIndicator(Modifier.size(18.dp))
             if (session.error) TextButton(onClick = session::retryAlbum) { Text("其他图片加载失败，点击重试", color = Color.White) }
             if (images.size > 1) Text("${pager.currentPage + 1} / ${images.size}", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelLarge)
             if (exporting) Text("正在处理图片…", color = Color.White, style = MaterialTheme.typography.bodySmall)
