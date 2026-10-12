@@ -47,6 +47,8 @@ data class TopicState(
 class TopicViewModel(
     private val repository: CommunityRepository, val topicId: Int, private val number: Int? = null,
     viewerId: Int? = null,
+    private val updates: TopicUpdates? = null, private val updateUser: Member? = null,
+    private val updateIntervalMillis: Long = 3000,
 ) : ViewModel() {
     private val _state = MutableStateFlow(TopicState(viewerId = viewerId, targetNumber = number))
     val state = _state.asStateFlow()
@@ -61,9 +63,84 @@ class TopicViewModel(
     private val replyJobs = mutableMapOf<Int, Job>()
     private var generation = 0
     private var initialLoadCompleted = false
+    private var updatesActive = false
+    private var updatesJob: Job? = null
     private val messages = Channel<String>(Channel.BUFFERED)
     val events = messages.receiveAsFlow()
     init { refresh() }
+
+    fun setUpdatesActive(active: Boolean) {
+        if (updatesActive == active) return
+        updatesActive = active
+        updatesJob?.cancel()
+        val source = updates ?: return
+        if (!active) return
+        updatesJob = viewModelScope.launch {
+            coroutineScope {
+                val signals = Channel<Unit>(Channel.CONFLATED)
+                launch {
+                    try {
+                        source.observeTopic(updateUser, topicId).collect { signals.trySend(Unit) }
+                    } catch (e: CancellationException) { throw e }
+                    catch (_: Exception) {
+                        // The push origin cannot diagnose the main site's login or clearance.
+                        updatesActive = false
+                        signals.close()
+                    }
+                }
+                signals.trySend(Unit) // Catch replies missed while this screen was paused.
+                try {
+                    for (signal in signals) {
+                        delay(updateIntervalMillis)
+                        signals.tryReceive()
+                        state.first { !it.loading && !it.jumping && !it.loadingMore && !it.loadingPrevious &&
+                            it.busy.isEmpty() && !it.followBusy && it.detail != null }
+                        try {
+                            if (!syncNewReplies()) signals.trySend(Unit)
+                        } catch (e: CancellationException) { throw e }
+                        catch (e: Exception) {
+                            val retry = (e as? ApiFailure)?.retryAfter?.toLong()?.times(1000) ?: updateIntervalMillis * 5
+                            delay(retry.coerceAtLeast(updateIntervalMillis))
+                            signals.trySend(Unit)
+                        }
+                    }
+                } finally { signals.cancel() }
+            }
+        }
+    }
+
+    private suspend fun syncNewReplies(): Boolean {
+        val snapshot = state.value
+        val detail = snapshot.detail ?: return true
+        val token = generation
+        val navigationToken = jumpGeneration
+        val fresh = withContext(Dispatchers.IO) { repository.detail(topicId) }
+        check(fresh.id == topicId) { "实时回复话题不匹配" }
+        if (token != generation || navigationToken != jumpGeneration) return false
+        // Keep locally excluded inaccessible floors; only extend the existing directory's tail.
+        val existing = detail.stream.toSet()
+        val newIds = fresh.stream.drop(fresh.stream.indexOfLast { it in existing } + 1).filterNot { it in existing }
+        val requested = if (snapshot.pageIds(previous = false).isEmpty()) newIds.take(20) else emptyList()
+        val received = if (requested.isEmpty()) emptyList() else withContext(Dispatchers.IO) {
+            repository.posts(topicId, requested).filter { it.id in requested }
+        }
+        if (token != generation || navigationToken != jumpGeneration) return false
+        var appended = false
+        _state.update { current ->
+            val latest = current.detail ?: return@update current
+            val known = current.allPosts.associateBy(Post::id)
+            val canAppend = current.pageIds(previous = false).isEmpty()
+            val incoming = if (canAppend) received.map { known[it.id] ?: it } else emptyList()
+            val missing = if (canAppend) requested.toSet() - received.map(Post::id).toSet() else emptySet()
+            val posts = (latest.posts + incoming).distinctBy(Post::id).sortedBy(Post::number)
+            appended = posts.size > latest.posts.size
+            current.copy(detail = latest.copy(posts = posts,
+                stream = (latest.stream + newIds).distinct().filterNot { it in missing },
+                highestPostNumber = maxOf(latest.highestPostNumber, fresh.highestPostNumber)))
+        }
+        if (appended) resolveContext()
+        return true
+    }
 
     fun markRead(numbers: Set<Int>) {
         if (_state.value.viewerId == null) return

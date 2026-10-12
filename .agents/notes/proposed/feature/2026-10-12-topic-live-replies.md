@@ -22,6 +22,10 @@ Status: proposed
 
 TopicUpdates.observeTopic 提供可取消的检查信号流。DiscourseMessageBus 已实现单话题订阅，TopicMessageBusCursors 对 created 及 reload_topic/refresh_stream 发信号，其他消息只推进游标。初连、重连及状态游标变化同样发出信号。TopicMessageBusTest 与既有 MessageBusTest 共10项通过，日志 artifacts/topic-live-transport-tests.txt；状态合并与页面生命周期仍按 Proposal 接入。
 
+## Incremental state contract
+
+TopicViewModel.setUpdatesActive 管理可取消的订阅任务，恢复时立即排队补查。CONFLATED 信号队列合并约3秒内通知，检查进行中收到的信号留待下一轮。快照只扩展既有目录尾部，不恢复已过滤的中间不可访问楼层；已加载到原末尾时获取最多20条新正文，其他位置只更新目录。读取过程不覆盖现有正文和操作状态，刷新或跳转后丢弃旧代次结果并重新检查；失败保留阅读现场并退避重试。TopicUpdatesTest 覆盖通知合并、连续窗口、批量上限、暂停恢复、检查中到达通知、跳转/刷新竞态和失败重试。页面生命周期接入仍待完成。
+
 ## Alternatives considered
 
 - 收到通知后整页刷新可直接得到最新内容，但会替换已加载窗口和阅读现场；只合并目录及新正文。
