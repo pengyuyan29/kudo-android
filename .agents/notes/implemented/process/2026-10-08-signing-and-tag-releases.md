@@ -58,7 +58,7 @@ Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移�
 
 重推后的运行 38202433589 已通过原生工具安装并写入缓存，但发布工具的 merge 夹具在 TemporaryDirectory 清理时报 objects 非空（`cloud-repair/job-114658524057.log`），符合 Git 自动维护后台写入与目录删除的竞态。测试临时仓库显式禁用 gc.auto 和 maintenance.auto，不修改开发者或 runner 的全局 Git 设置，不吞掉清理异常；增加本地配置回归，避免将重跑偶然通过视为修复。
 
-GitHub 缓存遵循 ref 可见性：仅在 v0.2.0 内写入不能供后续 v0.2.1 直接复用。因此同一工作流也检查 main 推送并建立默认分支缓存，依赖键不包含 ref / SHA，后续 Tag 可恢复 main 的工具链和依赖。main 仅运行原生测试、JVM 与 Lint，不恢复私钥、不构建正式包、不生成发布日志或发布 Release；所有签名、公开产物与 publish job 都显式限制为 Tag。针对分支触发及逐项发布门禁增加回归，避免为了缓存意外在每次 main 推送时发布。
+GitHub 缓存遵循 ref 可见性：仅在 v0.2.0 内写入不能供后续 v0.2.1 直接复用。因此同一工作流也检查 main 推送并建立默认分支缓存，依赖键不包含 ref / SHA，后续 Tag 可恢复 main 的工具链和依赖。main 仅在缓存键输入（Gradle 脚本、Wrapper 配置、原生 Cargo.lock、package.json）或发布工作流改变时触发，普通 App 源码、测试或文档推送不启动该构建；路径过滤不限制 Tag，Tag 仍执行完整门禁。main 仅运行原生测试、JVM 与 Lint，不恢复私钥、不构建正式包、不生成发布日志或发布 Release；所有签名、公开产物与 publish job 都显式限制为 Tag。针对分支触发、路径白名单与缓存输入一致、逐项发布门禁增加回归，避免为了缓存意外在每次 main 推送时编译或发布。
 
 Git 配置回归先失败（`cloud-repair/git-fixture-repro.txt`），修复后 36 项通过；默认分支缓存与签名门禁回归先失败（`main-cache-repro-tests.txt`），修复后最终 38 项全部发布工具测试通过（`final-tool-tests.txt`，13.724 秒）。actionlint 与 89 篇笔记检查通过；重推同名 Tag 后继续核对实际缓存命中、Ubuntu 原生 / JVM / Lint、正式签名和公开附件。
 
@@ -71,6 +71,8 @@ Git 配置回归先失败（`cloud-repair/git-fixture-repro.txt`），修复后 
 工作流将 `gh api --paginate --slurp` 的结果写入 runner.temp 的 `published-releases.json`，通过 `--published-releases` 交给 Python；API 失败由 Bash 的错误门禁停止。加强 shell 夹具后，旧工作流在已有发布和首次发布两种场景均按真实 CLI 报错失败（`cloud-repair/gh-cli-arguments-repro.txt`），修复后检查 JSON 原样传递及查询失败不调用生成器；Python 基线选择和 CLI 的多页、草稿、预发布、当前 Tag、无历史及畸形输入回归继续保留。
 
 CLI 修复后 41 项发布工具测试全部通过（`cloud-repair/gh-cli-arguments-fixed.txt`，15.539 秒），两份工作流 actionlint 与 89 篇笔记检查通过。已认证 API 确认 main 的完整 v2 依赖缓存已保存 556680498 字节，原生工具链缓存为 867191363 字节；最终 Tag 运行继续验收实际恢复及公开附件。
+
+main 路径过滤回归先复现无条件分支触发（`cloud-repair/main-paths-repro.txt`），收窄后 42 项发布工具测试通过（`main-paths-fixed.txt`，15.928 秒），actionlint 与 89 篇笔记检查通过。用户确认普通提交不应重复编译；本轮重复 main 运行 38205319317 已取消，保留 Tag 运行。运行 38205318965 实际命中 827 MiB 原生工具和 531 MiB 完整依赖缓存，Rust 11 项测试通过；311 项 JVM 中楼层并发测试超时，发布未执行，后续依实际报告修复，不绕过门禁。
 
 新版上传支持不压缩的单文件制品，但发布需要 APK、摘要和正文三个文件，因此显式使用 archive: true；下载显式使用 skip-decompress: false，让文件继续直接解压到 dist。digest-mismatch: error 使 Actions 制品摘要不一致时立即失败，发布 shell 仍单独核对 APK 的 SHA256。Tag 触发、权限拆分、临时密钥清理和草稿上传完才公开的契约保持一致。
 
@@ -88,6 +90,7 @@ CLI 修复后 41 项发布工具测试全部通过（`cloud-repair/gh-cli-argume
 - 重新开启 setup-gradle 的整个用户目录缓存：能同时复用编译脚本和更多构建状态，速度收益更大；本项目同一作业稍后接触正式签名，选择公开依赖目录白名单，避免持久化潜在签名相关状态。
 - 移除 setup-android，直接使用 runner 的 sdkmanager：可以减少一个第三方 Action，但需要自行维护命令行工具、许可证和安装路径；上游 v4.0.4 已支持 Node 24，保留原有 SDK 安装接口。
 - 将 gh 的 JSON 管道交给独立 jq：表达式简短且 Ubuntu 通常自带 jq，但会新增脚本工具依赖并将基线规则放到 shell；复用已有 Python 日志生成器解析分页 JSON，保持可离线验证。
+- 对 main 的每次推送都运行完整构建：能在打 Tag 前发现源码回归并补齐缓存，但源码或文档变化不会改变依赖键，和 Tag 同推还会重复编译；按用户确认收窄 main 为依赖配置或工作流变化，完整发布检查仍由 Tag 执行。
 
 ## Verification
 

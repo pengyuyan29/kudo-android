@@ -120,6 +120,15 @@ cargo() { printf 'cargo %s\\n' "$*" >> calls.txt; }
         for name in ("Test native DoH", "Unit tests and Android Lint"):
             self.assertNotIn("        if:", self.step(name))
 
+    def test_main_build_only_runs_when_dependency_inputs_or_release_workflow_change(self):
+        triggers = self.workflow.split("permissions:", 1)[0]
+        match = re.search(r"    paths:\n((?:      - [^\n]+\n)+)", triggers)
+        self.assertIsNotNone(match, "Ordinary source or documentation pushes must not start the main cache build")
+        paths = {line.strip()[2:].strip("'") for line in match.group(1).splitlines()}
+        dependency_hash = re.search(r"hashFiles\(([^)]+)\)", self.step("Restore dependency cache")).group(1)
+        inputs = set(re.findall(r"'([^']+)'", dependency_hash))
+        self.assertEqual(inputs | {".github/workflows/release.yml"}, paths)
+
     def test_main_build_never_reads_release_keys_or_publishes(self):
         for name in ("Validate tag and calculate version", "Restore release keystore", "Build signed release",
                      "Verify signature and APK version, then create checksum", "Organize release notes from commits", "Upload verified release files"):

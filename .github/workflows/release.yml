@@ -6,6 +6,13 @@ on:
       - main
     tags:
       - 'v*'
+    # Tag pushes always run; path filters only restrict branch pushes.
+    paths:
+      - '**/*.gradle.kts'
+      - 'gradle/wrapper/gradle-wrapper.properties'
+      - 'native/doh/Cargo.lock'
+      - 'package.json'
+      - '.github/workflows/release.yml'
 
 permissions:
   contents: read
