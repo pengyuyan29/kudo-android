@@ -28,4 +28,4 @@ Status: implemented
 
 `ContentParserTest.obsidianCalloutsBecomeTypedBlocksAndOrdinaryQuotesStayQuotes` 覆盖类型、正文、自定义标题、折叠标记和普通引用边界。`SpoilerContentUiTest.obsidianCalloutRendersTitleAndCanBeExpanded` 在 RMX2202 / Android 13 真机上通过，验证标题、隐藏正文和展开/收起交互。
 
-真实同段换行夹具 `actualSiteCalloutKeepsSameParagraphBodyAndCode` 在修复前失败（`artifacts/markdown-callout-repro.txt`）；修复后 ContentParserTest、QuoteParserTest、SpoilerParserTest 全部通过（`artifacts/markdown-callout-fixed.txt`），覆盖显式折叠、别名、普通引用以及 `<br>` 后格式化空白不进入正文。新增语法的真机验收在四项改动完成后集中执行。
+真实同段换行夹具 `actualSiteCalloutKeepsSameParagraphBodyAndCode` 在修复前失败（`artifacts/markdown-callout-repro.txt`）；修复后 ContentParserTest、QuoteParserTest、SpoilerParserTest 全部通过（`artifacts/markdown-callout-fixed.txt`），覆盖显式折叠、别名、普通引用以及 `<br>` 后格式化空白不进入正文。RMX2202 / Android 13 上的 MarkdownContentUiTest 验证真实换行正文、代码块和仅显式标记可折叠；与原有引用、剧透和链接共17项相关真机用例全部通过。实际截图 `artifacts/markdown-callout-real-linebreak.png` 已查看。

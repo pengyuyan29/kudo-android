@@ -17,7 +17,7 @@ Status: implemented
 
 ## Verification
 
-MarkdownListParserTest 覆盖有序编号、start / value、三级混合嵌套、站点三种清单输出、父项不能误取子项勾选状态及嵌套图片顺序。与 ContentParserTest、QuoteParserTest、SpoilerParserTest 一起通过（`artifacts/markdown-lists-unit.txt`）。站点客户端实际 cook 结果保存在 `artifacts/markdown-syntax-preview.json`；集中真机验收在四项改动完成后执行。
+MarkdownListParserTest 覆盖有序编号、start / value、三级混合嵌套、站点三种清单输出、父项不能误取子项勾选状态及嵌套图片顺序。与 ContentParserTest、QuoteParserTest、SpoilerParserTest 一起通过（`artifacts/markdown-lists-unit.txt`）。站点客户端实际 cook 结果保存在 `artifacts/markdown-syntax-preview.json`。RMX2202 / Android 13 上的 MarkdownContentUiTest 在360dp窄屏、深色130%字号下验证三级缩进、行序、编号和清单语义；与原有引用、剧透和链接共17项相关真机用例全部通过。截图 `artifacts/markdown-lists-dark-large.png` 已查看，三级内容完整。
 
 ## Consequences
 

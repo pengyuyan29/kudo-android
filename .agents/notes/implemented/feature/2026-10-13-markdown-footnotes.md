@@ -24,7 +24,13 @@ Status: implemented
 
 ## Verification
 
-先通过现有接口复现两项问题（上标丢失并生成网页 URL、定义重复显示），日志为 `artifacts/markdown-footnotes-repro.txt`。MarkdownFootnoteParserTest 覆盖实际独立 ol 结构、富文本与回链移除、重复引用、不同正文同名编号和缺失定义；与颜色、列表、ContentParser 和 SpoilerParser 共40项 JVM 测试通过（`artifacts/markdown-footnotes-unit.txt`）。真机弹窗交互在集中验收中验证。
+先通过现有接口复现两项问题（上标丢失并生成网页 URL、定义重复显示），日志为 `artifacts/markdown-footnotes-repro.txt`。MarkdownFootnoteParserTest 覆盖实际独立 ol 结构、富文本与回链移除、重复引用、不同正文同名编号和缺失定义；与颜色、列表、ContentParser 和 SpoilerParser 共40项 JVM 测试通过（`artifacts/markdown-footnotes-unit.txt`）。
+
+RMX2202 / Android 13 的 MarkdownContentUiTest 验证弹层超出短 LazyColumn 项高度、阻止背景阅读同步、富文本、关闭/系统返回/链接点击后滚动索引与像素偏移不变、重复引用、缺失定义、跨正文编号隔离、最新链接回调和来源消失自动关闭。与原有引用、剧透和链接共17项相关真机用例通过（原有12项见 `artifacts/markdown-device-tests.txt`，新增5项见 `artifacts/markdown-device-tests-fixed.txt`）。
+
+应用内液态弹窗有 dialog 语义但没有独立 DialogWindowProvider，截图使用 UiAutomation 全屏采集。夹具的来源层填充真实页面背景，防止透明夹具叠加未模糊的底层文字；两项脚注用例再次通过（`artifacts/markdown-footnote-material-tests.txt`）。浅色、深色130%截图 `artifacts/markdown-footnote-light.png` / `artifacts/markdown-footnote-dark-large.png` 已查看。
+
+Debug 和测试 APK 构建、Lint 通过，Lint为0 errors / 44 warnings / 1 hint（`artifacts/markdown-ui-final-build.txt`）。使用与真机一致的0.2.2-dev / 2005及既有Debug签名，App使用 adb install -r、测试包使用 -r -t 覆盖安装；未卸载、未清数据。真实应用当前为访客，线上搜索要求登录；语法验收使用已从网站 cook 核对的实际结构夹具，不发布社区内容。
 
 ## Consequences
 

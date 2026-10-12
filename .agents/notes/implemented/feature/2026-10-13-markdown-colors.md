@@ -17,7 +17,7 @@ Status: implemented
 
 ## Verification
 
-MarkdownInlineParserTest 覆盖站点实际红字、橙字输出、粗体及链接、命名色、短十六进制、CSS 尾部透明度、rgb / rgba 和非法值回退；与 ContentParserTest、SpoilerParserTest 一起通过（`artifacts/markdown-colors-unit.txt`）。静态表包含148种 CSS 命名色。集中真机验收在四项改动完成后执行。
+MarkdownInlineParserTest 覆盖站点实际红字、橙字输出、粗体及链接、命名色、短十六进制、CSS 尾部透明度、rgb / rgba 和非法值回退；与 ContentParserTest、SpoilerParserTest 一起通过（`artifacts/markdown-colors-unit.txt`）。静态表包含148种 CSS 命名色。RMX2202 / Android 13 的 MarkdownContentUiTest 在浅色和深色130%字号下验证富文本注解、红色与橙色实际像素及彩色链接回调；与原有引用、剧透和链接共17项相关真机用例全部通过。截图 `artifacts/markdown-colors-dark-large.png` 已查看。
 
 ## Consequences
 
