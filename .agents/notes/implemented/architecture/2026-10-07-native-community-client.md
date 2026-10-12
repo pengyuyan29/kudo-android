@@ -12,7 +12,7 @@ Status: implemented
 
 Coil 3.3.0 的全局 ImageLoader 注册 GIF/动态 WebP 解码；APNG 及 API 26/27 的 WebP 由 APNG4Android 3.0.5 补齐，两模块使用 Java 帧解码，不引入本地二进制。按内容识别 PNG acTL / WebP VP8X，绝不只判断后缀。APNG/WebP 补充解码限制 16 MiB、4096 边长、4M 像素和 1000 帧，按目标尺寸在分配画布前采样。返回不可共享 Drawable，避免多个头像抢同一动画回调；磁盘图片缓存与既有 Cookie 同源边界保持一致。APNG4Android 许可随 APK 收录，头像语义由[头像方案](../feature/2026-10-08-avatar-presentation.md)管理。
 
-网络抓取器和 communityAnimations 必须在同一个 components 配置块中注册。动画扩展定义在 ComponentRegistry.Builder 上；重复调用 ImageLoader.Builder.components 会替换先前配置，导致测试抓取器及生产的受限 Cookie 客户端被默认抓取器取代。AvatarUiTest 的真实图片夹具先复现加载失败，再验证同一注册块保留两类组件。
+网络抓取器、SvgDecoder.Factory 和 communityAnimations 必须在同一个 components 配置块中注册。[正文静态 SVG](../bug-fix/2026-10-13-article-svg-decoder.md)复用 Coil 3.3.0 的 coil-svg 模块，SVG 动画签名仍保留独立浏览器图片容器。动画扩展定义在 ComponentRegistry.Builder 上；重复调用 ImageLoader.Builder.components 会替换先前配置，导致测试抓取器及生产的受限 Cookie 客户端被默认抓取器取代。AvatarUiTest 的真实图片夹具先复现加载失败，再验证同一注册块保留两类组件。
 
 KudoApplication 通过 SingletonImageLoader.Factory 提供全局加载器，AppContainer 在 Application.onCreate 的主线程初始化，避免 WebSettings 首次初始化发生在图片工作线程。Activity 复用容器，不再调用 setSafe：图片先于首页访问、Activity 重建和测试先后顺序都必须得到同一受限网络与动画配置。AvatarUiTest 后接真实加载器测试先复现 setSafe 晚于 get 的崩溃，页面重建用例检查同一加载器继续解码 APNG。
 

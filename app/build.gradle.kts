@@ -140,6 +140,7 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     implementation("io.coil-kt.coil3:coil-gif:3.3.0")
+    implementation("io.coil-kt.coil3:coil-svg:3.3.0")
     implementation("com.github.penfeizhou.android.animation:apng:3.0.5")
     implementation("com.github.penfeizhou.android.animation:awebp:3.0.5")
     implementation("com.github.penfeizhou.android.animation:avif:3.0.5")

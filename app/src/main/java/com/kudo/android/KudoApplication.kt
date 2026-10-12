@@ -5,6 +5,7 @@ import android.content.Context
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import coil3.svg.SvgDecoder
 import com.kudo.android.data.AppContainer
 import com.kudo.android.media.communityAnimations
 
@@ -20,6 +21,7 @@ class KudoApplication : Application(), SingletonImageLoader.Factory {
 
     override fun newImageLoader(context: Context): ImageLoader = ImageLoader.Builder(context).components {
         add(OkHttpNetworkFetcherFactory(callFactory = { container.imageHttpClient }))
+        add(SvgDecoder.Factory())
         communityAnimations()
     }.build()
 }
