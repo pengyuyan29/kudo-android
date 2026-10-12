@@ -220,6 +220,7 @@ fun parseArticle(html: String): List<ArticleBlock> {
             open = match.groupValues[2] != "-", foldable = match.groupValues[2].isNotEmpty())
     }
     fun walk(element: Element, quote: Boolean = false) {
+        if (element.hasClass("footnotes-list") || element.hasClass("footnotes") || element.hasClass("footnotes-sep")) return
         if (element.hasClass("spoiler")) {
             if (element.normalName() == "div" || element.select("img:not(.emoji)").isNotEmpty()) {
                 result.add(ArticleBlock.Spoiler(parseArticle(element.html()))); return
@@ -424,7 +425,7 @@ private fun closedDetails(blocks: List<ArticleBlock>, parent: String = "root"): 
 internal data class InlineEmoji(val url: String, val name: String)
 internal data class InlineArticle(val text: AnnotatedString, val emojis: Map<String, InlineEmoji>)
 
-internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
+internal fun parseInlineArticle(html: String, linkColor: Color, onFootnote: ((String) -> Unit)? = null): InlineArticle {
     val emojis = linkedMapOf<String, InlineEmoji>()
     var spoilerIndex = 0
     val text = buildAnnotatedString {
@@ -449,6 +450,8 @@ internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
                     "em", "i" -> withStyle(SpanStyle(fontStyle = FontStyle.Italic), children)
                     "del", "s" -> withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough), children)
                     "code" -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = linkColor.copy(alpha = 0.1f)), children)
+                    "sup" -> withStyle(SpanStyle(baselineShift = androidx.compose.ui.text.style.BaselineShift.Superscript, fontSize = .75.em), children)
+                    "sub" -> withStyle(SpanStyle(baselineShift = androidx.compose.ui.text.style.BaselineShift.Subscript, fontSize = .75.em), children)
                     "img" -> {
                         val url = mediaUrl(node.attr("src"))
                         if (node.hasClass("emoji") && url != null) {
@@ -459,9 +462,14 @@ internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
                         } else append(node.attr("alt"))
                     }
                     "a" -> {
+                        val footnoteId = footnoteReferenceId(node)
                         val url = LinuxDoLink.webUrl(node.attr("href"))
                         val color = explicitColor ?: node.parents().firstNotNullOfOrNull { articleStyleColor(it.attr("style")) } ?: linkColor
-                        if (url != null) withStyle(SpanStyle(color = color)) {
+                        if (footnoteId != null) {
+                            if (onFootnote != null) withLink(LinkAnnotation.Clickable("footnote-$footnoteId",
+                                TextLinkStyles(SpanStyle(color = color))) { onFootnote(footnoteId) }, children)
+                            else children()
+                        } else if (url != null) withStyle(SpanStyle(color = color)) {
                             withLink(LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline))), children)
                         }
                         else children()
@@ -475,6 +483,12 @@ internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
         Jsoup.parseBodyFragment(html).body().childNodes().forEach(::appendNode)
     }
     return InlineArticle(text, emojis)
+}
+
+@Composable
+private fun rememberArticleInline(html: String, color: Color): InlineArticle {
+    val onFootnote = LocalArticleFootnoteReference.current
+    return remember(html, color, onFootnote) { parseInlineArticle(html, color, onFootnote) }
 }
 
 @Composable
@@ -499,6 +513,17 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
                 galleryKey: String = "article", galleryBottomInset: Dp = 0.dp,
                 poll: @Composable (String) -> Unit = { Text("投票，请打开原帖查看") }) {
     val blocks = remember(html) { parseArticle(html) }
+    val footnotes = remember(html) { articleFootnotes(html) }
+    val footnoteHost = LocalArticleFootnotes.current
+    val footnoteOwner = remember(html) { Any() }
+    val currentImage = rememberUpdatedState(onImage)
+    val currentLink = rememberUpdatedState(onLink)
+    val onFootnote = remember(footnotes, footnoteHost, footnoteOwner) { { id: String ->
+        footnotes[id]?.let { note -> footnoteHost?.show?.invoke(footnoteOwner, note,
+            { currentImage.value(it) }, { currentLink.value(it) }) }
+        Unit
+    } }
+    DisposableEffect(footnoteHost, footnoteOwner) { onDispose { footnoteHost?.dismiss?.invoke(footnoteOwner) } }
     val linkHandler = remember(onLink) { object : UriHandler {
         override fun openUri(uri: String) = onLink(uri)
     } }
@@ -527,6 +552,7 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
             withFrameNanos { }
         }
     }
+    CompositionLocalProvider(LocalArticleFootnoteReference provides onFootnote) {
     ArticleBlocks(blocks, "root", collapsed, { path ->
         collapsed = if (path in collapsed) collapsed - path else collapsed + path
     }, onLink, linkHandler, poll) { block, path ->
@@ -535,6 +561,7 @@ fun RichContent(html: String, onImage: (String) -> Unit, onLink: (String) -> Uni
             if (gallery == null) onImage(block.originalUrl)
             else gallery.open(images, index, origin, anchors[index])
         }
+    }
     }
 }
 
@@ -551,7 +578,7 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                 .background(MaterialTheme.colorScheme.surfaceVariant).testTag("article-details-$path")) {
                 val hidden = path in collapsed
                 val color = MaterialTheme.colorScheme.primary
-                val summary = remember(block.summary, color) { parseInlineArticle(block.summary, color).text }
+                val summary = rememberArticleInline(block.summary, color).text
                 Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { toggle(path) }
                     .semantics { contentDescription = if (hidden) "展开折叠内容" else "收起折叠内容" }
                     .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
@@ -619,7 +646,7 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
             }
             is ArticleBlock.TextBlock -> {
                 val color = MaterialTheme.colorScheme.primary
-                val article = remember(block.html, color) { parseInlineArticle(block.html, color) }
+                val article = rememberArticleInline(block.html, color)
                 val headingCollector = LocalArticleHeadingCollector.current
                 val headingRequester = if (headingCollector != null && block.heading && block.headingLevel in 1..6) {
                     remember { BringIntoViewRequester() }
@@ -683,7 +710,7 @@ private fun ArticleTable(block: ArticleBlock.Table, path: String, linkHandler: U
                 verticalAlignment = Alignment.CenterVertically) {
                 repeat(columns) { column ->
                     val html = row.cells.getOrNull(column).orEmpty()
-                    val article = remember(html, color) { parseInlineArticle(html, color) }
+                    val article = rememberArticleInline(html, color)
                     CompositionLocalProvider(LocalUriHandler provides linkHandler) {
                         Box(Modifier.weight(1f).padding(horizontal = 10.dp, vertical = 8.dp)) {
                             SpoilerArticleText(article, "table-$path-$rowIndex-$column", "article-table-cell-$path-$rowIndex-$column",
