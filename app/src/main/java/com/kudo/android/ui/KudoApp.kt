@@ -151,6 +151,11 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val pages by feed.pages.collectAsStateWithLifecycle()
                         val backdrop = rememberLayerBackdrop()
                         ObserveHomeUpdates(feed, account.user)
+                        LaunchedEffect(feed) {
+                            feed.refreshEvents.collect { count ->
+                                snackbar.showSnackbar("已为你加载${count}条新内容")
+                            }
+                        }
                         LaunchedEffect(refreshEpoch) { feed.refreshIfRequested(refreshEpoch) }
                         LaunchedEffect(readingEpoch, account.user?.id) {
                             feed.refreshReadListsIfRequested(readingEpoch, account.user?.id)
