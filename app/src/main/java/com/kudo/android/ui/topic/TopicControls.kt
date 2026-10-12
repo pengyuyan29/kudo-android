@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
@@ -17,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -38,6 +40,7 @@ import com.kudo.android.ui.components.TopicAuthorMetadata
 import com.kudo.android.ui.components.liquid.LiquidButton
 import com.kudo.android.ui.theme.LogoYellow
 import com.kudo.android.ui.theme.LikeRed
+import com.kudo.android.ui.theme.Ink
 import com.kyant.backdrop.Backdrop
 
 @Composable
@@ -135,14 +138,22 @@ internal fun TopicBottomBar(
     val available = enabled && !state.loading && first != null && first.id !in state.busy
     BoxWithConstraints(modifier.navigationBarsPadding().padding(horizontal = 16.dp, vertical = 20.dp).fillMaxWidth()) {
     val compact = maxWidth < 320.dp || (LocalDensity.current.fontScale > 1.2f && maxWidth < 360.dp) || (detail.highestPostNumber >= 10000 && maxWidth < 380.dp)
+    val replying = state.replyingUsers
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         LiquidButton(onClick = reply, enabled = enabled && !detail.closed, backdrop = backdrop, mode = glass,
             surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
-            contentColor = MaterialTheme.colorScheme.onSurface, contentPadding = PaddingValues(horizontal = if (compact) 14.dp else 16.dp),
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            contentPadding = PaddingValues(horizontal = if (compact && replying.isNotEmpty()) 10.dp else if (compact) 14.dp else 16.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start),
-            modifier = Modifier.testTag("topic-reply").semantics { contentDescription = "写回复" }) {
-            Icon(Icons.Outlined.DriveFileRenameOutline, null, Modifier.size(20.dp).testTag("topic-reply-icon"))
-            if (!compact) Text("写回复", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Normal, maxLines = 1)
+            modifier = Modifier.testTag("topic-reply").semantics {
+                contentDescription = "写回复"
+                if (replying.isNotEmpty()) stateDescription = "${replying.size}人正在回复"
+            }) {
+            if (!compact || replying.isEmpty()) {
+                Icon(Icons.Outlined.DriveFileRenameOutline, null, Modifier.size(20.dp).testTag("topic-reply-icon"))
+            }
+            if (replying.isNotEmpty()) ReplyingAvatars(replying, compact)
+            else if (!compact) Text("写回复", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Normal, maxLines = 1)
         }
         val floor = currentFloor.coerceIn(1, detail.highestPostNumber)
         LiquidButton(onClick = floors, enabled = enabled && !state.loading, backdrop = backdrop, mode = glass,
@@ -169,6 +180,29 @@ internal fun TopicBottomBar(
             }
         }
     }
+    }
+}
+
+@Composable
+private fun ReplyingAvatars(users: List<Member>, compact: Boolean) {
+    val visible = users.take(3)
+    val size = if (compact) 20.dp else 24.dp
+    val step = if (compact) 10.dp else 16.dp
+    val outline = MaterialTheme.colorScheme.surface
+    Box(Modifier.width(size + step * (visible.size - 1)).height(size).testTag("topic-replying-avatars")) {
+        visible.forEachIndexed { index, member ->
+            Box(Modifier.offset(x = step * index).size(size).clip(CircleShape)
+                .border(1.dp, outline, CircleShape).testTag("topic-replying-avatar-${member.id}")) {
+                Avatar(member, size, presentation = AvatarPresentation.PLAIN)
+                if (index == 2 && users.size > 3) {
+                    Box(Modifier.fillMaxSize().background(Ink.copy(alpha = .72f)), contentAlignment = Alignment.Center) {
+                        BasicText("+${users.size - 3}", Modifier.padding(horizontal = 1.dp).testTag("topic-replying-overflow"),
+                            style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Normal),
+                            maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 6.sp, maxFontSize = 10.sp, stepSize = .5.sp))
+                    }
+                }
+            }
+        }
     }
 }
 

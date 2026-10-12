@@ -50,6 +50,10 @@ TopicState.replyingUsers 保存当前订阅名单，TopicActivity 将目录补�
 
 - Presence 协议新增 TopicPresenceTest 6项，连同 TopicMessageBusTest、MessageBusTest 共16项通过，覆盖初始名单、自身过滤、多会话去重、加入离开、游标缺口补查、首次连接失败恢复、权限降级、匿名与凭据隔离。日志 artifacts/topic-presence-transport-tests.txt。
 - 页面状态新增3项 Presence 用例，TopicUpdatesTest（11项）与 TopicViewModelTest（9项）共20项通过：头像事件不查目录、不改阅读状态，暂停清空、恢复换用新名单，源异常清空但不覆盖正文。日志 artifacts/topic-presence-state-tests.txt。
+- Presence UI 在 RMX2202 / Android 13 上与既有追加、生命周期、按钮宽度、窄屏楼层控件共7项回归通过。覆盖1..5人切换、最多3头像、5人+2、重叠坐标、没有身份/状态角标、按钮仍可回复、无人恢复文字和关闭话题禁用。280dp、1.3倍字体的深色模式在三种玻璃材质下均无控件重叠或楼层文字溢出。日志 artifacts/topic-presence-device-tests.txt。
+- 增加可控图片加载后重新运行3项 Presence UI 用例，验证头像图像像素完整显示、没有角标图像请求，通过。截图 artifacts/topic-presence-five-light.png、artifacts/topic-presence-five-liquid-narrow-dark.png；日志 artifacts/topic-presence-image-device-tests.txt。
+- 当前手机账号的真实 Presence 快照和合并 poll 在线探针1项通过，话题2977660当时 users=0。多人到达、离开与+2布局采用模拟数据验证，没有向社区发布输入状态。日志 artifacts/topic-presence-online-probe.txt。
+- Presence 版 Debug 使用既有签名、adb install -r 保留数据覆盖安装；Release 构建、签名和版本/ABI检查通过，仍为0.2.0/2001，仅arm64-v8a。产物 artifacts/release/0.2.0/topic-presence/kodo_0.2.0_release_arm64-v8a.apk。
 - TopicMessageBusTest 与既有 MessageBusTest 共10项通过，覆盖频道隔离、游标去重与重置、初始及重连补查、取消及凭据隔离。日志 artifacts/topic-live-transport-tests.txt。
 - TopicUpdatesTest、TopicViewModelTest、TopicFloorNavigationTest、TopicResumeReadingTest 相关 JVM 测试通过；补充刷新竞态后 TopicUpdatesTest 全部8项通过，覆盖末尾追加、前面阅读不跨楼层、通知合并、刷新/跳转竞态、失败不丢正文、暂停取消及恢复补查。日志 artifacts/topic-live-state-tests.txt、artifacts/topic-live-state-final-tests.txt。
 - RMX2202 / Android 13 真机运行 TopicLiveRepliesUiTest（2项离线场景）、TopicContinuationUiTest（4项）、TopicBackwardPaginationUiTest（6项），共12项通过。追加前后第10楼的屏幕坐标误差不超过2px；暂停后订阅数归零，恢复无通知也补查，前面阅读时仍按21..40顺序加载。截图 artifacts/topic-live-before.png、artifacts/topic-live-after.png，日志 artifacts/topic-live-device-tests.txt。测试用本地拦截数据，不向社区发帖。
@@ -60,4 +64,4 @@ TopicState.replyingUsers 保存当前订阅名单，TopicActivity 将目录补�
 
 新回复能进入当前阅读目录，保留分页窗口、已确认操作和阅读锚点；代价是当前详情新增一条独立长轮询连接，以及通知后的目录补查。Presence 共用该连接，但进入和恢复时增加一次名单读取。实时更新受网络、MessageBus 和主站接口可用性约束，新回复有约3秒通知合并和请求延迟，正在回复名单按推送即时更新。目录补查读取话题快照，但不替换现有正文；本功能不实现所有编辑、删除和点赞的实时同步。推送端点连续验证失败会停止订阅，重新进入或恢复页面时再尝试。
 
-真机自动化验证只覆盖本地模拟新增回复；在线只读探针用于检查当前会话和订阅连接，不保证测试期间恰好出现服务器新回复。若以后需要完整实时编辑或删除同步，应重新审视目录合并与正文替换契约。
+真机自动化验证只覆盖本地模拟新增回复和多人正在回复；在线只读探针用于检查当前会话、Presence 快照和订阅连接，不保证测试期间恰好出现服务器新回复或正在输入的用户。用户开启隐藏 Presence 时不会出现在服务器名单中，未登录或无频道权限时按钮使用原样式。若以后需要完整实时编辑、删除同步或向 Web 上报 App 输入，应重新审视目录合并、正文替换和输入状态上报契约。
