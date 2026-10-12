@@ -7,15 +7,19 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.IOException
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.random.Random
@@ -27,7 +31,11 @@ fun interface FeedUpdates {
 
 fun interface TopicUpdates {
     fun observeTopic(user: Member?, topicId: Int): Flow<Unit>
+    fun observeActivity(user: Member?, topicId: Int): Flow<TopicActivity> =
+        observeTopic(user, topicId).map { TopicActivity(checkReplies = true) }
 }
+
+data class TopicActivity(val checkReplies: Boolean = false, val replyingUsers: List<Member>? = null)
 
 class DiscourseMessageBus(
     private val client: DiscourseClient,
@@ -69,8 +77,58 @@ class DiscourseMessageBus(
         }
     }
 
-    private data class PollBatch(val messages: JSONArray, val initial: Boolean, val reconnect: Boolean)
-    private fun poll(user: Member?, cursors: Map<String, Long>): Flow<PollBatch> = flow {
+    override fun observeActivity(user: Member?, topicId: Int): Flow<TopicActivity> = flow {
+        require(topicId > 0)
+        val topic = TopicMessageBusCursors(topicId)
+        // The poll runs on IO while a presence resync can suspend its collector.
+        val channels = ConcurrentHashMap(topic.values)
+        val presence = user?.let { TopicReplyPresence(topicId, it.id) }
+        var retryPresenceAt = Long.MAX_VALUE
+        var needsPresenceSnapshot = false
+        suspend fun refreshPresence() {
+            presence ?: return
+            try {
+                val snapshot = withContext(Dispatchers.IO) {
+                    client.get("/presence/get", mapOf("channels[]" to presence.name)).optJSONObject(presence.name)
+                }
+                presence.replace(snapshot)
+                retryPresenceAt = Long.MAX_VALUE
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) {
+                presence.replace(null)
+                retryPresenceAt = System.nanoTime() + TimeUnit.SECONDS.toNanos(30)
+            }
+            if (presence.subscribed) channels[presence.channel] = presence.cursor
+            else channels.remove(presence.channel)
+        }
+        if (presence != null) {
+            refreshPresence()
+            emit(TopicActivity(replyingUsers = presence.users))
+        }
+        poll(user, channels, disconnects = true).collect { batch ->
+            if (batch.disconnected) {
+                presence?.replace(null)
+                needsPresenceSnapshot = true
+                emit(TopicActivity(replyingUsers = emptyList()))
+            } else {
+                val checkReplies = topic.accept(batch.messages) || batch.reconnect
+                channels.putAll(topic.values)
+                val previousUsers = presence?.users
+                if (presence != null) {
+                    val resync = presence.accept(batch.messages)
+                    if (resync || needsPresenceSnapshot || (batch.reconnect && !batch.initial) || System.nanoTime() >= retryPresenceAt) refreshPresence()
+                    needsPresenceSnapshot = false
+                    if (presence.subscribed) channels[presence.channel] = presence.cursor
+                }
+                if (checkReplies || presence?.users != previousUsers) {
+                    emit(TopicActivity(checkReplies, presence?.users))
+                }
+            }
+        }
+    }
+
+    private data class PollBatch(val messages: JSONArray, val initial: Boolean, val reconnect: Boolean, val disconnected: Boolean = false)
+    private fun poll(user: Member?, cursors: Map<String, Long>, disconnects: Boolean = false): Flow<PollBatch> = flow {
         val id = UUID.randomUUID().toString().replace("-", "")
         var key: String? = null
         var sequence = 0L
@@ -100,6 +158,7 @@ class DiscourseMessageBus(
                 // A misconfigured server returning immediate empty bodies must not create a hot loop.
                 delay(1000)
             } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                if (disconnects) emit(PollBatch(JSONArray(), first, reconnect = true, disconnected = true))
                 if (e is ApiFailure && e.kind == FailureKind.VERIFICATION) {
                     verificationFailures++
                     if (verificationFailures >= maxConsecutiveVerificationFailures) throw e
@@ -113,6 +172,53 @@ class DiscourseMessageBus(
             }
         }
     }.flowOn(Dispatchers.IO)
+}
+
+internal class TopicReplyPresence(topicId: Int, private val viewerId: Int) {
+    val name = "/discourse-presence/reply/$topicId"
+    val channel = "/presence$name"
+    var cursor = 0L
+        private set
+    var users = emptyList<Member>()
+        private set
+    var subscribed = false
+        private set
+
+    fun replace(snapshot: JSONObject?) {
+        val members = snapshot?.optJSONArray("users")
+        subscribed = members != null
+        cursor = (snapshot?.opt("last_message_id") as? Number)?.toLong()?.coerceAtLeast(0) ?: 0L
+        users = members?.objects().orEmpty().map(DiscourseParser::member)
+            .filter { it.id > 0 && it.id != viewerId }.distinctBy(Member::id)
+    }
+
+    /** True means the delta cannot be applied safely and needs a fresh snapshot. */
+    fun accept(messages: JSONArray): Boolean {
+        if (!subscribed) return false
+        for (index in 0 until messages.length()) {
+            val message = messages.optJSONObject(index) ?: continue
+            when (message.optString("channel")) {
+                "/__status" -> {
+                    val head = message.optJSONObject("data")?.opt(channel) as? Number
+                    if (head != null && head.toLong() >= 0 && head.toLong() != cursor) return true
+                }
+                channel -> {
+                    val id = message.optLong("message_id", -1)
+                    if (id <= cursor) continue
+                    if (id != cursor + 1) return true
+                    val data = message.optJSONObject("data") ?: return true
+                    val entering = data.optJSONArray("entering_users")
+                    val leaving = data.optJSONArray("leaving_user_ids")
+                    if (entering == null && leaving == null) return true
+                    val removed = leaving?.let { array -> (0 until array.length()).map { array.optInt(it) }.toSet() }.orEmpty()
+                    val added = entering?.objects().orEmpty().map(DiscourseParser::member)
+                    users = (users + added).filter { it.id > 0 && it.id != viewerId && it.id !in removed }.distinctBy(Member::id)
+                    cursor = id
+                }
+            }
+        }
+        return false
+    }
 }
 
 internal class TopicMessageBusCursors(topicId: Int) {
