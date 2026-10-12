@@ -25,6 +25,15 @@ adb -s <真机序列号> shell am start -n com.kudo.android/.MainActivity
 
 输出：`app/build/outputs/apk/debug/app-debug.apk`。没有私有签名配置时，源码克隆使用 Android 默认 Debug 证书。
 
+覆盖安装或运行真机测试前，先核对版本和签名。`app/build.gradle.kts` 的本地默认值是 `versionName=0.1.0`、`versionCode=1`；如果真机已安装更高版本，必须用不低于已安装版本的参数构建，例如：
+
+```powershell
+adb -s <真机序列号> shell dumpsys package com.kudo.android | Select-String 'versionCode=|versionName='
+.\gradlew.bat :app:assembleDebug "-PversionName=0.2.1-dev" "-PversionCode=2004"
+adb -s <真机序列号> install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+签名和版本任一不匹配时先修复构建参数；不要卸载应用或清除数据来绕过安装错误。
 ## 本地签名
 
 首次初始化固定签名（需要 Python 3.10+ 和 JDK 的 `keytool`）：
