@@ -71,22 +71,39 @@ Windows 可将密钥库 Base64 直接复制到剪贴板，再粘贴到对应 Sec
 [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path 'signing/kudo-release.p12').Path)) | Set-Clipboard
 ```
 
-将包含工作流的代码推送到仓库、配置好 Secrets 后，推送新版本 Tag：
+当前发布版本为 `v0.2.1` / `versionCode=2002`，下一版从 `v0.2.2` / `versionCode=2003` 开始。示例产物为 `kodo_0.2.1_release_arm64-v8a.apk` 和 `kodo_0.2.1_release_arm64-v8a.apk.sha256`，正式 Release 只包含 `arm64-v8a`。自动发布从上一个已公开正式 Release 到当前 Tag 的 commit 中筛选 App 运行时变化，失败 Tag 和草稿不截断更新日志，首次版本包含完整历史。新提交请使用 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:`、`chore:` 等前缀，冒号后写中文说明；只有 `feat:`、`fix:`、`perf:` 且实际修改 `app/src/main/` 运行时源码或资源的提交会进入更新日志，文档、测试、工具链、CI、许可证和合并提交被过滤。
+
+发布前先由当前 AI 协作者整理日志，再提交并打 Tag。脚本提取原始候选和校验来源，AI 负责合并同一功能的多次提交及后续修复，写成“新增、修复、调整”下的简短中文条目；同一新增功能的配套修复并入新增条目，保留最终效果，省略开发、调试及测试过程。整理时必须对照 App 变更核实，避免遗漏或夸大。CI 直接读取已提交的版本文件，不调用模型，无需 AI API Key。
+
+先确认上一个**已公开正式 Release**（例如通过 `gh release list --exclude-drafts --exclude-pre-releases` 查看），再从 HEAD 为尚未创建的 Tag 提取草稿：
 
 ```powershell
+python scripts/release_notes.py --tag v0.2.2 --previous-tag v0.2.1 --prepare --output release-notes/v0.2.2.md
+```
+
+`--previous-tag` 不应填写失败 Tag 或草稿；首次发布使用 `--previous-tag=` 显式传空基线。AI 编辑 `release-notes/v0.2.2.md` 正文时保留第一行来源元数据、版本标题和末尾完整变更链接。文件已存在时脚本拒绝覆盖；需要重新整理时先提取到 `artifacts/` 下的新草稿，再核对并更新版本文件。
+
+整理后，在打 Tag 前校验并预览，另存原始候选供核对：
+
+```powershell
+python scripts/release_notes.py --tag v0.2.2 --previous-tag v0.2.1 --from-head --prepared-notes-dir release-notes --raw-output artifacts/release-notes.raw.md --output artifacts/release-notes.md
+```
+
+来源校验跟踪筛选后的 App 提交，文档、测试、CI 和日志自身的提交不使其失效；新增 App 提交或已公开发布基线变化时必须重新提取并整理。已有文件的来源、格式、分类或版本链接不匹配会停止发布。没有版本文件时仅为历史或手动发布兼容而回退原始提交日志，不会自动完成 AI 精简。
+
+检查预览后提交日志，确保代码和日志都已推送，再推送新 Tag：
+
+```powershell
+git add release-notes/v0.2.2.md
+git commit -m 'doc: 整理0.2.2更新日志'
+git push origin main
 git tag -a v0.2.2 -m '发布 0.2.2'
 git push origin v0.2.2
 ```
 
-当前发布版本为 `v0.2.1` / `versionCode=2002`，下一版从 `v0.2.2` / `versionCode=2003` 开始。示例产物为 `kodo_0.2.1_release_arm64-v8a.apk` 和 `kodo_0.2.1_release_arm64-v8a.apk.sha256`，正式 Release 只包含 `arm64-v8a`。自动发布从上一个已公开正式 Release 到当前 Tag 的 commit 中筛选 App 运行时变化，失败 Tag 和草稿不截断更新日志；整理为“新增、修复、调整”，去除文档、测试、工具链、CI、合并提交与重复标题，首次版本包含完整历史。新提交请使用 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:`、`chore:` 等前缀，冒号后写中文说明；只有 `feat:`、`fix:`、`perf:` 且实际修改 `app/src/main/` 的提交会进入更新日志。发布前请查看生成的日志。工作流把同一份 `release-notes.md` 写入 GitHub Release，App 的“关于酷DO → 检查更新”显示该正文。工作流先准备草稿、上传完整产物后再公开；上传失败留下的草稿可以重跑恢复，已经公开的同名 Release 不会被覆盖，应使用新版本 Tag。
+工作流把去掉来源注释的 `release-notes.md` 写入 GitHub Release，App 的“关于酷DO → 检查更新”显示该正文；原始候选 `release-notes.raw.md` 只保留在 Actions 构建产物中供核对。工作流先准备 Release 草稿、上传完整产物后再公开；上传失败留下的草稿可以重跑恢复，已经公开的同名 Release 不会被覆盖，应使用新版本 Tag。手动发布在创建 Tag 后去掉 `--from-head` 重新校验和输出日志，再用 `gh release create <Tag> --notes-file artifacts/release-notes.md` 发布。
 
-已创建本地版本 Tag 后，可预览和人工整理日志：
-
-```powershell
-python scripts/release_notes.py --tag v0.2.1 --previous-tag v0.2.0 --output artifacts/release-notes.md
-```
-
-手动发布时用 `gh release create <Tag> --notes-file artifacts/release-notes.md` 写入整理后的文件；自动 Tag 流程使用脚本生成的内容。检查更新只读取公开正式 Release，不使用私有仓库凭据；仓库私有或未发布时显示暂无公开版本。下载和查看源码使用外部浏览器。
+检查更新只读取公开正式 Release，不使用私有仓库凭据；仓库私有或未发布时显示暂无公开版本。下载和查看源码使用外部浏览器。
 
 ## 提交信息与版本规则
 
