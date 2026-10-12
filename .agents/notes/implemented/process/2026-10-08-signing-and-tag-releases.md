@@ -56,6 +56,8 @@ Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移�
 
 缓存白名单、锁文件失效/回退和失败路径保存的两项测试先复现缺失（`cloud-repair/cache-repro-tests.txt`）。修复后 35 项全部发布工具测试通过（`all-tool-tests.txt`，14.483 秒），两份工作流 actionlint 与 89 篇笔记检查通过。用户明确要求修复后删除远端 v0.2.0 再推送同名 Tag；原 Tag 对象为 `755cbfc6c0ea341616256b54085dc76a72bf7ef7`，指向 `845ad45238c176295f55159139a734ffb511c230`，仅在远端仍为该对象时替换，不修改其他版本。
 
+重推后的运行 38202433589 已通过原生工具安装并写入缓存，但发布工具的 merge 夹具在 TemporaryDirectory 清理时报 objects 非空（`cloud-repair/job-114658524057.log`），符合 Git 自动维护后台写入与目录删除的竞态。测试临时仓库显式禁用 gc.auto 和 maintenance.auto，不修改开发者或 runner 的全局 Git 设置，不吞掉清理异常；增加本地配置回归，避免将重跑偶然通过视为修复。
+
 新版上传支持不压缩的单文件制品，但发布需要 APK、摘要和正文三个文件，因此显式使用 archive: true；下载显式使用 skip-decompress: false，让文件继续直接解压到 dist。digest-mismatch: error 使 Actions 制品摘要不一致时立即失败，发布 shell 仍单独核对 APK 的 SHA256。Tag 触发、权限拆分、临时密钥清理和草稿上传完才公开的契约保持一致。
 
 ## Related decisions

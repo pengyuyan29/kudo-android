@@ -16,11 +16,17 @@ class ReleaseNotesTest(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         self.git("init", "--initial-branch=main")
+        self.git("config", "gc.auto", "0")
+        self.git("config", "maintenance.auto", "false")
         self.git("config", "user.name", "Fixture")
         self.git("config", "user.email", "fixture@example.invalid")
 
     def tearDown(self):
         self.temporary.cleanup()
+
+    def test_fixture_disables_background_git_maintenance_before_cleanup(self):
+        self.assertEqual("0", self.git("config", "--local", "--get", "gc.auto").strip())
+        self.assertEqual("false", self.git("config", "--local", "--get", "maintenance.auto").strip())
 
     def git(self, *args):
         return subprocess.run(["git", *args], cwd=self.root, capture_output=True, check=True, encoding="utf-8").stdout
