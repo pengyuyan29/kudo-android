@@ -67,9 +67,10 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         boostPostId = post.id; loadBoostRules(); boostVisibility.targetState = true
     }
     fun closeBoost() { keyboard?.hide(); boostVisibility.targetState = false }
-    BackHandler(enabled = floorShowing && !state.jumping) {
+    fun closeFloor() {
         keyboard?.hide(); floorVisibility.targetState = false
     }
+    BackHandler(enabled = floorShowing && !state.jumping, onBack = ::closeFloor)
     fun openThread(root: Post) { threadRootId = root.id; threadVisibility.targetState = true }
     val threads = state.threads
     val posts = state.detail?.posts.orEmpty().distinctBy(Post::id).sortedBy(Post::number)
@@ -294,7 +295,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
                 floors = { floorRaw = currentFloor.toString(); floorVisibility.targetState = true },
                 floorEditing = floorShowing, floorRaw = floorRaw,
                 floorChange = { floorRaw = it }, floorHighest = detail?.highestPostNumber ?: 1,
-                floorJumping = state.jumping, floorError = state.jumpError, floorConfirm = jumpTo)
+                floorJumping = state.jumping, floorError = state.jumpError, floorConfirm = jumpTo, floorClose = ::closeFloor)
         }
         LiquidModal(tocVisibility, "目录", false, modalBackdrop, glass, { tocVisibility.targetState = false },
             showActions = false, maxDialogHeightFraction = .72f,

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,9 +33,12 @@ internal fun FloorNavigationBar(
     backdrop: Backdrop,
     mode: GlassMode,
     modifier: Modifier = Modifier,
+    openingFloor: Int = 1,
+    close: () -> Unit = {},
 ) {
     val number = raw.toIntOrNull()
     val valid = number != null && number in 1..highest
+    val unchanged = number == openingFloor
     val inputStyle = MaterialTheme.typography.labelLarge
     val textMeasurer = rememberTextMeasurer()
     val inputWidth = with(LocalDensity.current) {
@@ -68,9 +72,10 @@ internal fun FloorNavigationBar(
                 Text("/$highest", color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium, maxLines = 1)
             }
-            IconButton(onClick = { number?.let(jump) }, enabled = valid && !jumping,
+            IconButton(onClick = { if (unchanged) close() else if (valid) number?.let(jump) }, enabled = (unchanged || valid) && !jumping,
                 modifier = Modifier.size(48.dp).testTag("floor-confirm")) {
-                Icon(Icons.Rounded.Check, "确定楼层")
+                Icon(if (unchanged) Icons.Rounded.Close else Icons.Rounded.Check,
+                    if (unchanged) "关闭楼层选择" else "确定楼层")
             }
         }
         if (error != null) Text(error, Modifier.padding(horizontal = 8.dp),

@@ -142,6 +142,7 @@ internal fun TopicBottomBar(
     floorEditing: Boolean = false, floorRaw: String = currentFloor.toString(),
     floorChange: (String) -> Unit = {}, floorHighest: Int = 1,
     floorJumping: Boolean = false, floorError: String? = null, floorConfirm: (Int) -> Unit = {},
+    floorClose: () -> Unit = {},
 ) {
     val detail = state.detail ?: return
     val first = detail.originalPost
@@ -183,7 +184,7 @@ internal fun TopicBottomBar(
         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
             androidx.compose.animation.AnimatedVisibility(floorEditing, modifier = Modifier.fillMaxWidth(), enter = horizontalEnter, exit = horizontalExit) {
                 FloorNavigationBar(floorRaw, floorChange, floorHighest, floorJumping, floorError, floorConfirm,
-                    backdrop, glass, Modifier.fillMaxWidth())
+                    backdrop, glass, Modifier.fillMaxWidth(), openingFloor = currentFloor, close = floorClose)
             }
             androidx.compose.animation.AnimatedVisibility(!floorEditing, modifier = Modifier.fillMaxWidth(), enter = horizontalEnter, exit = horizontalExit) {
                 LiquidButton(onClick = floors, enabled = enabled && !state.loading, backdrop = backdrop, mode = glass,
