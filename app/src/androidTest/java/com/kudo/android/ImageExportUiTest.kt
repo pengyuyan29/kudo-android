@@ -26,15 +26,19 @@ class ImageExportUiTest {
 
     @Test fun singleImageHidesBatchAndDarkLargeTextMenuRemainsReadable() {
         var multiple by mutableStateOf(false)
+        val current = ArticleBlock.Image("https://image.test/1.png", "", sizeLabel = "512 KB")
+        val second = current.copy(url = "https://image.test/2.png", originalUrl = "https://image.test/2.png", sizeLabel = "1 MB")
         var selected: ImageAction? = null
         var dismissed = false
         compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f)) {
-            ImageActionMenu(multiple, { dismissed = true }, { selected = it })
+            ImageActionMenu(ImageActionTarget(current, if (multiple) listOf(current, second) else listOf(current)),
+                { dismissed = true }, { selected = it })
         } }
-        compose.onNodeWithText("保存全部图片").assertDoesNotExist()
+        compose.onNodeWithText("保存原图（512 KB）").assertIsDisplayed()
+        compose.onNodeWithText("保存所有图片", substring = true).assertDoesNotExist()
         compose.onNodeWithText("分享图片").performClick()
         compose.runOnIdle { assertEquals(ImageAction.SHARE, selected); multiple = true }
-        compose.onNodeWithText("保存全部图片").assertIsDisplayed().performClick()
+        compose.onNodeWithText("保存所有图片（约 1.5 MB）").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(ImageAction.SAVE_ALL, selected); assertFalse(dismissed) }
         val bitmap = compose.onNodeWithTag("image-action-menu").captureToImage().asAndroidBitmap()
         val directory = File(context.getExternalFilesDir(null), "ui-tests").apply { mkdirs() }

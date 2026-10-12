@@ -32,21 +32,57 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
+import java.math.BigDecimal
+import java.math.RoundingMode
+import java.util.Locale
 
 internal enum class ImageAction { SHARE, SAVE, SAVE_ALL }
 internal data class ImageActionTarget(val current: ArticleBlock.Image, val album: List<ArticleBlock.Image>)
 internal class ImageExportServices(val downloader: ImageDownloader, val saver: ImageSaver, val share: (OriginalImageFile) -> Unit)
 internal val LocalImageExportServices = staticCompositionLocalOf<ImageExportServices?> { null }
 
+private val imageCapacityPattern = Regex("""^(\d+(?:\.\d+)?)\s*(bytes?|字节|b|[kmgtpe]i?b)$""", RegexOption.IGNORE_CASE)
+private val imageCapacityUnits = listOf("B", "KB", "MB", "GB", "TB", "PB", "EB")
+
+private fun imageCapacityBytes(label: String): Long? {
+    val match = imageCapacityPattern.matchEntire(label.replace('\u00a0', ' ').replace('\u202f', ' ').trim()) ?: return null
+    val unit = match.groupValues[2].uppercase(Locale.ROOT).replace("I", "")
+    val power = if (unit in listOf("BYTE", "BYTES", "字节")) 0 else imageCapacityUnits.indexOf(unit)
+    if (power < 0) return null
+    return runCatching {
+        match.groupValues[1].toBigDecimal().multiply(BigDecimal.valueOf(1024).pow(power))
+            .setScale(0, RoundingMode.HALF_UP).longValueExact()
+    }.getOrNull()?.takeIf { it > 0 }
+}
+
+private fun formatImageCapacity(bytes: Long): String {
+    var power = 0
+    var divisor = 1L
+    while (power < imageCapacityUnits.lastIndex && bytes / divisor >= 1024) { divisor *= 1024; power++ }
+    val value = BigDecimal.valueOf(bytes).divide(BigDecimal.valueOf(divisor), if (power == 0) 0 else 1, RoundingMode.HALF_UP)
+        .stripTrailingZeros().toPlainString()
+    return "$value ${imageCapacityUnits[power]}"
+}
+
+internal fun imageActionCapacityLabels(target: ImageActionTarget): Pair<String, String> {
+    val current = imageCapacityBytes(target.current.sizeLabel)?.let(::formatImageCapacity) ?: "容量未知"
+    val sizes = target.album.map { imageCapacityBytes(it.sizeLabel) }
+    val total = if (sizes.isEmpty() || sizes.any { it == null }) null else runCatching {
+        sizes.fold(0L) { sum, bytes -> Math.addExact(sum, requireNotNull(bytes)) }
+    }.getOrNull()
+    return current to (total?.let { "约 ${formatImageCapacity(it)}" } ?: "容量未知")
+}
+
 /** Deliberately uses flat text rows and a small radius, matching the provided Coolapk menu. */
 @Composable
-internal fun ImageActionMenu(multiple: Boolean, dismiss: () -> Unit, select: (ImageAction) -> Unit) {
+internal fun ImageActionMenu(target: ImageActionTarget, dismiss: () -> Unit, select: (ImageAction) -> Unit) {
+    val (currentCapacity, totalCapacity) = remember(target) { imageActionCapacityLabels(target) }
     Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.padding(horizontal = 32.dp).widthIn(max = 320.dp).fillMaxWidth()
             .clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface)
             .verticalScroll(rememberScrollState()).padding(vertical = 8.dp).testTag("image-action-menu")) {
-            val options = listOf(ImageAction.SHARE to "分享图片", ImageAction.SAVE to "保存图片") +
-                if (multiple) listOf(ImageAction.SAVE_ALL to "保存全部图片") else emptyList()
+            val options = listOf(ImageAction.SHARE to "分享图片", ImageAction.SAVE to "保存原图（$currentCapacity）") +
+                if (target.album.size > 1) listOf(ImageAction.SAVE_ALL to "保存所有图片（$totalCapacity）") else emptyList()
             options.forEach { (action, title) ->
                 Box(Modifier.fillMaxWidth().clickable(role = Role.Button) { select(action) }
                     .heightIn(min = 56.dp).padding(horizontal = 24.dp, vertical = 16.dp)) {
@@ -97,7 +133,7 @@ internal fun ImageActions(target: ImageActionTarget?, dismiss: () -> Unit, busyC
         else if (images != null) message("未获得存储权限，无法保存图片")
     }
     DisposableEffect(Unit) { onDispose { busyChanged(false) } }
-    if (target != null) ImageActionMenu(target.album.size > 1, dismiss) { action ->
+    if (target != null) ImageActionMenu(target, dismiss) { action ->
         dismiss()
         if (!busy && pending == null) {
             if (action == ImageAction.SHARE) {
