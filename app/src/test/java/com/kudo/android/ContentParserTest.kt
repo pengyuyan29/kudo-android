@@ -2,6 +2,7 @@ package com.kudo.android
 
 import com.kudo.android.data.*
 import com.kudo.android.ui.topic.ArticleBlock
+import com.kudo.android.ui.topic.ArticleCalloutType
 import com.kudo.android.ui.topic.parseArticle
 import com.kudo.android.ui.topic.parseInlineArticle
 import androidx.compose.ui.graphics.Color
@@ -47,6 +48,23 @@ println(x)</code></pre><p><img src="/uploads/image.png" width="800" height="600"
         assertTrue(((blocks[1] as ArticleBlock.Quote).blocks.single() as ArticleBlock.TextBlock).quote)
         assertTrue((blocks[2] as ArticleBlock.Code).text.contains("\n"))
         assertEquals("https://linux.do/uploads/image.png", (blocks[3] as ArticleBlock.Image).url)
+    }
+
+    @Test fun obsidianCalloutsBecomeTypedBlocksAndOrdinaryQuotesStayQuotes() {
+        val blocks = parseArticle("""
+            <blockquote><p>[!note]</p><p>说明 <strong>内容</strong></p></blockquote>
+            <blockquote><p>普通引用</p></blockquote>
+            <blockquote><p>[!warning]+ 自定义标题</p><p>警告正文</p></blockquote>
+        """.trimIndent())
+        assertEquals(3, blocks.size)
+        val note = blocks[0] as ArticleBlock.Callout
+        assertEquals(ArticleCalloutType.NOTE, note.type)
+        assertEquals("说明 <strong>内容</strong>", (note.blocks.single() as ArticleBlock.TextBlock).html)
+        assertEquals("普通引用", parseInlineArticle(((blocks[1] as ArticleBlock.Quote).blocks.single() as ArticleBlock.TextBlock).html, androidx.compose.ui.graphics.Color.Blue).text.text)
+        val warning = blocks[2] as ArticleBlock.Callout
+        assertEquals(ArticleCalloutType.WARNING, warning.type)
+        assertEquals("自定义标题", warning.title)
+        assertTrue(warning.open)
     }
     @Test fun plainTextDecodesEntities() { assertEquals("A & B", plainText("<p>A &amp; B</p>")) }
 

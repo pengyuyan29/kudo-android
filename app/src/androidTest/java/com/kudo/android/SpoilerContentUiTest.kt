@@ -102,4 +102,16 @@ class SpoilerContentUiTest {
         val shown = region.captureToImage().toPixelMap()
         assertTrue(shown[2, 2].red > 0.8f && shown[2, 2].green < 0.1f)
     }
+
+    @Test fun obsidianCalloutRendersTitleAndCanBeExpanded() {
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            RichContent("""<blockquote><p>[!note]-</p><p>隐藏的提示正文</p></blockquote>""", {}, {})
+        } }
+        compose.onNodeWithTag("article-callout-root-0").assertIsDisplayed()
+        compose.onNodeWithText("Note").assertIsDisplayed()
+        compose.onNodeWithText("隐藏的提示正文").assertDoesNotExist()
+        compose.onNodeWithContentDescription("展开提示").performClick()
+        compose.onNodeWithText("隐藏的提示正文").assertIsDisplayed()
+        compose.onNodeWithContentDescription("收起提示").assertIsDisplayed()
+    }
 }

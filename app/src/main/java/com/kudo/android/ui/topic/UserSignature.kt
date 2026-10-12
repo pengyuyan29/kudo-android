@@ -76,6 +76,9 @@ private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> U
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SignatureContent(block.blocks, openLink, svgWebViewFactory, failed)
             }
+            is ArticleBlock.Callout -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                SignatureContent(block.blocks, openLink, svgWebViewFactory, failed)
+            }
             is ArticleBlock.Image -> {
                 val svg = isSvgSignature(block.url)
                 var ratio by remember(block.url) { mutableStateOf(if (svg) null else block.ratio) }

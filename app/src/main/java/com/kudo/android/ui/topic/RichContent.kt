@@ -17,6 +17,14 @@ import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Error
+import androidx.compose.material.icons.rounded.FormatQuote
+import androidx.compose.material.icons.rounded.Help
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -70,6 +79,7 @@ import java.util.UUID
 sealed interface ArticleBlock {
     data class TextBlock(val html: String, val quote: Boolean = false, val heading: Boolean = false) : ArticleBlock
     data class Quote(val blocks: List<ArticleBlock>, val author: String = "", val avatar: String? = null, val source: String? = null) : ArticleBlock
+    data class Callout(val type: ArticleCalloutType, val title: String, val blocks: List<ArticleBlock>, val open: Boolean = true) : ArticleBlock
     data class Details(val summary: String, val blocks: List<ArticleBlock>, val open: Boolean = false) : ArticleBlock
     data class Spoiler(val blocks: List<ArticleBlock>) : ArticleBlock
     data class Code(val text: String) : ArticleBlock
@@ -82,6 +92,27 @@ sealed interface ArticleBlock {
     ) : ArticleBlock
     data class Embed(val url: String, val title: String, val description: String = "", val image: String? = null, val site: String = "") : ArticleBlock
     data object Rule : ArticleBlock
+}
+
+data class ArticleCalloutType(val raw: String) {
+    val label: String get() = raw.replace('-', ' ').replace('_', ' ').replaceFirstChar { it.uppercase() }
+
+    companion object {
+        val NOTE = ArticleCalloutType("note")
+        val ABSTRACT = ArticleCalloutType("abstract")
+        val INFO = ArticleCalloutType("info")
+        val TODO = ArticleCalloutType("todo")
+        val TIP = ArticleCalloutType("tip")
+        val SUCCESS = ArticleCalloutType("success")
+        val QUESTION = ArticleCalloutType("question")
+        val WARNING = ArticleCalloutType("warning")
+        val FAILURE = ArticleCalloutType("failure")
+        val DANGER = ArticleCalloutType("danger")
+        val BUG = ArticleCalloutType("bug")
+        val EXAMPLE = ArticleCalloutType("example")
+        val QUOTE = ArticleCalloutType("quote")
+        fun of(raw: String) = ArticleCalloutType(raw.lowercase())
+    }
 }
 
 private fun previewSource(element: Element, fallback: String): String {
@@ -109,6 +140,13 @@ private fun previewSource(element: Element, fallback: String): String {
 
 fun parseArticle(html: String): List<ArticleBlock> {
     val result = mutableListOf<ArticleBlock>()
+    fun calloutHeader(element: Element): Triple<String, String, Boolean>? {
+        val first = element.children().firstOrNull()?.takeIf { it.normalName() in setOf("p", "div") } ?: return null
+        val match = Regex("^\\[!([A-Za-z][A-Za-z0-9_-]*)\\]([+-])?(?:\\s+(.+))?$").matchEntire(first.text().trim()) ?: return null
+        val type = match.groupValues[1].lowercase()
+        val title = match.groupValues[3].trim().ifBlank { type.replace('-', ' ').replace('_', ' ').replaceFirstChar { it.uppercase() } }
+        return Triple(type, title, match.groupValues[2] != "-")
+    }
     fun walk(element: Element, quote: Boolean = false) {
         if (element.hasClass("spoiler")) {
             if (element.normalName() == "div" || element.select("img:not(.emoji)").isNotEmpty()) {
@@ -159,6 +197,15 @@ fun parseArticle(html: String): List<ArticleBlock> {
             "blockquote", "aside" -> {
                 if (element.hasClass("onebox")) {
                     parseOnebox(element)?.let(result::add)
+                } else if (element.normalName() == "blockquote") {
+                    calloutHeader(element)?.let { (type, title, open) ->
+                        val body = element.clone().apply { children().firstOrNull()?.remove() }
+                        result.add(ArticleBlock.Callout(ArticleCalloutType.of(type), title, parseArticle(body.html()), open))
+                    } ?: run {
+                        val body = element.clone()
+                        val content = parseArticle(body.html()).map { if (it is ArticleBlock.TextBlock) it.copy(quote = true) else it }
+                        if (content.isNotEmpty()) result.add(ArticleBlock.Quote(content))
+                    }
                 } else {
                     val siteQuote = element.normalName() == "aside" && element.hasClass("quote")
                     val title = if (siteQuote) element.children().firstOrNull { it.hasClass("title") } else null
@@ -229,6 +276,7 @@ private fun articleImageLocations(blocks: List<ArticleBlock>): List<ArticleImage
             when (block) {
                 is ArticleBlock.Image -> add(ArticleImageLocation(block, path, quotes))
                 is ArticleBlock.Quote -> visit(block.blocks, path, quotes + path)
+                is ArticleBlock.Callout -> visit(block.blocks, path, quotes + path)
                 is ArticleBlock.Details -> visit(block.blocks, path, quotes + path)
                 else -> Unit
             }
@@ -245,6 +293,7 @@ private fun closedDetails(blocks: List<ArticleBlock>, parent: String = "root"): 
         when (block) {
             is ArticleBlock.Details -> { if (!block.open) add(path); addAll(closedDetails(block.blocks, path)) }
             is ArticleBlock.Quote -> addAll(closedDetails(block.blocks, path))
+            is ArticleBlock.Callout -> { if (!block.open) add(path); addAll(closedDetails(block.blocks, path)) }
             is ArticleBlock.Spoiler -> addAll(closedDetails(block.blocks, path))
             else -> Unit
         }
@@ -380,6 +429,25 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
                     ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, poll, image)
                 }
             }
+            is ArticleBlock.Callout -> {
+                val hidden = path in collapsed
+                val accent = calloutAccent(block.type)
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp))
+                    .background(accent.copy(alpha = 0.12f)).testTag("article-callout-$path")) {
+                    Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { toggle(path) }
+                        .semantics { contentDescription = if (hidden) "展开提示" else "收起提示" }
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(calloutIcon(block.type), null, Modifier.size(18.dp), tint = accent)
+                        Text(block.title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, color = accent)
+                        Icon(if (hidden) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess, null,
+                            Modifier.size(18.dp), tint = accent)
+                    }
+                    if (!hidden) Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) {
+                        ArticleBlocks(block.blocks, path, collapsed, toggle, onLink, linkHandler, poll, image)
+                    }
+                }
+            }
             is ArticleBlock.Quote -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp).testTag("article-quote-$path"),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -426,6 +494,26 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
             ArticleBlock.Rule -> Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
         } } }
     }
+}
+
+private fun calloutIcon(type: ArticleCalloutType): ImageVector = when (type) {
+    ArticleCalloutType.TIP -> Icons.Rounded.Lightbulb
+    ArticleCalloutType.TODO, ArticleCalloutType.SUCCESS -> Icons.Rounded.CheckCircle
+    ArticleCalloutType.WARNING -> Icons.Rounded.Warning
+    ArticleCalloutType.FAILURE, ArticleCalloutType.DANGER -> Icons.Rounded.Error
+    ArticleCalloutType.BUG -> Icons.Rounded.BugReport
+    ArticleCalloutType.QUESTION -> Icons.Rounded.Help
+    ArticleCalloutType.EXAMPLE, ArticleCalloutType.QUOTE -> Icons.Rounded.FormatQuote
+    else -> Icons.Rounded.Info
+}
+
+@Composable
+private fun calloutAccent(type: ArticleCalloutType): Color = when (type) {
+    ArticleCalloutType.WARNING -> Color(0xFFE0A000)
+    ArticleCalloutType.FAILURE, ArticleCalloutType.DANGER, ArticleCalloutType.BUG -> MaterialTheme.colorScheme.error
+    ArticleCalloutType.TIP, ArticleCalloutType.SUCCESS -> Color(0xFF00A896)
+    ArticleCalloutType.QUESTION, ArticleCalloutType.EXAMPLE -> MaterialTheme.colorScheme.tertiary
+    else -> MaterialTheme.colorScheme.primary
 }
 
 @Composable
