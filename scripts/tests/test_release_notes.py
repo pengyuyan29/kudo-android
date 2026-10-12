@@ -6,6 +6,7 @@ import unittest
 import hashlib
 import os
 import shutil
+import json
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from release_notes import generate_notes, previous_tag, render_notes
@@ -27,6 +28,33 @@ class ReleaseNotesTest(unittest.TestCase):
     def test_fixture_disables_background_git_maintenance_before_cleanup(self):
         self.assertEqual("0", self.git("config", "--local", "--get", "gc.auto").strip())
         self.assertEqual("false", self.git("config", "--local", "--get", "maintenance.auto").strip())
+
+    def test_published_pages_select_latest_stable_across_pages_excluding_current(self):
+        from release_notes import published_baseline
+        release = lambda tag, date, **flags: {"tag_name": tag, "published_at": date, "draft": False, "prerelease": False, **flags}
+        pages = [[release("v0.2.0", "2026-10-12"), release("v0.1.9", "2026-10-11", draft=True)],
+                 [release("v0.1.8", "2026-10-10", prerelease=True), release("v0.1.5", "2026-10-09"), release("v0.1.4", "2026-10-08")]]
+        self.assertEqual("v0.1.5", published_baseline(pages, "v0.2.0"))
+        self.assertEqual("", published_baseline([[]], "v0.2.0"))
+        for invalid in ({"message": "API failure"}, ["bad page"], [[None]]):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                published_baseline(invalid, "v0.2.0")
+
+    def test_cli_consumes_published_pages_for_the_reviewed_app_notes(self):
+        self.commit("feat: 已公开功能")
+        self.git("tag", "v0.1.5")
+        self.commit("fix: 新功能修复")
+        self.git("tag", "v0.2.0")
+        pages = self.root / "pages.json"
+        pages.write_text(json.dumps([[{"tag_name": "v0.1.5", "published_at": "2026-10-09", "draft": False, "prerelease": False}]]), encoding="utf-8")
+        output = self.root / "notes.md"
+        result = subprocess.run([sys.executable, str(Path(__file__).resolve().parents[1] / "release_notes.py"),
+            "--tag", "v0.2.0", "--published-releases", str(pages), "--output", str(output)], cwd=self.root, capture_output=True)
+        self.assertEqual(0, result.returncode, result.stderr)
+        notes = output.read_text(encoding="utf-8")
+        self.assertIn("新功能修复", notes)
+        self.assertNotIn("已公开功能", notes)
+        self.assertIn("/compare/v0.1.5...v0.2.0", notes)
 
     def git(self, *args):
         return subprocess.run(["git", *args], cwd=self.root, capture_output=True, check=True, encoding="utf-8").stdout

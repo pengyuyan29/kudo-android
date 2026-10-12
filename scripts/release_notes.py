@@ -1,6 +1,7 @@
 """Group App runtime commits into a reproducible Chinese GitHub Release body."""
 
 import argparse
+import json
 from dataclasses import dataclass
 from pathlib import Path
 import re
@@ -121,15 +122,36 @@ def generate_notes(tag: str, repository: str, cwd: Path | None = None, previous:
     return render_notes(tag, commits, repository, previous)
 
 
+def published_baseline(pages: object, tag: str) -> str:
+    if not isinstance(pages, list) or any(not isinstance(page, list) for page in pages):
+        raise ValueError("GitHub发布列表必须是分页JSON数组。")
+    candidates = []
+    for page in pages:
+        for release in page:
+            if not isinstance(release, dict) or not isinstance(release.get("draft"), bool) or not isinstance(release.get("prerelease"), bool):
+                raise ValueError("GitHub发布记录格式不正确。")
+            if release["draft"] or release["prerelease"] or release.get("tag_name") == tag:
+                continue
+            if not isinstance(release.get("tag_name"), str) or not isinstance(release.get("published_at"), str):
+                raise ValueError("GitHub已公开版本缺少Tag或发布时间。")
+            candidates.append(release)
+    return max(candidates, key=lambda release: release["published_at"])["tag_name"] if candidates else ""
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--repository", default="woliubang256/kudo-android")
-    parser.add_argument("--previous-tag", help="Previous published release tag; an empty value includes all history")
+    baseline = parser.add_mutually_exclusive_group()
+    baseline.add_argument("--previous-tag", help="Previous published release tag; an empty value includes all history")
+    baseline.add_argument("--published-releases", type=Path, help="JSON page array returned by gh api --paginate --slurp")
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
     try:
-        body = generate_notes(arguments.tag, arguments.repository, previous=arguments.previous_tag)
+        previous = arguments.previous_tag
+        if arguments.published_releases is not None:
+            previous = published_baseline(json.loads(arguments.published_releases.read_text(encoding="utf-8")), arguments.tag)
+        body = generate_notes(arguments.tag, arguments.repository, previous=previous)
         arguments.output.parent.mkdir(parents=True, exist_ok=True)
         arguments.output.write_text(body, encoding="utf-8", newline="\n")
     except (ValueError, OSError) as error:

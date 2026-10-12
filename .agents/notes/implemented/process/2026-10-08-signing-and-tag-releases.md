@@ -66,6 +66,8 @@ Git 配置回归先失败（`cloud-repair/git-fixture-repro.txt`），修复后 
 
 跨平台排序夹具先失败（`cloud-repair/notices-repro-tests.txt`），修复后 39 项发布工具测试全部通过（`notices-fixed-tests.txt`，10.232 秒）；本机原有 118 个组件 / 974079 字节许可包的 --check 通过，资产未重写。两份工作流 actionlint 与 89 篇笔记检查通过。首轮依赖缓存也已保存，后续重推继续检查完整 Ubuntu 构建及发布。
 
+运行 38203795241 的 JVM / Lint、R8、正式证书和 0.2.0 / 2001 打包校验全部通过，但在日志步骤遇到 CLI 明确拒绝 --slurp 与 --jq 同用（`cloud-repair/job-114662704882.log`）。gh 只负责分页返回 JSON，现有 Python 日志脚本读取 JSON 页选择上个公开、非预发布且非当前 Tag 的版本；查询失败仍停止，不以失败 Tag、草稿或空文件冒充基线。不新增 jq 工具依赖，基线选择和真实 Python CLI 用离线多页夹具验收，shell 夹具同时模拟 CLI 参数冲突与 API 失败。
+
 新版上传支持不压缩的单文件制品，但发布需要 APK、摘要和正文三个文件，因此显式使用 archive: true；下载显式使用 skip-decompress: false，让文件继续直接解压到 dist。digest-mismatch: error 使 Actions 制品摘要不一致时立即失败，发布 shell 仍单独核对 APK 的 SHA256。Tag 触发、权限拆分、临时密钥清理和草稿上传完才公开的契约保持一致。
 
 ## Related decisions
