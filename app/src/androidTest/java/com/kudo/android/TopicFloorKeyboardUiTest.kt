@@ -6,8 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.platform.app.InstrumentationRegistry
@@ -22,6 +22,36 @@ import java.io.File
 
 class TopicFloorKeyboardUiTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
+
+    @OptIn(ExperimentalLayoutApi::class)
+    @Test fun unchangedCloseHidesTheKeyboardWithoutNavigating() {
+        compose.runOnUiThread {
+            compose.activity.enableEdgeToEdge()
+            compose.activity.window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
+        val author = Member(1, "fixture", "离线作者", "")
+        val posts = (1..8).map { Post(it, it, author, "<p>第 $it 楼</p>", "", 0, false, null, null, false) }
+        val state = TopicState(TopicDetail(5, "关闭键盘", 1, posts, posts.map(Post::id), false, highestPostNumber = 8), false)
+        var ime = false
+        var requests = 0
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            val visible = WindowInsets.isImeVisible
+            SideEffect { ime = visible }
+            TopicScreen(state, GlassMode.LIQUID, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},
+                readingEnabled = false, jumpTo = { requests++ })
+        } }
+        compose.onNodeWithTag("topic-floor-index").performClick()
+        compose.onNodeWithTag("floor-input", useUnmergedTree = true).performClick().assertIsFocused()
+        compose.waitUntil(5_000) { ime }
+        val screenshot = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        File(InstrumentationRegistry.getInstrumentation().targetContext.getExternalFilesDir(null), "floor-inline-close-keyboard.png")
+            .outputStream().use { screenshot.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        screenshot.recycle()
+        compose.onNodeWithContentDescription("关闭楼层选择", useUnmergedTree = true).assertIsDisplayed().performClick()
+        compose.waitUntil(5_000) { !ime && compose.onAllNodesWithTag("floor-input", useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("topic-reply").assertIsDisplayed()
+        compose.runOnIdle { assertEquals(0, requests) }
+    }
 
     @OptIn(ExperimentalLayoutApi::class)
     @Test fun floorInputAndConfirmationStayAboveKeyboardAndRestoreTheBottomBar() {

@@ -296,6 +296,7 @@ class TopicFloorNavigationUiTest {
         floorInput().assertTextEquals("120000")
         InstrumentationRegistry.getInstrumentation().uiAutomation
             .performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+        compose.waitUntil(3_000) { compose.onAllNodesWithTag("floor-input").fetchSemanticsNodes().isEmpty() }
         compose.onNodeWithTag("floor-input").assertDoesNotExist()
     }
 

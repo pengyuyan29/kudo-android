@@ -1,10 +1,9 @@
 package com.kudo.android.ui.topic
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -20,11 +19,14 @@ import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -49,6 +51,8 @@ import com.kudo.android.ui.theme.LogoYellow
 import com.kudo.android.ui.theme.LikeRed
 import com.kudo.android.ui.theme.Ink
 import com.kyant.backdrop.Backdrop
+import com.kyant.shapes.Capsule
+import kotlin.math.roundToInt
 
 @Composable
 internal fun TopicTopBar(
@@ -146,17 +150,21 @@ internal fun TopicBottomBar(
 ) {
     val detail = state.detail ?: return
     val first = detail.originalPost
-    val available = enabled && !state.loading && first != null && first.id !in state.busy
+    val available = enabled && !floorEditing && !state.loading && first != null && first.id !in state.busy
     BoxWithConstraints(modifier.navigationBarsPadding().then(if (floorEditing) Modifier.imePadding() else Modifier)
         .padding(horizontal = 16.dp, vertical = 20.dp).fillMaxWidth()) {
     val compact = maxWidth < 320.dp || (LocalDensity.current.fontScale > 1.2f && maxWidth < 360.dp) || (detail.highestPostNumber >= 10000 && maxWidth < 380.dp)
     val replying = state.replyingUsers
     val floor = currentFloor.coerceIn(1, detail.highestPostNumber)
-    val horizontalEnter = fadeIn() + expandHorizontally(expandFrom = Alignment.CenterHorizontally)
-    val horizontalExit = fadeOut() + shrinkHorizontally(shrinkTowards = Alignment.CenterHorizontally)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        AnimatedVisibility(!floorEditing, enter = horizontalEnter, exit = horizontalExit) {
-            LiquidButton(onClick = reply, enabled = enabled && !detail.closed, backdrop = backdrop, mode = glass,
+    val fullWidth = maxWidth
+    val transition = updateTransition(floorEditing, label = "floor-controls")
+    val expansion by transition.animateFloat(transitionSpec = { tween(280, easing = FastOutSlowInEasing) }, label = "expansion") {
+        if (it) 1f else 0f
+    }
+    Layout(content = {
+        Box(Modifier.graphicsLayer { alpha = 1f - expansion }
+            .then(if (floorEditing) Modifier.clearAndSetSemantics {} else Modifier)) {
+            LiquidButton(onClick = reply, enabled = enabled && !floorEditing && !detail.closed, backdrop = backdrop, mode = glass,
                 surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
                 contentColor = MaterialTheme.colorScheme.onSurface,
                 contentPadding = PaddingValues(horizontal = if (compact) 14.dp else 16.dp),
@@ -181,13 +189,13 @@ internal fun TopicBottomBar(
                 }
             }
         }
-        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            androidx.compose.animation.AnimatedVisibility(floorEditing, modifier = Modifier.fillMaxWidth(), enter = horizontalEnter, exit = horizontalExit) {
-                FloorNavigationBar(floorRaw, floorChange, floorHighest, floorJumping, floorError, floorConfirm,
-                    backdrop, glass, Modifier.fillMaxWidth(), openingFloor = currentFloor, close = floorClose)
-            }
-            androidx.compose.animation.AnimatedVisibility(!floorEditing, modifier = Modifier.fillMaxWidth(), enter = horizontalEnter, exit = horizontalExit) {
-                LiquidButton(onClick = floors, enabled = enabled && !state.loading, backdrop = backdrop, mode = glass,
+        Box(Modifier.testTag("floor-control-slot").graphicsLayer {
+            clip = transition.isRunning
+            shape = Capsule()
+        }, contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().graphicsLayer { alpha = 1f - expansion }
+                .then(if (floorEditing) Modifier.clearAndSetSemantics {} else Modifier)) {
+                LiquidButton(onClick = floors, enabled = enabled && !floorEditing && !state.loading, backdrop = backdrop, mode = glass,
                     surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = .45f),
                     progress = floor.toFloat() / detail.highestPostNumber, progressColor = LogoYellow.copy(alpha = .27f),
                     contentPadding = PaddingValues(horizontal = 8.dp),
@@ -199,8 +207,13 @@ internal fun TopicBottomBar(
                         maxLines = 1, autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.sp, stepSize = .5.sp))
                 }
             }
+            if (transition.currentState || transition.targetState) Box(Modifier.requiredWidth(fullWidth).graphicsLayer { alpha = expansion }) {
+                FloorNavigationBar(floorRaw, floorChange, floorHighest, floorJumping, floorError, floorConfirm,
+                    backdrop, glass, Modifier.fillMaxWidth(), openingFloor = currentFloor, close = floorClose)
+            }
         }
-        AnimatedVisibility(!floorEditing, enter = horizontalEnter, exit = horizontalExit) {
+        Box(Modifier.graphicsLayer { alpha = 1f - expansion }
+            .then(if (floorEditing) Modifier.clearAndSetSemantics {} else Modifier)) {
             LiquidButton(onClick = null, backdrop = backdrop, mode = glass,
                 surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
                 contentPadding = PaddingValues(horizontal = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly,
@@ -213,6 +226,22 @@ internal fun TopicBottomBar(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .75f * LocalContentColor.current.alpha))
                 }
             }
+        }
+    }, modifier = Modifier.fillMaxWidth()) { measurables, constraints ->
+        val loose = constraints.copy(minWidth = 0, minHeight = 0)
+        val left = measurables[0].measure(loose)
+        val right = measurables[2].measure(loose)
+        val progress = expansion.coerceIn(0f, 1f)
+        val gap = 8.dp.roundToPx()
+        val start = ((left.width + gap) * (1f - progress)).roundToInt()
+        val end = constraints.maxWidth - ((right.width + gap) * (1f - progress)).roundToInt()
+        val middleWidth = (end - start).coerceAtLeast(1)
+        val middle = measurables[1].measure(loose.copy(minWidth = middleWidth, maxWidth = middleWidth))
+        val height = maxOf(left.height, middle.height, right.height)
+        layout(constraints.maxWidth, height) {
+            left.placeRelative(start - gap - left.width, (height - left.height) / 2)
+            middle.placeRelative(start, (height - middle.height) / 2)
+            right.placeRelative(end + gap, (height - right.height) / 2)
         }
     }
     }
