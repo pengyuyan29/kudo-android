@@ -87,7 +87,7 @@ private fun GuestProfileScreen(login: () -> Unit, settings: () -> Unit, about: (
             item { GuestLoginPanel("登录后参与社区讨论", login) }
             item {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surface)) {
-                    GuestMenuRow(Icons.Rounded.Palette, "界面与显示", "主题、字号与液态玻璃", settings)
+                    GuestMenuRow(Icons.Rounded.Palette, "设置", "主题、字号与液态玻璃", settings)
                     HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
                     GuestMenuRow(Icons.Rounded.Info, "关于酷DO", "一个用心的 Linux.do 原生客户端", about, value = BuildConfig.VERSION_NAME)
                 }

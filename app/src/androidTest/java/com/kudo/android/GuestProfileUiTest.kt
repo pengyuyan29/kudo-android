@@ -44,7 +44,7 @@ class GuestProfileUiTest {
         compose.onNodeWithContentDescription("设置").assertDoesNotExist()
         compose.onNodeWithText(BuildConfig.VERSION_NAME).assertIsDisplayed()
         compose.onNodeWithText("真诚 · 友善 · 团结 · 专业").assertIsDisplayed()
-        compose.onNodeWithText("界面与显示").performClick()
+        compose.onNodeWithText("设置").performClick()
         compose.onNodeWithText("关于酷DO").performClick()
         compose.runOnIdle {
             assertEquals(1, logins); assertEquals(1, settings); assertEquals(1, about); assertEquals(0, accountActions)
@@ -85,7 +85,7 @@ class GuestProfileUiTest {
         compose.onNodeWithText("点击登录").assertIsDisplayed()
         compose.onNodeWithText("关于酷DO").performScrollTo().assertIsDisplayed().performClick()
         capture("guest-profile-dark-narrow-large.png", "guest-narrow")
-        for (label in listOf("界面与显示", "关于酷DO", BuildConfig.VERSION_NAME, "一个用心的 Linux.do 原生客户端")) {
+        for (label in listOf("设置", "关于酷DO", BuildConfig.VERSION_NAME, "一个用心的 Linux.do 原生客户端")) {
             val layouts = mutableListOf<TextLayoutResult>()
             compose.onNodeWithText(label).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
             val layout = layouts.single()
