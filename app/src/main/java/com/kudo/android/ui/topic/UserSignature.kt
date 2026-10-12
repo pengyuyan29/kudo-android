@@ -52,6 +52,9 @@ private fun usableSignatureBlocks(blocks: List<ArticleBlock>, failed: Set<String
         is ArticleBlock.Quote -> usableSignatureBlocks(block.blocks, failed).takeIf { it.isNotEmpty() }?.let { block.copy(blocks = it) }
         is ArticleBlock.Details -> usableSignatureBlocks(block.blocks, failed).takeIf { it.isNotEmpty() }?.let { block.copy(blocks = it) }
         is ArticleBlock.Spoiler -> usableSignatureBlocks(block.blocks, failed).takeIf { it.isNotEmpty() }?.let { block.copy(blocks = it) }
+        is ArticleBlock.ListBlock -> block.items.mapNotNull { item ->
+            usableSignatureBlocks(item.blocks, failed).takeIf { it.isNotEmpty() }?.let { item.copy(blocks = it) }
+        }.takeIf { it.isNotEmpty() }?.let { block.copy(items = it) }
         ArticleBlock.Rule, is ArticleBlock.Poll -> null
         else -> block
     }
@@ -104,6 +107,12 @@ private fun SignatureContent(blocks: List<ArticleBlock>, openLink: (String) -> U
             }
             is ArticleBlock.Embed -> Text(block.title, Modifier.clickable { openLink(block.url) }, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
             is ArticleBlock.Code -> Text(block.text, style = MaterialTheme.typography.bodySmall)
+            is ArticleBlock.ListBlock -> Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                block.items.forEach { item -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(item.checked?.let { if (it) "☑" else "☐" } ?: item.marker, style = MaterialTheme.typography.bodySmall)
+                    Column(Modifier.weight(1f)) { SignatureContent(item.blocks, openLink, svgWebViewFactory, failed) }
+                } }
+            }
             is ArticleBlock.Table -> Unit
             is ArticleBlock.Poll -> Unit
             ArticleBlock.Rule -> Unit

@@ -20,6 +20,8 @@ import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.CheckBox
+import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.Error
 import androidx.compose.material.icons.rounded.FormatQuote
 import androidx.compose.material.icons.rounded.Help
@@ -50,6 +52,7 @@ import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.style.TextIndent
@@ -97,6 +100,7 @@ sealed interface ArticleBlock {
     data class Table(val rows: List<Row>) : ArticleBlock {
         data class Row(val cells: List<String>, val header: Boolean)
     }
+    data class ListBlock(val items: List<ArticleListItem>) : ArticleBlock
     data class Poll(val name: String) : ArticleBlock
     data class Image(
         val url: String, val alt: String, val ratio: Float? = null,
@@ -107,6 +111,8 @@ sealed interface ArticleBlock {
     data class Embed(val url: String, val title: String, val description: String = "", val image: String? = null, val site: String = "") : ArticleBlock
     data object Rule : ArticleBlock
 }
+
+data class ArticleListItem(val marker: String, val checked: Boolean?, val blocks: List<ArticleBlock>)
 
 data class ArticleHeading(val level: Int, val title: String, val path: String = "")
 
@@ -129,6 +135,7 @@ fun List<ArticleBlock>.articleHeadings(): List<ArticleHeading> = buildList {
                 is ArticleBlock.Callout -> visit(block.blocks, path)
                 is ArticleBlock.Details -> visit(block.blocks, path)
                 is ArticleBlock.Spoiler -> visit(block.blocks, path)
+                is ArticleBlock.ListBlock -> block.items.forEachIndexed { item, value -> visit(value.blocks, "$path-item$item") }
                 is ArticleBlock.Quote, is ArticleBlock.Code, is ArticleBlock.Table, is ArticleBlock.Image,
                 is ArticleBlock.Embed, is ArticleBlock.Poll, ArticleBlock.Rule -> Unit
             }
@@ -233,6 +240,25 @@ fun parseArticle(html: String): List<ArticleBlock> {
                 }
                 if (rows.isNotEmpty()) result.add(ArticleBlock.Table(rows))
             }
+            "ol", "ul" -> {
+                val ordered = element.normalName() == "ol"
+                val children = element.children().filter { it.normalName() == "li" }
+                val step = if (element.hasAttr("reversed")) -1 else 1
+                var number = element.attr("start").toLongOrNull() ?: if (step < 0) children.size.toLong() else 1L
+                val items = children.map { child ->
+                    if (ordered) child.attr("value").toLongOrNull()?.let { number = it }
+                    val marker = if (ordered) "$number." else "•"
+                    number += step
+                    val copy = child.clone()
+                    val checkbox = copy.select(".chcklst-box, input[type=checkbox]").firstOrNull {
+                        it.parents().firstOrNull { parent -> parent.normalName() == "li" } === copy
+                    }
+                    val checked = checkbox?.let { it.hasClass("checked") || it.hasAttr("checked") }
+                    checkbox?.remove()
+                    ArticleListItem(marker, checked, parseArticle(listItemBody(copy)))
+                }
+                if (items.isNotEmpty()) result.add(ArticleBlock.ListBlock(items))
+            }
             "hr" -> result.add(ArticleBlock.Rule)
             "details" -> {
                 val summary = element.children().firstOrNull { it.normalName() == "summary" }
@@ -335,6 +361,22 @@ fun parseArticle(html: String): List<ArticleBlock> {
 }
 
 private data class SpoilerFragment(val html: String = "", val region: Element? = null)
+
+/** List items may omit p wrappers; keep adjacent inline nodes in one paragraph. */
+private fun listItemBody(element: Element): String = buildString {
+    val inline = StringBuilder()
+    fun flush() {
+        val html = inline.toString().trim()
+        if (html.isNotEmpty()) append("<p>").append(html).append("</p>")
+        inline.clear()
+    }
+    element.childNodes().forEach { node ->
+        if (node is Element && node.tag().isBlock) { flush(); append(node.outerHtml()) }
+        else inline.append(node.outerHtml())
+    }
+    flush()
+}
+
 private fun spoilerFragments(node: Node): List<SpoilerFragment> {
     if (node !is Element) return listOf(SpoilerFragment(node.outerHtml()))
     if (node.hasClass("spoiler") && node.select("img:not(.emoji)").isNotEmpty()) return listOf(SpoilerFragment(region = node))
@@ -355,6 +397,7 @@ private fun articleImageLocations(blocks: List<ArticleBlock>): List<ArticleImage
                 is ArticleBlock.Quote -> visit(block.blocks, path, quotes + path)
                 is ArticleBlock.Callout -> visit(block.blocks, path, quotes + path)
                 is ArticleBlock.Details -> visit(block.blocks, path, quotes + path)
+                is ArticleBlock.ListBlock -> block.items.forEachIndexed { item, value -> visit(value.blocks, "$path-item$item", quotes) }
                 else -> Unit
             }
         }
@@ -372,6 +415,7 @@ private fun closedDetails(blocks: List<ArticleBlock>, parent: String = "root"): 
             is ArticleBlock.Quote -> addAll(closedDetails(block.blocks, path))
             is ArticleBlock.Callout -> { if (!block.open) add(path); addAll(closedDetails(block.blocks, path)) }
             is ArticleBlock.Spoiler -> addAll(closedDetails(block.blocks, path))
+            is ArticleBlock.ListBlock -> block.items.forEachIndexed { item, value -> addAll(closedDetails(value.blocks, "$path-item$item")) }
             else -> Unit
         }
     }
@@ -596,6 +640,23 @@ private fun ArticleBlocks(blocks: List<ArticleBlock>, parent: String, collapsed:
             }
             is ArticleBlock.Code -> CodeBlock(block.text)
             is ArticleBlock.Table -> ArticleTable(block, path, linkHandler)
+            is ArticleBlock.ListBlock -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                block.items.forEachIndexed { itemIndex, item ->
+                    val itemPath = "$path-item$itemIndex"
+                    Row(Modifier.fillMaxWidth().testTag("article-list-item-$itemPath")
+                        .semantics { item.checked?.let { stateDescription = if (it) "已完成" else "未完成" } },
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (item.checked != null) Icon(
+                            if (item.checked) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank,
+                            null, Modifier.padding(top = 3.dp).size(20.dp),
+                            tint = if (item.checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        else Text(item.marker, Modifier.widthIn(min = 18.dp), style = MaterialTheme.typography.bodyLarge)
+                        Box(Modifier.weight(1f)) {
+                            ArticleBlocks(item.blocks, itemPath, collapsed, toggle, onLink, linkHandler, poll, image = image)
+                        }
+                    }
+                }
+            }
             is ArticleBlock.Image -> image(block, path)
             is ArticleBlock.Embed -> OneboxPreview(block, onLink)
             is ArticleBlock.Poll -> poll(block.name)
