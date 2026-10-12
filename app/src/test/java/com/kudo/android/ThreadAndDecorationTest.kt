@@ -135,7 +135,7 @@ class ThreadAndDecorationTest {
             assertTrue(state.threads.any { it.root.number == 4 })
             val root = state.detail!!.posts.first { it.number == 2 }
             vm.loadReplies(root)
-            assertNotNull(vm.await { it.replyLoads[2]?.error != null }.replyLoads[2]!!.error)
+            assertNotNull(vm.await { it.replyLoads[2]?.loading == false && it.replyLoads[2]?.error != null }.replyLoads[2]!!.error)
             vm.loadReplies(root)
             val retried = vm.await { it.replyLoads[2]?.loading == false && it.replyLoads[2]?.error == null }
             assertEquals(listOf(3, 4), retried.threads.first { it.root.number == 2 }.replies.map(Post::number))

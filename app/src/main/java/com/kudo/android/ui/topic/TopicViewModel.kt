@@ -385,7 +385,7 @@ class TopicViewModel(
             } catch (e: CancellationException) { throw e }
             catch (e: Exception) { if (token == generation) _state.update { current ->
                 val load = current.replyLoads[root.id] ?: ReplyLoad()
-                current.copy(replyLoads = current.replyLoads + (root.id to load.copy(error = e)))
+                current.copy(replyLoads = current.replyLoads + (root.id to load.copy(loading = false, error = e)))
             } }
             finally { if (token == generation) _state.update { current ->
                 val load = current.replyLoads[root.id] ?: ReplyLoad()
