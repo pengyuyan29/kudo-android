@@ -8,6 +8,31 @@ Linux.do 社区的 Android 原生第三方客户端，使用 Kotlin 与 Jetpack 
 
 [下载最新版本](https://github.com/woliubang256/kudo-android/releases/latest) · [构建与安装](docs/BUILDING.md) · [第三方组件与参考](THIRD_PARTY_NOTICES.md)
 
+<details>
+<summary>界面预览</summary>
+
+### 浅色模式
+
+| 首页 · 信息流 | 首页 · 标题 | 分类 |
+| --- | --- | --- |
+| ![首页信息流（浅色）](docs/readme-preview/home-feed-light.png) | ![首页标题（浅色）](docs/readme-preview/home-title-light.png) | ![分类（浅色）](docs/readme-preview/categories-light.png) |
+
+| 话题详情 | 用户主页 | 设置 |
+| --- | --- | --- |
+| ![话题详情（浅色）](docs/readme-preview/topic-detail-light.png) | ![用户主页（浅色）](docs/readme-preview/user-profile-light.png) | ![设置（浅色）](docs/readme-preview/settings-light.png) |
+
+### 深色模式
+
+| 首页 · 信息流 | 首页 · 标题 | 分类 |
+| --- | --- | --- |
+| ![首页信息流（深色）](docs/readme-preview/home-feed-dark.png) | ![首页标题（深色）](docs/readme-preview/home-title-dark.png) | ![分类（深色）](docs/readme-preview/categories-dark.png) |
+
+| 话题详情 | 用户主页 | 设置 |
+| --- | --- | --- |
+| ![话题详情（深色）](docs/readme-preview/topic-detail-dark.png) | ![用户主页（深色）](docs/readme-preview/user-profile-dark.png) | ![设置（深色）](docs/readme-preview/settings-dark.png) |
+
+</details>
+
 ## 功能
 
 - **浏览与发现**：首页筛选、分类与标签列表、搜索、下拉刷新和分页；有新内容时提示刷新，保留当前阅读位置。
@@ -43,36 +68,4 @@ Android 13+ 使用完整液态玻璃，Android 12 使用背景模糊，Android 8
 
 本项目积极参与并认可 [linux.do社区](https://linux.do)。
 
-<details>
-<summary>界面预览</summary>
-
-### 浅色模式
-
-| 首页 · 信息流 | 首页 · 标题 |
-| --- | --- |
-| ![首页信息流（浅色）](docs/readme-preview/home-feed-light.png) | ![首页标题（浅色）](docs/readme-preview/home-title-light.png) |
-
-| 话题详情 | 用户主页 |
-| --- | --- |
-| ![话题详情（浅色）](docs/readme-preview/topic-detail-light.png) | ![用户主页（浅色）](docs/readme-preview/user-profile-light.png) |
-
-| 设置 |
-| --- |
-| ![设置（浅色）](docs/readme-preview/settings-light.png) |
-
-### 深色模式
-
-| 首页 · 信息流 | 首页 · 标题 |
-| --- | --- |
-| ![首页信息流（深色）](docs/readme-preview/home-feed-dark.png) | ![首页标题（深色）](docs/readme-preview/home-title-dark.png) |
-
-| 话题详情 | 用户主页 |
-| --- | --- |
-| ![话题详情（深色）](docs/readme-preview/topic-detail-dark.png) | ![用户主页（深色）](docs/readme-preview/user-profile-dark.png) |
-
-| 设置 |
-| --- |
-| ![设置（深色）](docs/readme-preview/settings-dark.png) |
-
-</details>
 
