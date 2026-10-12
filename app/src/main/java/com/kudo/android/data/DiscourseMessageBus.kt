@@ -25,12 +25,16 @@ fun interface FeedUpdates {
     fun observe(user: Member?): Flow<Unit>
 }
 
+fun interface TopicUpdates {
+    fun observeTopic(user: Member?, topicId: Int): Flow<Unit>
+}
+
 class DiscourseMessageBus(
     private val client: DiscourseClient,
     private val endpoint: HttpUrl = "https://ping.ldstatic.com/".toHttpUrl(),
     private val userAgent: String = "Kudo/0.1 Android",
     route: (OkHttpClient) -> Call.Factory = { it },
-) : FeedUpdates, NotificationUpdates {
+) : FeedUpdates, NotificationUpdates, TopicUpdates {
     private companion object {
         const val maxConsecutiveVerificationFailures = 2
     }
@@ -53,6 +57,15 @@ class DiscourseMessageBus(
         val cursors = NotificationCursors(user)
         poll(user, cursors.values).collect { batch ->
             emit(cursors.accept(batch.messages, batch.initial, batch.reconnect))
+        }
+    }
+
+    override fun observeTopic(user: Member?, topicId: Int): Flow<Unit> = flow {
+        require(topicId > 0)
+        val cursors = TopicMessageBusCursors(topicId)
+        poll(user, cursors.values).collect { batch ->
+            val changed = cursors.accept(batch.messages)
+            if (changed || batch.reconnect) emit(Unit)
         }
     }
 
@@ -100,6 +113,36 @@ class DiscourseMessageBus(
             }
         }
     }.flowOn(Dispatchers.IO)
+}
+
+internal class TopicMessageBusCursors(topicId: Int) {
+    private val channel = "/topic/$topicId"
+    val values = linkedMapOf(channel to -1L)
+
+    fun accept(messages: JSONArray): Boolean {
+        var changed = false
+        for (index in 0 until messages.length()) {
+            val message = messages.optJSONObject(index) ?: continue
+            when (message.optString("channel")) {
+                "/__status" -> {
+                    val head = message.optJSONObject("data")?.optLong(channel, -1) ?: -1
+                    if (head >= 0 && head != values[channel]) {
+                        values[channel] = head
+                        changed = true
+                    }
+                }
+                channel -> {
+                    val cursor = message.optLong("message_id", -1)
+                    if (cursor <= values.getValue(channel)) continue
+                    values[channel] = cursor
+                    val data = message.optJSONObject("data") ?: continue
+                    if (data.optString("type") == "created" ||
+                        (data.optBoolean("reload_topic") && data.optBoolean("refresh_stream"))) changed = true
+                }
+            }
+        }
+        return changed
+    }
 }
 
 internal class MessageBusCursors(userId: Int?) {
