@@ -107,6 +107,25 @@ cargo() { printf 'cargo %s\\n' "$*" >> calls.txt; }
         self.assertLess(self.workflow.index("name: Set up Rust"), self.workflow.index("name: Save native toolchain cache"))
         self.assertLess(self.workflow.index("name: Save native toolchain cache"), self.workflow.index("name: Test native DoH"))
 
+    def test_main_build_populates_caches_shared_with_future_tags(self):
+        triggers = self.workflow.split("permissions:", 1)[0]
+        self.assertRegex(triggers, r"branches:\s*\n\s*- main")
+        self.assertRegex(triggers, r"tags:\s*\n\s*- 'v\*'")
+        for name in ("Restore dependency cache", "Restore native toolchain cache"):
+            key = re.search(r"          key: ([^\n]+)", self.step(name)).group(1)
+            self.assertNotIn("github.ref", key)
+            self.assertNotIn("github.sha", key)
+        for name in ("Test native DoH", "Unit tests and Android Lint"):
+            self.assertNotIn("        if:", self.step(name))
+
+    def test_main_build_never_reads_release_keys_or_publishes(self):
+        for name in ("Validate tag and calculate version", "Restore release keystore", "Build signed release",
+                     "Verify signature and APK version, then create checksum", "Organize release notes from commits", "Upload verified release files"):
+            with self.subTest(step=name):
+                self.assertIn("        if: github.ref_type == 'tag'\n", self.step(name))
+        publish = self.workflow.split("  publish:\n", 1)[1]
+        self.assertIn("    if: github.ref_type == 'tag'\n", publish)
+
 
 if __name__ == "__main__":
     unittest.main()

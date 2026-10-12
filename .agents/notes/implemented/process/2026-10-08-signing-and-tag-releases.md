@@ -58,6 +58,10 @@ Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移�
 
 重推后的运行 38202433589 已通过原生工具安装并写入缓存，但发布工具的 merge 夹具在 TemporaryDirectory 清理时报 objects 非空（`cloud-repair/job-114658524057.log`），符合 Git 自动维护后台写入与目录删除的竞态。测试临时仓库显式禁用 gc.auto 和 maintenance.auto，不修改开发者或 runner 的全局 Git 设置，不吞掉清理异常；增加本地配置回归，避免将重跑偶然通过视为修复。
 
+GitHub 缓存遵循 ref 可见性：仅在 v0.2.0 内写入不能供后续 v0.2.1 直接复用。因此同一工作流也检查 main 推送并建立默认分支缓存，依赖键不包含 ref / SHA，后续 Tag 可恢复 main 的工具链和依赖。main 仅运行原生测试、JVM 与 Lint，不恢复私钥、不构建正式包、不生成发布日志或发布 Release；所有签名、公开产物与 publish job 都显式限制为 Tag。针对分支触发及逐项发布门禁增加回归，避免为了缓存意外在每次 main 推送时发布。
+
+Git 配置回归先失败（`cloud-repair/git-fixture-repro.txt`），修复后 36 项通过；默认分支缓存与签名门禁回归先失败（`main-cache-repro-tests.txt`），修复后最终 38 项全部发布工具测试通过（`final-tool-tests.txt`，13.724 秒）。actionlint 与 89 篇笔记检查通过；重推同名 Tag 后继续核对实际缓存命中、Ubuntu 原生 / JVM / Lint、正式签名和公开附件。
+
 新版上传支持不压缩的单文件制品，但发布需要 APK、摘要和正文三个文件，因此显式使用 archive: true；下载显式使用 skip-decompress: false，让文件继续直接解压到 dist。digest-mismatch: error 使 Actions 制品摘要不一致时立即失败，发布 shell 仍单独核对 APK 的 SHA256。Tag 触发、权限拆分、临时密钥清理和草稿上传完才公开的契约保持一致。
 
 ## Related decisions
