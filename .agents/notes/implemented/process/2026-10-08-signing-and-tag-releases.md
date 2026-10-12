@@ -8,7 +8,9 @@ Debug 依赖开发机器的默认证书，Release 没有签名配置，仓库没
 
 ## Decision
 
-当前本地打包与 Tag 基线为 `0.2.1` / `2002`，下一版从 `0.2.2` / `2003` 开始。Release APK 只打包 `arm64-v8a`，发布脚本将验证 APK 的 `native-code` 清单只包含该 ABI；公开产物统一命名为 `kodo_<version>_release_arm64-v8a.apk` 及对应的 `.sha256` 文件。
+当前本地正式打包版本为 `0.2.2` / `2003`；最新已公开正式 Release 仍为 `v0.2.0`，`v0.2.1` 已有本地和远端 Tag，但没有已公开 Release。本次只打包，不创建 `v0.2.2` Tag 或发布远端附件。Release APK 只打包 `arm64-v8a`，发布脚本将验证 APK 的 `native-code` 清单只包含该 ABI；公开产物统一命名为 `kodo_<version>_release_arm64-v8a.apk` 及对应的 `.sha256` 文件。
+
+0.2.2 本地验收：使用 `-PversionName=0.2.2 -PversionCode=2003` 完成 Release R8 构建与 Lint，默认 Gradle 版本保持不变。产物为 `artifacts/release/0.2.2/kodo_0.2.2_release_arm64-v8a.apk`，9138426 字节，SHA256 为 `30cf6e9762d89192647e1b9db5489c9a8b75669323897eb09cd90a9874671d88`。正式证书与既有版本一致，包名、版本、单 arm64-v8a、非 debuggable、16KB ZIP 和三份 native ELF LOAD 对齐全部通过，详情为同目录 `verification.json` / `verification.txt`，源码提交为 `188e09e48f212abfd6461e65a261ad7b06d45687`。构建日志为 `artifacts/release-0.2.2-build.txt`；Release Lint 为 0 errors / 44 warnings / 1 hint，96篇笔记门禁通过。此前楼层与置顶、签名改动的19项相关 JVM 和29项不同真机用例已通过，本轮未重复无关 UI 测试，未把构建和验签视为正式包真机运行验收。手机保留 `0.2.2-dev / 2005` 开发版和数据，未安装正式包。通过认证 API 核对实际已公开基线为 `v0.2.0`，重新提取并归并26条 App 提交为16条更新说明；`release-notes/v0.2.2.md` 通过 HEAD 来源校验，原始候选和最终正文保存在产物目录。
 
 0.2.1 本地验收：通过 `-PversionName=0.2.1 -PversionCode=2002` 构建，默认版本保持不变；产物为 `artifacts/release/0.2.1/kodo_0.2.1_release_arm64-v8a.apk`，9138430 字节，SHA256 为 `427165c7c3e6c2249262d844351da3071fb0788d4f4bf395f107b7b27adb8b90`。正式签名与既有版本一致，版本、单 arm64-v8a、非 debuggable、16KB ZIP 与 native ELF LOAD 对齐通过（同目录 `verification.json` / `verification.txt`）。发布前将访客和已登录个人中心入口统一为“设置”，6项相关真机界面测试通过（`artifacts/release-0.2.1-settings-final-device.txt`）；此前短帖计数的16项相关回归通过。开发包使用同签名 `adb install -r` 保留数据，未安装正式包。Release R8 / Lint 与90篇笔记门禁通过；云端附件由 Tag 工作流另行构建和验收，本机结果不替代云端结果。
 

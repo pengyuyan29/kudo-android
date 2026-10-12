@@ -80,7 +80,7 @@ Windows 可将密钥库 Base64 直接复制到剪贴板，再粘贴到对应 Sec
 [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path 'signing/kudo-release.p12').Path)) | Set-Clipboard
 ```
 
-当前发布版本为 `v0.2.1` / `versionCode=2002`，下一版从 `v0.2.2` / `versionCode=2003` 开始。示例产物为 `kodo_0.2.1_release_arm64-v8a.apk` 和 `kodo_0.2.1_release_arm64-v8a.apk.sha256`，正式 Release 只包含 `arm64-v8a`。自动发布从上一个已公开正式 Release 到当前 Tag 的 commit 中筛选 App 运行时变化，失败 Tag 和草稿不截断更新日志，首次版本包含完整历史。新提交请使用 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:`、`chore:` 等前缀，冒号后写中文说明；只有 `feat:`、`fix:`、`perf:` 且实际修改 `app/src/main/` 运行时源码或资源的提交会进入更新日志，文档、测试、工具链、CI、许可证和合并提交被过滤。
+当前已公开正式 Release 为 `v0.2.0` / `versionCode=2001`；`v0.2.1` / `2002` 已有 Tag，但尚无已公开 Release。本次本地正式包使用 `0.2.2` / `2003`，产物为 `kodo_0.2.2_release_arm64-v8a.apk` 和 `kodo_0.2.2_release_arm64-v8a.apk.sha256`，尚未创建对应 Tag 或发布附件。正式 Release 只包含 `arm64-v8a`。自动发布从上一个已公开正式 Release 到当前 Tag 的 commit 中筛选 App 运行时变化，失败 Tag 和草稿不截断更新日志，首次版本包含完整历史。新提交请使用 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:`、`chore:` 等前缀，冒号后写中文说明；只有 `feat:`、`fix:`、`perf:` 且实际修改 `app/src/main/` 运行时源码或资源的提交会进入更新日志，文档、测试、工具链、CI、许可证和合并提交被过滤。
 
 发布前先由当前 AI 协作者整理日志，再提交并打 Tag。脚本提取原始候选和校验来源，AI 负责合并同一功能的多次提交及后续修复，写成“新增、修复、调整”下的简短中文条目；同一新增功能的配套修复并入新增条目，保留最终效果，省略开发、调试及测试过程。整理时必须对照 App 变更核实，避免遗漏或夸大。CI 直接读取已提交的版本文件，不调用模型，无需 AI API Key。
 
@@ -124,7 +124,7 @@ git config core.hooksPath .githooks
 
 钩子会拒绝没有受支持前缀的提交；`scripts/check_commit_history.py` 还会在 CI 中检查本次推送或 Pull Request 的提交范围。历史提交不会被自动改写，发布日志仍只提取实际修改 `app/src/main/` 的 `feat:`、`fix:` 和 `perf:` 提交。
 
-版本名为 Tag 去掉 `v`，严格使用 `vX.Y.Z`，其中 `X`、`Y`、`Z` 各为 `0–9` 的一位数字；`versionCode = major × 1000000 + minor × 1000 + patch + 1`。例如 `v1.2.3` 对应 `1.2.3` / `1002004`，当前 `v0.2.1` 对应 `0.2.1` / `2002`，下一版 `v0.2.2` 对应 `0.2.2` / `2003`。补丁位从 `0.1.9` 进位到 `0.2.0`，大功能可提升 minor 或 major 位；前导零、`-rc`、`-beta` 等格式会失败。每次升级请使用更大的版本号。
+版本名为 Tag 去掉 `v`，严格使用 `vX.Y.Z`，其中 `X`、`Y`、`Z` 各为 `0–9` 的一位数字；`versionCode = major × 1000000 + minor × 1000 + patch + 1`。例如 `v1.2.3` 对应 `1.2.3` / `1002004`，`v0.2.1` 对应 `0.2.1` / `2002`，本次 `v0.2.2` 对应 `0.2.2` / `2003`。补丁位从 `0.1.9` 进位到 `0.2.0`，大功能可提升 minor 或 major 位；前导零、`-rc`、`-beta` 等格式会失败。每次升级请使用更大的版本号。
 
 普通本地构建保留 `0.1.0` / `1` 默认值，也可按 Tag 值构建相同版本：
 
