@@ -80,6 +80,7 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
     var returningToTop by remember(detail?.id) { mutableStateOf(false) }
     var returnTopError by remember(detail?.id) { mutableStateOf<String?>(null) }
     val hasPrevious = state.pageIds(previous = true).isNotEmpty()
+    val hasMore = state.pageIds(previous = false).isNotEmpty()
     var previousAnchor by remember(detail?.id) { mutableStateOf<Pair<Int, Int>?>(null) }
     var currentFloor by rememberSaveable(detail?.id) { mutableIntStateOf(state.targetNumber ?: 1) }
     val scope = rememberCoroutineScope()
@@ -134,8 +135,12 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
         }
         previousAnchor = null
     }
-    val mainVisible by remember(listState, posts) { derivedStateOf {
-        listState.layoutInfo.visibleItemsInfo.firstNotNullOfOrNull { item -> posts.firstOrNull { it.id == item.key }?.number }
+    val endLoaded = !hasMore && !state.loading && !state.loadingMore && state.error == null && state.moreError == null
+    val mainVisible by remember(listState, posts, endLoaded) { derivedStateOf {
+        val visible = listState.layoutInfo.visibleItemsInfo
+        val last = posts.lastOrNull()
+        if (endLoaded && !listState.canScrollForward && last != null && visible.any { it.key == last.id }) last.number
+        else visible.firstNotNullOfOrNull { item -> posts.firstOrNull { it.id == item.key }?.number }
     } }
     LaunchedEffect(mainVisible, showing, state.jumping, located) {
         if (!showing && !state.jumping && (state.targetNumber == null || located)) mainVisible?.let { currentFloor = it }
@@ -166,7 +171,6 @@ fun TopicScreen(state: TopicState, glass: GlassMode, back: () -> Unit, retry: ()
             returningToTop = false
         }
     }
-    val hasMore = state.pageIds(previous = false).isNotEmpty()
     val covered = LocalReadingBlocked.current
     AutomaticPostLoading(listState, "more-posts", detail?.stream to posts.map(Post::id),
         hasMore && !showing && !covered && !state.loading && !state.jumping && !state.loadingMore && !state.loadingPrevious && previousAnchor == null &&

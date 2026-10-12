@@ -27,6 +27,60 @@ class TopicFloorNavigationUiTest {
     private val posts = listOf(post(1), post(2), post(8), post(20), post(80, 8))
     private val detail = TopicDetail(5, "真实楼层索引", 1, posts, posts.map(Post::id), false, highestPostNumber = 100)
 
+    @Test fun aShortTopicShowsTheLastFloorAtTheBottomAndResumesVisibleFloorWhenScrollingBack() {
+        val loaded = (1..7).map(::post)
+        val state = TopicState(detail.copy(posts = loaded, stream = loaded.map(Post::id), highestPostNumber = 7), false)
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, readingEnabled = false)
+        } }
+        compose.onNodeWithTag("topic-posts").performScrollToIndex(loaded.size + 1)
+        compose.onNodeWithTag("post-7").assertIsDisplayed()
+        compose.onNodeWithText("已读完全部回复").assertIsDisplayed()
+        compose.onNodeWithText("7 / 7").assertIsDisplayed()
+        capture("floor-short-topic-bottom.png")
+        compose.onNodeWithTag("topic-posts").performScrollToIndex(2)
+        compose.onNodeWithText("2 / 7").assertIsDisplayed()
+    }
+
+    @Test fun aPendingOrFailedPageDoesNotCountItsBottomAsTheTopicEnd() {
+        val loaded = (1..7).map(::post)
+        var state by mutableStateOf(TopicState(detail.copy(posts = loaded, stream = (1..30).toList(), highestPostNumber = 30),
+            false, moreError = IllegalStateException("分页失败")))
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, readingEnabled = false)
+        } }
+        fun assertVisibleFloor() {
+            compose.onNodeWithTag("topic-posts").performScrollToIndex(loaded.size + 1)
+            val viewport = compose.onNodeWithTag("topic-posts").fetchSemanticsNode().boundsInRoot
+            val firstVisible = loaded.first { post ->
+                compose.onAllNodesWithTag("post-${post.number}").fetchSemanticsNodes().any {
+                    it.boundsInRoot.bottom > viewport.top && it.boundsInRoot.top < viewport.bottom
+                }
+            }.number
+            assertTrue("fixture must leave earlier floors visible at the bottom", firstVisible < 7)
+            compose.onNodeWithText("$firstVisible / 30").assertIsDisplayed()
+        }
+        assertVisibleFloor()
+        compose.runOnIdle { state = state.copy(detail = state.detail!!.copy(stream = loaded.map(Post::id))) }
+        assertVisibleFloor()
+        compose.runOnIdle { state = state.copy(moreError = null, loadingMore = true) }
+        assertVisibleFloor()
+        compose.runOnIdle { state = state.copy(loadingMore = false) }
+        compose.onNodeWithTag("topic-posts").performScrollToIndex(loaded.size + 1)
+        compose.onNodeWithText("7 / 30").assertIsDisplayed()
+    }
+
+    @Test fun anUnavailableFinalFloorKeepsTheLastAccessibleNumberAtTheBottom() {
+        val loaded = (1..6).map(::post)
+        val state = TopicState(detail.copy(posts = loaded, stream = loaded.map(Post::id), highestPostNumber = 7), false)
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            TopicScreen(state, GlassMode.TRANSLUCENT, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, readingEnabled = false)
+        } }
+        compose.onNodeWithTag("topic-posts").performScrollToIndex(loaded.size + 1)
+        compose.onNodeWithTag("post-6").assertIsDisplayed()
+        compose.onNodeWithText("6 / 7").assertIsDisplayed()
+    }
+
     @Test fun sliderOnlyPreviewsAndConfirmedNestedFloorTargetsTheMainTimeline() {
         var state by mutableStateOf(TopicState(detail, false))
         var requests = 0
