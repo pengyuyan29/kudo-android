@@ -36,6 +36,12 @@ CommunityUiTest 的整栏抬升与取消复位检查同样按真实16ms间隔推
 
 ## JVM fixture lifecycle
 
+0.2.0 云端运行 38205318965 的完整 XML 已保存至 `artifacts/release/0.2.0/cloud-repair/floor-failure-report.xml`；311 项 JVM 仅 aSupersededJumpCannotReplaceTheLatestTarget 失败，明确超时于取消80楼后等待100楼完成（TopicFloorNavigationTest.kt:228），不是初始化或释放旧请求阶段。先在等待失败时记录完整夹具状态和请求路径，进行两核重复运行定位，不增加超时或移除旧响应不能覆盖新目标的断言。
+
+补充状态诊断后，本地两核同一 JVM 50 轮共 600 项楼层测试通过（`cloud-repair/floor-diagnostic-repeat.txt`，测试 9.297 秒），没有复现云端底层传输失败。该顺序用例通过 DiscourseClient 已有 Call.Factory 入口使用可控异步 HTTP 回调：确认80楼请求已挂起、发起100楼后断言旧 Call 已取消，显式完成100楼并等待跳转，再从 IO 回送80楼迟到响应，检查目标、修订号和内容均不被覆盖。控制取消后仍能返回 onResponse 的真实竞态契约，不使用 sleep 或延长超时；其他楼层请求仍使用原网络夹具。不能据此声称已确定云端 socket 失败的底层根因。
+
+可控回调修复后，12 项楼层回归及两核同 JVM 50 轮共 600 项通过（`cloud-repair/floor-controlled-fixed.txt`，重复测试 5.340 秒）；目标断言、取消断言及旧楼层不入缓存的断言全部保留。云端完整 311 项 JVM、Lint 和实际发布由下一次 Tag 运行验收。
+
 云端v0.1.8在FeedViewModelTest启动前报告未处理异常，具体被抑制异常尚未取得；同次楼层跳转测试出现等待超时。两核本地连续运行相关三组共200个测试未复现原失败，不据此宣称根因已确定。排查发现FeedUpdates夹具关闭时只cancel、不等待协程结束就重置Main和关闭线程；新增用例挂起取消清理，检查关闭动作必须等待清理完成。楼层网络夹具的动作及状态延续统一在独立单线程Main执行，与App的串行UI线程一致，避免Unconfined让网络回调与测试动作并发操作ViewModel；网络等待仍为5秒，不以延长等待规避失败。
 
 取消清理用例先失败，报告为 `artifacts/feed-fixture-cleanup-repro.xml`；修复后21项相关测试通过，日志为 `ci-fixture-focused-fixed.txt`。串行Main还复现旧父链断言过早读取状态（期望1/20/80，实际1/80），报告为 `ci-fixture-focused-failure.xml`；等待真实父楼层出现后保留原断言。旧跳转用例在最新100楼完成后释放80楼请求，确认旧请求已返回才检查目标仍是100。两核同一JVM连续10轮共210项通过，日志为 `ci-fixture-repeat-fixed.txt`；这证明这些夹具不变量，并不能补回v0.1.8缺失的完整异常报告。
@@ -43,6 +49,8 @@ CommunityUiTest 的整栏抬升与取消复位检查同样按真实16ms间隔推
 ## Alternatives considered
 
 仅增加超时或重新运行的优势是改动小、偶发慢机可能通过，但无法消除任务越过测试边界或并发访问的机会；用明确清理完成条件及串行Main缩小调度差异。原始云端报告缺失的问题由发布工作流失败上传XML/HTML解决，原始失败与本地新复现需分开记录。
+
+继续用服务器端 CountDownLatch 固定跳转响应的优势是涵盖真实 socket 取消，但等待的是服务端 dispatch 返回而非客户端处理完成，且明确的楼层顺序断言被底层网络失败转化为超时；此语义用例改为可控 Call 回调并加强取消、迟到响应和修订号断言，网络解析与分页仍由其余 HTTP 用例覆盖。
 
 - 只在真实站点自动化：最贴近线上，但会受到限流和会话影响，也可能发出真实社区写操作；真实请求仅做只读验证。
 - 只测静态页面：可以检查配色，却不能发现 JSON、CSRF、分页与状态竞争；同时保留网络契约测试。

@@ -6,7 +6,15 @@ import com.kudo.android.ui.topic.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.*
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.mockwebserver.*
+import okio.Timeout
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -22,8 +30,9 @@ class TopicFloorNavigationTest {
     private fun topic(posts: String = post(1)) = """{"id":5,"title":"跳楼","highest_post_number":100,"post_stream":{"stream":[1,20,80,100],"posts":[$posts]}}"""
     private fun streamedTopic(posts: String, highest: Int = 120) =
         """{"id":5,"title":"far jump","highest_post_number":$highest,"post_stream":{"stream":[${(1..highest).joinToString(",")}],"posts":[$posts]}}"""
-    private suspend fun TopicViewModel.await(predicate: (TopicState) -> Boolean) = withContext(Dispatchers.IO) {
-        withTimeout(5000) { state.first(predicate) }
+    private suspend fun TopicViewModel.await(description: String = "topic state", predicate: (TopicState) -> Boolean) = withContext(Dispatchers.IO) {
+        try { withTimeout(5000) { state.first(predicate) } }
+        catch (error: TimeoutCancellationException) { throw AssertionError("Timed out waiting for $description; state=${state.value}", error) }
     }
 
     @Test fun highestFloorUsesTheServerNumberInsteadOfTheStreamCount() {
@@ -214,23 +223,35 @@ class TopicFloorNavigationTest {
     }
 
     @Test fun aSupersededJumpCannotReplaceTheLatestTarget() = runTest {
-        val started = CountDownLatch(1); val release = CountDownLatch(1); val returned = CountDownLatch(1)
-        withTopic({ request -> when (request.path) {
-            "/t/5/80.json" -> {
-                started.countDown(); release.await(5, TimeUnit.SECONDS)
-                returned.countDown(); MockResponse().setBody(topic(post(80)))
+        val first = CompletableDeferred<ControlledCall>()
+        val latest = CompletableDeferred<ControlledCall>()
+        val calls = Call.Factory { request -> ControlledCall(request) { call ->
+            when (request.url.encodedPath) {
+                "/t/5/80.json" -> first.complete(call)
+                "/t/5/100.json" -> latest.complete(call)
+                "/t/5.json" -> call.respond(topic())
+                "/t/5/posts.json" -> call.respond("""{"post_stream":{"posts":[]}}""")
+                "/u/author.json" -> call.respond("""{"user":{"id":2,"username":"author"}}""")
+                else -> error("Unexpected fixture request: ${request.url.encodedPath}")
             }
-            "/t/5/100.json" -> MockResponse().setBody(topic(post(100)))
-            else -> null
-        } }) { vm, _ -> try {
-            vm.await { !it.loading }; vm.jumpTo(80)
-            assertTrue(withContext(Dispatchers.IO) { started.await(5, TimeUnit.SECONDS) })
-            vm.jumpTo(100); vm.await { it.targetNumber == 100 && !it.jumping }
-            release.countDown()
-            assertTrue(withContext(Dispatchers.IO) { returned.await(5, TimeUnit.SECONDS) })
+        } }
+        withTopic({ null }, route = { calls }) { vm, _ ->
+            vm.await { !it.loading && it.authorProfile != null }
+            vm.jumpTo(80)
+            val stale = withContext(Dispatchers.IO) { withTimeout(5000) { first.await() } }
+            vm.jumpTo(100)
+            val current = withContext(Dispatchers.IO) { withTimeout(5000) { latest.await() } }
+            assertTrue("superseded HTTP call must be cancelled", stale.isCanceled())
+            withContext(Dispatchers.IO) { current.respond(topic(post(100))) }
+            vm.await("latest target after cancelling 80") { it.targetNumber == 100 && !it.jumping }
+            val revision = vm.state.value.targetRevision
+            // A response callback can already be in flight when cancellation happens.
+            withContext(Dispatchers.IO) { stale.respond(topic(post(80))) }
+            yield()
             assertEquals(100, vm.state.value.targetNumber)
+            assertEquals(revision, vm.state.value.targetRevision)
             assertFalse(vm.state.value.allPosts.any { it.number == 80 })
-        } finally { release.countDown() } }
+        }
     }
 
     @Test fun aJumpWindowThatCompletesAParentClearsTheCancelledContextLoadingState() = runTest {
@@ -250,7 +271,28 @@ class TopicFloorNavigationTest {
         } finally { release.countDown() } }
     }
 
-    private suspend fun TestScope.withTopic(response: (RecordedRequest) -> MockResponse?, block: suspend (TopicViewModel, List<String>) -> Unit) {
+    private class ControlledCall(private val request: Request, private val onEnqueue: (ControlledCall) -> Unit) : Call {
+        private var callback: Callback? = null
+        @Volatile private var cancelled = false
+        override fun request() = request
+        override fun enqueue(responseCallback: Callback) {
+            check(callback == null)
+            callback = responseCallback
+            onEnqueue(this)
+        }
+        fun respond(body: String) {
+            checkNotNull(callback).onResponse(this, Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                .code(200).message("OK").body(body.toResponseBody()).build())
+        }
+        override fun cancel() { cancelled = true }
+        override fun isCanceled() = cancelled
+        override fun isExecuted() = callback != null
+        override fun timeout() = Timeout.NONE
+        override fun clone(): Call = ControlledCall(request, onEnqueue)
+        override fun execute(): Response = error("Fixture expects asynchronous HTTP calls")
+    }
+
+    private suspend fun TestScope.withTopic(response: (RecordedRequest) -> MockResponse?, route: (OkHttpClient) -> Call.Factory = { it }, block: suspend (TopicViewModel, List<String>) -> Unit) {
         val paths = CopyOnWriteArrayList<String>()
         Executors.newSingleThreadExecutor().asCoroutineDispatcher().use { main ->
             Dispatchers.setMain(main)
@@ -268,7 +310,7 @@ class TopicFloorNavigationTest {
                     }
                     server.start()
                     val vm = withContext(main) {
-                        TopicViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))), 5, viewerId = 9)
+                        TopicViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"), route = route)), 5, viewerId = 9)
                     }
                     try { withContext(main) { block(vm, paths) } }
                     finally { withContext(NonCancellable) { vm.viewModelScope.coroutineContext.job.cancelAndJoin() } }
