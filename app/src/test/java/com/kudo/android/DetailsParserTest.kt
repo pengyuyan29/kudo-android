@@ -27,6 +27,6 @@ class DetailsParserTest {
     @Test fun missingSummaryFallsBackWithoutDroppingBodyOrExecutingScripts() {
         val block = parseArticle("<details><p>内容</p><script>bad()</script></details>").single() as ArticleBlock.Details
         assertEquals("详细内容", block.summary)
-        assertEquals(listOf(ArticleBlock.TextBlock("内容")), block.blocks)
+        assertEquals(listOf(ArticleBlock.TextBlock("内容", headingText = "内容")), block.blocks)
     }
 }
