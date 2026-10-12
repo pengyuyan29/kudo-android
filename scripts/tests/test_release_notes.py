@@ -67,6 +67,136 @@ class ReleaseNotesTest(unittest.TestCase):
             self.git("add", path)
         self.git("-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", subject)
 
+    def notes_cli(self, *arguments):
+        return subprocess.run([sys.executable, str(Path(__file__).resolve().parents[1] / "release_notes.py"),
+            "--repository", "owner/repo", *arguments], cwd=self.root, capture_output=True, encoding="utf-8",
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+
+    def prepare_summary(self):
+        self.commit("feat: 已发布功能")
+        self.git("tag", "v0.1.0")
+        self.commit("feat: 增加话题新回复订阅")
+        self.commit("fix: 修复新回复加载时的位置重置")
+        self.commit("feat: 显示正在回复的用户头像")
+        self.commit("fix: 保持回复按钮宽度")
+        prepared = self.root / "release-notes/v0.1.1.md"
+        result = self.notes_cli("--tag", "v0.1.1", "--previous-tag", "v0.1.0", "--prepare", "--output", str(prepared))
+        self.assertEqual(0, result.returncode, result.stderr)
+        template = prepared.read_text(encoding="utf-8")
+        header = template.splitlines()[0]
+        summary = "# 酷DO 0.1.1\n\n## 新增\n\n- 话题详情自动加载新回复，保留阅读位置。\n- 回复按钮显示正在回复的用户头像，保持按钮宽度。\n\n[完整变更](https://github.com/owner/repo/compare/v0.1.0...v0.1.1)\n"
+        prepared.write_text(header + "\n" + summary, encoding="utf-8")
+        return prepared, template, summary
+
+    def test_prepared_summary_merges_related_commits_and_keeps_raw_candidates(self):
+        prepared, template, summary = self.prepare_summary()
+        self.assertIn("增加话题新回复订阅", template)
+        self.assertIn("修复新回复加载时的位置重置", template)
+        self.assertIn("保持回复按钮宽度", template)
+        self.git("add", str(prepared.relative_to(self.root)))
+        self.git("-c", "commit.gpgsign=false", "commit", "-m", "doc: 整理发布说明")
+        self.commit("ci: 调整工作流", (".github/workflows/fixture.yml",))
+        self.git("tag", "v0.1.1")
+        output, raw = self.root / "notes.md", self.root / "raw.md"
+        result = self.notes_cli("--tag", "v0.1.1", "--previous-tag", "v0.1.0", "--prepared-notes-dir", "release-notes",
+            "--raw-output", str(raw), "--output", str(output))
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(summary, output.read_text(encoding="utf-8"))
+        candidates = raw.read_text(encoding="utf-8")
+        self.assertIn("修复新回复加载时的位置重置", candidates)
+        self.assertNotIn("调整工作流", candidates)
+        self.assertNotIn("整理发布说明", candidates)
+        self.assertNotIn("kudo-release-notes", output.read_text(encoding="utf-8"))
+
+    def test_prepared_summary_detects_later_app_changes_and_changed_baselines(self):
+        self.prepare_summary()
+        self.commit("test: 增加验收用例", ("app/src/test/Fixture.kt",))
+        output = self.root / "notes.md"
+        arguments = ("--tag", "v0.1.1", "--from-head", "--prepared-notes-dir", "release-notes", "--output", str(output))
+        result = self.notes_cli(*arguments, "--previous-tag", "v0.1.0")
+        self.assertEqual(0, result.returncode, result.stderr)
+        output.unlink()
+        result = self.notes_cli(*arguments, "--previous-tag", "")
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(output.exists())
+        self.commit("fix: 补齐新回复的失败处理")
+        result = self.notes_cli(*arguments, "--previous-tag", "v0.1.0")
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("过期", result.stderr)
+        self.assertFalse(output.exists())
+
+    def test_missing_prepared_notes_fall_back_but_invalid_existing_notes_fail(self):
+        self.commit("feat: 新功能")
+        self.git("tag", "v0.1.0")
+        output = self.root / "notes.md"
+        arguments = ("--tag", "v0.1.0", "--prepared-notes-dir", "release-notes", "--output", str(output))
+        result = self.notes_cli(*arguments)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn("新功能", output.read_text(encoding="utf-8"))
+        output.unlink()
+        prepared = self.root / "release-notes/v0.1.0.md"
+        prepared.parent.mkdir()
+        prepared.write_text("## 新增\n- 过期且没有来源的说明\n", encoding="utf-8")
+        result = self.notes_cli(*arguments)
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(output.exists())
+
+    def test_prepared_notes_reject_invalid_sections_duplicates_and_wrong_release_links(self):
+        prepared, _, summary = self.prepare_summary()
+        header = prepared.read_text(encoding="utf-8").splitlines()[0]
+        malformed = (
+            summary.replace("## 新增", "## 工具链"),
+            summary.replace("# 酷DO 0.1.1", "# 酷DO 0.1.2"),
+            summary.replace("compare/v0.1.0...v0.1.1", "compare/v0.0.9...v0.1.1"),
+            summary.replace("- 回复按钮显示正在回复的用户头像，保持按钮宽度。", "- 话题详情自动加载新回复，保留阅读位置。"),
+            summary.replace("## 新增", "## 修复\n\n## 新增"),
+            summary.replace("## 新增", "## 新增\n\n不是更新列表的段落"),
+        )
+        output = self.root / "notes.md"
+        for body in malformed:
+            with self.subTest(body=body):
+                prepared.write_text(header + "\n" + body, encoding="utf-8")
+                result = self.notes_cli("--tag", "v0.1.1", "--previous-tag", "v0.1.0", "--from-head",
+                    "--prepared-notes-dir", "release-notes", "--output", str(output))
+                self.assertNotEqual(0, result.returncode)
+                self.assertFalse(output.exists())
+
+    def test_prepare_does_not_overwrite_a_reviewed_file_and_raw_output_must_be_separate(self):
+        prepared, _, _ = self.prepare_summary()
+        before = prepared.read_bytes()
+        result = self.notes_cli("--tag", "v0.1.1", "--previous-tag", "v0.1.0", "--prepare", "--output", str(prepared))
+        self.assertNotEqual(0, result.returncode)
+        self.assertEqual(before, prepared.read_bytes())
+        output = self.root / "notes.md"
+        result = self.notes_cli("--tag", "v0.1.1", "--previous-tag", "v0.1.0", "--from-head",
+            "--raw-output", str(output), "--output", str(output))
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(output.exists())
+        for outputs in (("--output", str(prepared)), ("--raw-output", str(prepared), "--output", str(output))):
+            result = self.notes_cli("--tag", "v0.1.1", "--previous-tag", "v0.1.0", "--from-head",
+                "--prepared-notes-dir", "release-notes", *outputs)
+            self.assertNotEqual(0, result.returncode)
+            self.assertEqual(before, prepared.read_bytes())
+
+    def test_preparing_a_first_release_without_app_changes_cannot_invent_changes(self):
+        self.commit("ci: 构建流程", (".github/workflows/fixture.yml",))
+        prepared = self.root / "release-notes/v0.1.0.md"
+        result = self.notes_cli("--tag", "v0.1.0", "--previous-tag", "", "--prepare", "--output", str(prepared))
+        self.assertEqual(0, result.returncode, result.stderr)
+        template = prepared.read_text(encoding="utf-8")
+        self.assertIn('"previous_tag": null', template)
+        self.assertIn("本版本暂无 App 功能变更。", template)
+        output = self.root / "notes.md"
+        arguments = ("--tag", "v0.1.0", "--previous-tag", "", "--from-head", "--prepared-notes-dir", "release-notes", "--output", str(output))
+        result = self.notes_cli(*arguments)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertNotIn("kudo-release-notes", output.read_text(encoding="utf-8"))
+        output.unlink()
+        prepared.write_text(template.replace("本版本暂无 App 功能变更。", "## 新增\n\n- 不存在的功能"), encoding="utf-8")
+        result = self.notes_cli(*arguments)
+        self.assertNotEqual(0, result.returncode)
+        self.assertFalse(output.exists())
+
     def test_first_release_includes_history_and_groups_deduplicated_subjects(self):
         self.commit("支持原生帖子")
         self.commit("fix(ui): 修复头像角标")
