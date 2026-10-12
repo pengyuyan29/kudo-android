@@ -437,6 +437,8 @@ internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
             }
             else if (node is Element) {
                 val children: AnnotatedString.Builder.() -> Unit = { node.childNodes().forEach(::appendNode) }
+                val explicitColor = articleStyleColor(node.attr("style"))
+                if (explicitColor != null) pushStyle(SpanStyle(color = explicitColor))
                 if (node.hasClass("spoiler")) {
                     pushStringAnnotation("spoiler", (spoilerIndex++).toString())
                     children()
@@ -458,12 +460,16 @@ internal fun parseInlineArticle(html: String, linkColor: Color): InlineArticle {
                     }
                     "a" -> {
                         val url = LinuxDoLink.webUrl(node.attr("href"))
-                        if (url != null) withLink(LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))), children)
+                        val color = explicitColor ?: node.parents().firstNotNullOfOrNull { articleStyleColor(it.attr("style")) } ?: linkColor
+                        if (url != null) withStyle(SpanStyle(color = color)) {
+                            withLink(LinkAnnotation.Url(url, TextLinkStyles(SpanStyle(textDecoration = TextDecoration.Underline))), children)
+                        }
                         else children()
                     }
                     "script", "style" -> Unit
                     else -> children()
                 }
+                if (explicitColor != null) pop()
             }
         }
         Jsoup.parseBodyFragment(html).body().childNodes().forEach(::appendNode)
