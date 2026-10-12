@@ -69,6 +69,14 @@ private fun ObserveHomeUpdates(feed: FeedViewModel, user: Member?) {
 }
 
 @Composable
+internal fun ObserveTopicUpdates(topic: TopicViewModel) {
+    if (!LocalReadingBlocked.current) LifecycleResumeEffect(topic) {
+        topic.setUpdatesActive(true)
+        onPauseOrDispose { topic.setUpdatesActive(false) }
+    }
+}
+
+@Composable
 fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long = 0L, consumeLink: () -> Unit = {},
     incomingNotification: NotificationTarget? = null, consumeNotification: () -> Unit = {}) {
     val display by app.settings.display.collectAsStateWithLifecycle()
@@ -281,7 +289,11 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         popExitTransition = { fadeOut(tween(220)) + scaleOut(tween(220, easing = FastOutSlowInEasing), targetScale = 0.98f) }) { entry ->
                         val id = entry.arguments!!.getInt("id")
                         val number = entry.arguments!!.getInt("post").takeIf { it > 0 }
-                        val vm = model("topic-$id-$number-${account.user?.id}") { TopicViewModel(app.repository, id, number, account.user?.id) }
+                        val vm = model("topic-$id-$number-${account.user?.id}") {
+                            TopicViewModel(app.repository, id, number, account.user?.id,
+                                updates = DiscourseMessageBus(app.client, userAgent = app.userAgent, route = app.network::client), updateUser = account.user)
+                        }
+                        ObserveTopicUpdates(vm)
                         val state by vm.state.collectAsStateWithLifecycle()
                         val nonce by entry.savedStateHandle.getStateFlow("refresh", 0L).collectAsStateWithLifecycle()
                         LaunchedEffect(nonce) { if (nonce != 0L) vm.refresh() }
