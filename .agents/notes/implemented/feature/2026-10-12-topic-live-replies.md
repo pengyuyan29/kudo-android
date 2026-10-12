@@ -32,7 +32,7 @@ KudoApp 的话题路由按账号创建 ViewModel，注入 DiscourseMessageBus �
 
 正在回复采用 Discourse Presence 协议：登录后 GET /presence/get，channels[] 为 /discourse-presence/reply/{topicId}，获取 users 和 last_message_id；将 /presence/discourse-presence/reply/{topicId} 加入当前话题的同一次 MessageBus poll。连续游标的 entering_users、leaving_user_ids 更新名单，重复消息忽略；游标跳跃、服务器重置或重连重新读取快照。当前账号从名单剔除，同一用户多会话按ID去重。此功能只读取其他用户状态，不向 /presence/update 上报输入。
 
-头像变化立即更新，不等待新回复的3秒合并窗口，也不触发话题目录查询。断线、暂停、退出或更换账号清空头像；Presence 无权限、关闭或读取失败不阻断原有新回复订阅，失败后退避补查。匿名不读取受限 Presence。按钮文字被最多3个重叠头像替代，超过3人在第3个头像上覆盖 +N（5人是+2）；头像使用 PLAIN，不加载身份或状态角标。保留写回复图标和点击打开回复框的行为，无人时恢复原文字，窄屏也保留可点击区域。
+头像变化立即更新，不等待新回复的3秒合并窗口，也不触发话题目录查询。断线、暂停、退出或更换账号清空头像；Presence 无权限、关闭或读取失败不阻断原有新回复订阅，失败后退避补查。匿名不读取受限 Presence。显示头像时文字仅隐藏绘制、保留布局占位，最多3个重叠头像覆盖在占位区域，不参与按钮宽度计算；超过3人在第3个头像上覆盖 +N（5人是+2）。头像使用 PLAIN，不加载身份或状态角标。按钮内边距、宽度与相邻楼层按钮的位置不随人数改变；窄屏头像覆盖原图标占位，保留按钮原宽度。点击仍打开回复框，无人时恢复原文字或图标。
 
 TopicState.replyingUsers 保存当前订阅名单，TopicActivity 将目录补查信号与头像快照分开。ViewModel 的订阅代次隔离暂停前的清理任务，旧任务不能清空新订阅名单；源完成、异常、页面暂停均清空名单，并保留已加载正文和阅读状态。
 
@@ -54,6 +54,8 @@ TopicState.replyingUsers 保存当前订阅名单，TopicActivity 将目录补�
 - 增加可控图片加载后重新运行3项 Presence UI 用例，验证头像图像像素完整显示、没有角标图像请求，通过。截图 artifacts/topic-presence-five-light.png、artifacts/topic-presence-five-liquid-narrow-dark.png；日志 artifacts/topic-presence-image-device-tests.txt。
 - 当前手机账号的真实 Presence 快照和合并 poll 在线探针1项通过，话题2977660当时 users=0。多人到达、离开与+2布局采用模拟数据验证，没有向社区发布输入状态。日志 artifacts/topic-presence-online-probe.txt。
 - Presence 版 Debug 使用既有签名、adb install -r 保留数据覆盖安装；Release 构建、签名和版本/ABI检查通过，仍为0.2.0/2001，仅arm64-v8a。产物 artifacts/release/0.2.0/topic-presence/kodo_0.2.0_release_arm64-v8a.apk。
+- 按钮占位回归先复现：普通布局1人时宽度294px变240px，窄屏5人时144px变180px，两项宽度断言失败，日志 artifacts/topic-presence-width-repro.txt。修复后文字透明但保留测量，头像匹配文字区域，窄屏覆盖图标区域且不改内边距；新增0..5人宽度及相邻楼层坐标断言。Presence UI、既有按钮宽度及窄屏楼层控件共5项真机回归通过，日志 artifacts/topic-presence-width-device-tests.txt；截图 artifacts/topic-presence-width-light.png、artifacts/topic-presence-width-narrow-dark.png。此次只改变布局，不重跑已通过的无关网络协议测试。
+- 占位修复的正式包构建与签名、版本、ABI校验通过，仍为0.2.0/2001、arm64-v8a，产物 artifacts/release/0.2.0/topic-presence-width/kodo_0.2.0_release_arm64-v8a.apk；开发版核对原签名并保留数据覆盖安装。
 - TopicMessageBusTest 与既有 MessageBusTest 共10项通过，覆盖频道隔离、游标去重与重置、初始及重连补查、取消及凭据隔离。日志 artifacts/topic-live-transport-tests.txt。
 - TopicUpdatesTest、TopicViewModelTest、TopicFloorNavigationTest、TopicResumeReadingTest 相关 JVM 测试通过；补充刷新竞态后 TopicUpdatesTest 全部8项通过，覆盖末尾追加、前面阅读不跨楼层、通知合并、刷新/跳转竞态、失败不丢正文、暂停取消及恢复补查。日志 artifacts/topic-live-state-tests.txt、artifacts/topic-live-state-final-tests.txt。
 - RMX2202 / Android 13 真机运行 TopicLiveRepliesUiTest（2项离线场景）、TopicContinuationUiTest（4项）、TopicBackwardPaginationUiTest（6项），共12项通过。追加前后第10楼的屏幕坐标误差不超过2px；暂停后订阅数归零，恢复无通知也补查，前面阅读时仍按21..40顺序加载。截图 artifacts/topic-live-before.png、artifacts/topic-live-after.png，日志 artifacts/topic-live-device-tests.txt。测试用本地拦截数据，不向社区发帖。

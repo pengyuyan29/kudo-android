@@ -89,8 +89,14 @@ class TopicPresenceUiTest {
             Bar(replying, reply = { clicks++ })
         } }
         compose.onNodeWithText("写回复", useUnmergedTree = true).assertIsDisplayed()
+        val originalButton = compose.onNodeWithTag("topic-reply").fetchSemanticsNode().boundsInRoot
+        val originalCounter = compose.onNodeWithTag("topic-floor-index").fetchSemanticsNode().boundsInRoot
         (1..5).forEach { count ->
             compose.runOnIdle { replying = users.take(count) }
+            val button = compose.onNodeWithTag("topic-reply").fetchSemanticsNode().boundsInRoot
+            val counter = compose.onNodeWithTag("topic-floor-index").fetchSemanticsNode().boundsInRoot
+            assertEquals("头像切换只隐藏文字，按钮宽度不变：$count 人", originalButton.width, button.width, 1f)
+            assertEquals("头像不能挤动楼层按钮：$count 人", originalCounter.left, counter.left, 1f)
             compose.onNodeWithText("写回复", useUnmergedTree = true).assertDoesNotExist()
             compose.onNodeWithTag("topic-reply").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "${count}人正在回复"))
             users.forEachIndexed { index, member ->
@@ -117,17 +123,22 @@ class TopicPresenceUiTest {
         compose.runOnIdle { assertEquals(1, clicks); replying = emptyList() }
         compose.onNodeWithText("写回复", useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithTag("topic-replying-avatars", useUnmergedTree = true).assertDoesNotExist()
+        assertEquals(originalButton.width, compose.onNodeWithTag("topic-reply").fetchSemanticsNode().boundsInRoot.width, 1f)
     }
 
     @Test fun narrowDarkLargeTextKeepsAllButtonsAndTheOverflowVisible() {
         var mode by mutableStateOf(GlassMode.TRANSLUCENT)
+        var replying by mutableStateOf(emptyList<Member>())
         compose.setContent { KudoTheme(DisplaySettings(theme = ThemeMode.DARK, fontScale = 1.3f)) {
-            Box(Modifier.width(280.dp).fillMaxHeight()) { Bar(users, mode, highest = 120000) }
+            Box(Modifier.width(280.dp).fillMaxHeight()) { Bar(replying, mode, highest = 120000) }
         } }
+        val originalButton = compose.onNodeWithTag("topic-reply").fetchSemanticsNode().boundsInRoot
+        compose.runOnIdle { replying = users }
         compose.waitUntil(5000) { (2..4).all { "https://avatar.test/$it.png" in loadedImages } }
         GlassMode.entries.forEach { glass ->
             compose.runOnIdle { mode = glass }
             val reply = compose.onNodeWithTag("topic-reply").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertEquals("窄屏头像切换也保持原按钮宽度", originalButton.width, reply.width, 1f)
             val counter = compose.onNodeWithTag("topic-floor-index").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             val actions = compose.onNodeWithTag("topic-actions").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             assertTrue(reply.right < counter.left && counter.right < actions.left)

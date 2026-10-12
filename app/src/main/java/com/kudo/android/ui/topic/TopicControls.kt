@@ -18,11 +18,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -143,17 +145,27 @@ internal fun TopicBottomBar(
         LiquidButton(onClick = reply, enabled = enabled && !detail.closed, backdrop = backdrop, mode = glass,
             surfaceColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.3f),
             contentColor = MaterialTheme.colorScheme.onSurface,
-            contentPadding = PaddingValues(horizontal = if (compact && replying.isNotEmpty()) 10.dp else if (compact) 14.dp else 16.dp),
+            contentPadding = PaddingValues(horizontal = if (compact) 14.dp else 16.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.Start),
             modifier = Modifier.testTag("topic-reply").semantics {
                 contentDescription = "写回复"
                 if (replying.isNotEmpty()) stateDescription = "${replying.size}人正在回复"
             }) {
-            if (!compact || replying.isEmpty()) {
+            if (compact) {
+                Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.DriveFileRenameOutline, null,
+                        Modifier.size(20.dp).alpha(if (replying.isEmpty()) 1f else 0f).testTag("topic-reply-icon"))
+                    if (replying.isNotEmpty()) ReplyingAvatars(replying, true, Modifier.requiredSize(40.dp, 20.dp))
+                }
+            } else {
                 Icon(Icons.Outlined.DriveFileRenameOutline, null, Modifier.size(20.dp).testTag("topic-reply-icon"))
+                Box(Modifier.heightIn(min = 24.dp), contentAlignment = Alignment.Center) {
+                    // Keep the label measured even while avatars cover its original space.
+                    Text("写回复", if (replying.isEmpty()) Modifier else Modifier.alpha(0f).clearAndSetSemantics {},
+                        style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Normal, maxLines = 1)
+                    if (replying.isNotEmpty()) ReplyingAvatars(replying, false, Modifier.matchParentSize())
+                }
             }
-            if (replying.isNotEmpty()) ReplyingAvatars(replying, compact)
-            else if (!compact) Text("写回复", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Normal, maxLines = 1)
         }
         val floor = currentFloor.coerceIn(1, detail.highestPostNumber)
         LiquidButton(onClick = floors, enabled = enabled && !state.loading, backdrop = backdrop, mode = glass,
@@ -184,11 +196,13 @@ internal fun TopicBottomBar(
 }
 
 @Composable
-private fun ReplyingAvatars(users: List<Member>, compact: Boolean) {
+private fun ReplyingAvatars(users: List<Member>, compact: Boolean, modifier: Modifier) {
     val visible = users.take(3)
-    val size = if (compact) 20.dp else 24.dp
-    val step = if (compact) 10.dp else 16.dp
     val outline = MaterialTheme.colorScheme.surface
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+    val size = minOf(if (compact) 20.dp else 24.dp, maxHeight, maxWidth)
+    val step = if (visible.size == 1) 0.dp else minOf(if (compact) 10.dp else 16.dp,
+        ((maxWidth - size) / (visible.size - 1)).coerceAtLeast(0.dp))
     Box(Modifier.width(size + step * (visible.size - 1)).height(size).testTag("topic-replying-avatars")) {
         visible.forEachIndexed { index, member ->
             Box(Modifier.offset(x = step * index).size(size).clip(CircleShape)
@@ -203,6 +217,7 @@ private fun ReplyingAvatars(users: List<Member>, compact: Boolean) {
                 }
             }
         }
+    }
     }
 }
 
