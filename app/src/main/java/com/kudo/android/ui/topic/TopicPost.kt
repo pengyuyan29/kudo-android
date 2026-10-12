@@ -17,6 +17,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.kudo.android.data.*
 import com.kudo.android.ui.components.*
@@ -105,15 +106,59 @@ internal fun ReplyPreview(thread: PostThread, load: ReplyLoad?, hasMore: Boolean
         .testTag("reply-preview-${thread.root.number}").padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         thread.replies.take(3).forEach { post ->
             val hidden = post.author.username.lowercase(Locale.ROOT) in ignored
-            val text = buildAnnotatedString {
-                withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append(post.author.displayName); append("：") }
-                append(if (hidden) "内容已忽略" else plainText(post.cooked).ifBlank { "[图片或附件]" })
+            val images = remember(post.cooked) { parseArticle(post.cooked).articleImages() }
+            Column(Modifier.fillMaxWidth().testTag("reply-preview-post-${post.number}"),
+                verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("${post.author.displayName}：", color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodyMedium, maxLines = 1,
+                        modifier = Modifier.clickable(enabled = enabled) { open(post.number) })
+                    if (hidden) {
+                        Text("内容已忽略", Modifier.weight(1f).clickable(enabled = enabled) { open(post.number) }, maxLines = 2,
+                            overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                    val linkColor = MaterialTheme.colorScheme.primary
+                    val textHtml = remember(post.cooked) {
+                        parseArticle(post.cooked).filterIsInstance<ArticleBlock.TextBlock>()
+                            .joinToString("<br>") { it.html }
+                    }
+                    val article = remember(textHtml, linkColor) {
+                        parseInlineArticle(textHtml, linkColor)
+                    }
+                    val inline = remember(article.emojis) { article.emojis.mapValues { (_, emoji) ->
+                        androidx.compose.foundation.text.InlineTextContent(
+                            androidx.compose.ui.text.Placeholder(1.25.em, 1.25.em,
+                                androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter),
+                        ) { SiteEmoji(emoji.name, Modifier.fillMaxSize(), emoji.url) }
+                    } }
+                        if (article.text.isNotBlank()) Text(article.text,
+                            Modifier.weight(1f).clickable(enabled = enabled) { open(post.number) },
+                            inlineContent = inline, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                if (!hidden && images.isNotEmpty()) Row(Modifier.padding(start = 2.dp)) {
+                    ReplyPreviewImages(images, post.id, enabled) { open(post.number) }
+                }
             }
-            Text(text, Modifier.fillMaxWidth().clickable(enabled = enabled) { open(post.number) }.testTag("reply-preview-post-${post.number}"),
-                maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
         }
         Text(if (load?.loading == true && thread.replies.isEmpty()) "正在加载回复…" else if (hasMore || thread.replies.size > 3) "查看更多回复" else "查看 ${thread.replies.size} 条回复",
             Modifier.fillMaxWidth().clickable(enabled = enabled) { open(null) }.padding(vertical = 3.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun ReplyPreviewImages(images: List<ArticleBlock.Image>, postId: Int, enabled: Boolean, fallback: () -> Unit) {
+    val gallery = LocalImageGallery.current
+    Row(Modifier.width(if (images.size > 1) 94.dp else 80.dp).clickable(enabled = enabled) {
+        if (gallery != null) gallery.open(images, 0, "reply-preview-$postId") else fallback()
+    }.testTag("reply-preview-images-${postId}"), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        Icon(Icons.Rounded.Image, "查看图片", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+        Text("查看图片${if (images.size > 1) "(${images.size})" else ""}",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
+            maxLines = 1)
     }
 }
 

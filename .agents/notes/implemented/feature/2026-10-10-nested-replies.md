@@ -33,3 +33,11 @@ NestedReplyUiTest 的3项测试随50项真机回归通过，日志 artifacts/com
 ## Consequences
 
 祖先不可访问时保留独立评论，不能虚构父帖；超长祖先链限制补齐次数。完整讨论按需读取多个父节点，后续由[到底自动续载](2026-10-10-topic-continuation.md)替代手动加载按钮，分页与游标契约保留。
+
+## Image preview extension
+
+Reply previews keep the existing plain text and emoji extraction. When a reply contains article images, the preview adds a compact `查看图片` action and includes the image count for multiple images. The action opens the shared image gallery with original URLs, so it does not navigate to the floor; ignored replies never expose the image action.
+
+## Verification
+
+`ReplyPreviewImagesUiTest` covers a single image, multiple images with emoji text, gallery selection, original URL resolution, and ignored reply redaction. The three instrumentation tests pass on the connected device.
