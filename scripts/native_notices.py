@@ -42,12 +42,14 @@ def main():
         parts.append("=" * 72 + f"\n{package['name']} {package['version']}\nLicense: {package.get('license') or 'See text below'}\n"
                      f"Source: https://crates.io/crates/{package['name']}/{package['version']}\n")
         seen = set()
-        for path in sorted(set(files)):
+        def file_label(path):
+            return path.relative_to(folder).as_posix() if path.is_relative_to(folder) else path.name
+        for path in sorted(set(files), key=lambda path: (file_label(path).casefold(), file_label(path))):
             text = path.read_text(encoding="utf-8")
             if text in seen:
                 continue
             seen.add(text)
-            label = path.relative_to(folder).as_posix() if path.is_relative_to(folder) else path.name
+            label = file_label(path)
             parts.append(f"\n--- {label} ---\n{text.rstrip()}\n")
         parts.append("\n")
     output = repo / "app/src/main/assets/licenses/native-doh-NOTICES.txt"

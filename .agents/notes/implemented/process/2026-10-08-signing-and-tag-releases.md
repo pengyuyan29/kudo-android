@@ -62,6 +62,10 @@ GitHub 缓存遵循 ref 可见性：仅在 v0.2.0 内写入不能供后续 v0.2.
 
 Git 配置回归先失败（`cloud-repair/git-fixture-repro.txt`），修复后 36 项通过；默认分支缓存与签名门禁回归先失败（`main-cache-repro-tests.txt`），修复后最终 38 项全部发布工具测试通过（`final-tool-tests.txt`，13.724 秒）。actionlint 与 89 篇笔记检查通过；重推同名 Tag 后继续核对实际缓存命中、Ubuntu 原生 / JVM / Lint、正式签名和公开附件。
 
+运行 38202802087 已实际恢复 827 MiB 工具链缓存，Rust 测试和 Android 原生库编译通过，但 native_notices 的一致性检查失败（`cloud-repair/job-114659667101.log`）。脚本原先直接排序绝对 Path：Windows 不区分大小写、Linux 区分大小写，根 LICENSE 与嵌套 aws-lc/LICENSE 的次序不同。许可文件按输出中的相对标签 casefold 排序，不能依赖宿主路径比较或源码目录位置；保留完整文本、依赖锁及陈旧检查。相同许可夹具分别采用两种 Path 比较规则生成，直接比较最终字节并确认三份许可均保留。
+
+跨平台排序夹具先失败（`cloud-repair/notices-repro-tests.txt`），修复后 39 项发布工具测试全部通过（`notices-fixed-tests.txt`，10.232 秒）；本机原有 118 个组件 / 974079 字节许可包的 --check 通过，资产未重写。两份工作流 actionlint 与 89 篇笔记检查通过。首轮依赖缓存也已保存，后续重推继续检查完整 Ubuntu 构建及发布。
+
 新版上传支持不压缩的单文件制品，但发布需要 APK、摘要和正文三个文件，因此显式使用 archive: true；下载显式使用 skip-decompress: false，让文件继续直接解压到 dist。digest-mismatch: error 使 Actions 制品摘要不一致时立即失败，发布 shell 仍单独核对 APK 的 SHA256。Tag 触发、权限拆分、临时密钥清理和草稿上传完才公开的契约保持一致。
 
 ## Related decisions
