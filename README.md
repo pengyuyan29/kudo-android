@@ -42,3 +42,36 @@ Android 13+ 使用完整液态玻璃，Android 12 使用背景模糊，Android 8
 ## Linux.do 认可
 
 本项目积极参与并认可 [linux.do社区](https://linux.do)。
+
+<details>
+<summary>界面预览（当前源码构建，未登录）</summary>
+
+### 浅色模式
+
+| 首页 · 信息流 | 首页 · 标题 |
+| --- | --- |
+| ![首页信息流（浅色）](docs/readme-preview/home-feed-light.png) | ![首页标题（浅色）](docs/readme-preview/home-title-light.png) |
+
+| 话题详情 | 用户主页 |
+| --- | --- |
+| ![话题详情（浅色）](docs/readme-preview/topic-detail-light.png) | ![用户主页（浅色）](docs/readme-preview/user-profile-light.png) |
+
+| 设置 |
+| --- |
+| ![设置（浅色）](docs/readme-preview/settings-light.png) |
+
+### 深色模式
+
+| 首页 · 信息流 | 首页 · 标题 |
+| --- | --- |
+| ![首页信息流（深色）](docs/readme-preview/home-feed-dark.png) | ![首页标题（深色）](docs/readme-preview/home-title-dark.png) |
+
+| 话题详情 | 用户主页 |
+| --- | --- |
+| ![话题详情（深色）](docs/readme-preview/topic-detail-dark.png) | ![用户主页（深色）](docs/readme-preview/user-profile-dark.png) |
+
+| 设置 |
+| --- |
+| ![设置（深色）](docs/readme-preview/settings-dark.png) |
+
+</details>
