@@ -50,12 +50,11 @@ fun UserScreen(username: String, repository: CommunityRepository, back: () -> Un
     })
     val state by vm.state.collectAsStateWithLifecycle()
     DisposableEffect(vm) { vm.resume(); onDispose { vm.stop() } }
-    val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(vm) { vm.events.collect { snackbar.showSnackbar(it) } }
+    val context = LocalContext.current
+    LaunchedEffect(vm) { vm.events.collect { showKudoToast(context, it) } }
     Box(Modifier.fillMaxSize()) {
         PublicProfilePage(state, viewerId, back, login, openLink, search, message, openWeb, statusBarStyle,
             vm::refresh, vm::retrySummary, vm::retryCard, vm::load, vm::follow, vm::showFollows, vm::closeFollows)
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
     }
 }
 

@@ -38,6 +38,30 @@ class FeedViewModelTest {
         }
     }
 
+    @Test fun manualRefreshWithNoNewTopicsDoesNotReportAnEvent() = runBlocking {
+        Dispatchers.setMain(Dispatchers.Unconfined)
+        val server = MockWebServer()
+        var feedRequests = 0
+        server.dispatcher = object : okhttp3.mockwebserver.Dispatcher() {
+            override fun dispatch(request: okhttp3.mockwebserver.RecordedRequest): MockResponse = when {
+                request.path == "/site.json" -> MockResponse().setBody("""{"categories":[]}""")
+                feedRequests++ == 0 -> MockResponse().setBody("""{"topic_list":{"topics":[{"id":1,"title":"话题","posts_count":1}]}}""")
+                else -> MockResponse().setBody("""{"topic_list":{"topics":[{"id":1,"title":"话题","posts_count":1}]}}""")
+            }
+        }
+        server.start()
+        val vm = FeedViewModel(CommunityRepository(DiscourseClient(NoCookies, server.url("/"))))
+        try {
+            withTimeout(5000) { while (vm.state.value.loading) delay(10) }
+            vm.refresh()
+            assertNull(withTimeoutOrNull(1000) { vm.refreshEvents.first() })
+        } finally {
+            vm.viewModelScope.cancel()
+            server.shutdown()
+            Dispatchers.resetMain()
+        }
+    }
+
     @Test fun categoryRateLimitDoesNotReplaceSuccessfulFeedWithError() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val server = MockWebServer()

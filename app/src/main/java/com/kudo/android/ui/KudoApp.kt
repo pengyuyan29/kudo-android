@@ -86,9 +86,9 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
         QuickScrollToTopHost {
         val account = model("account") { AccountViewModel(app) }
         val nav = rememberNavController()
-        val snackbar = remember { SnackbarHostState() }
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
+        fun showMessage(text: String) { showKudoToast(context, text) }
         var refreshEpoch by rememberSaveable { mutableIntStateOf(0) }
         var readingEpoch by rememberSaveable { mutableIntStateOf(0) }
         val readingSync = remember(app.repository, scope) {
@@ -108,19 +108,19 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                 else context.startActivity(Intent.createChooser(intent, "浏览器打开").putExtra(
                     Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(context, com.kudo.android.MainActivity::class.java))))
             }
-            catch (_: Exception) { scope.launch { snackbar.showSnackbar("没有可打开此链接的浏览器") } }
+            catch (_: Exception) { showMessage("没有可打开此链接的浏览器") }
         }
         fun login() { nav.navigate("login") { launchSingleTop = true } }
         fun authenticated(action: () -> Unit) { if (account.user == null) login() else action() }
         fun topic(id: Int, number: Int? = null) { if (id > 0) nav.navigate("topic/$id?post=${number ?: 0}") }
         fun user(username: String) { if (username.isNotBlank()) nav.navigate("user/${Uri.encode(username)}") }
-        fun invalidLink() { scope.launch { snackbar.showSnackbar("无法打开此链接") } }
+        fun invalidLink() { showMessage("无法打开此链接") }
         fun openWebPage(url: String) { nav.openWebPage(url, ::invalidLink) }
         fun openLink(url: String) {
             nav.openContentLink(url, { selected = 0 }, ::invalidLink)
         }
         fun editor(id: Int? = null, number: Int? = null, categoryId: Int? = null) { authenticated { nav.navigate("compose?topic=${id ?: 0}&reply=${number ?: 0}&category=${categoryId ?: 0}") } }
-        LaunchedEffect(account) { account.events.collect { snackbar.showSnackbar(it) } }
+        LaunchedEffect(account) { account.events.collect { showMessage(it) } }
         LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { account.checkSession() } }
         IncomingLinuxDoLink(nav, incomingUrl, linkSequence, { selected = 0 }, consumeLink)
         com.kudo.android.notifications.NotificationPermission(account.user?.id)
@@ -137,7 +137,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
             }, openLink = ::openLink, accountKey = account.user?.id) {
             TopicActionsHost(app.repository, account.user, display.glass, ::login,
                 ignored = { id, username -> account.recordIgnore(id, username, true); refreshEpoch++ },
-                message = { snackbar.showSnackbar(it) }, changed = {
+                message = { showMessage(it) }, changed = {
                     refreshEpoch++
                     nav.currentBackStackEntry?.savedStateHandle?.set("refresh", System.nanoTime())
                 }) {
@@ -153,7 +153,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         ObserveHomeUpdates(feed, account.user)
                         LaunchedEffect(feed) {
                             feed.refreshEvents.collect { count ->
-                                snackbar.showSnackbar("已为你加载${count}条新内容")
+                                if (count > 0) showMessage("已为你加载${count}条新内容")
                             }
                         }
                         LaunchedEffect(refreshEpoch) { feed.refreshIfRequested(refreshEpoch) }
@@ -240,7 +240,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                 ::openWebPage, ::topic, { id -> nav.navigate("chat/$id") }, ::editor) { text ->
                                 (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
                                     .setPrimaryClip(android.content.ClipData.newPlainText("邀请链接", text))
-                                scope.launch { snackbar.showSnackbar("已复制邀请链接") }
+                                showMessage("已复制邀请链接")
                             }
                         } else Column { AccountPageTopBar("个人功能", { nav.popBackStack() }); EmptyState("请先登录", "登录后查看个人内容。", actionLabel = "登录", action = ::login) }
                     }
@@ -259,7 +259,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                 { nav.popBackStack() }, ::login) { result ->
                                 nav.popBackStack(); refreshEpoch++
                                 if (!result.queued) result.topicId?.let { topic(it) }
-                                scope.launch { snackbar.showSnackbar(if (result.queued) "已提交审核" else "发布成功") }
+                                showMessage(if (result.queued) "已提交审核" else "发布成功")
                             }
                         } ?: Column { AccountPageTopBar("云端草稿", { nav.popBackStack() }); EmptyState("请先登录", "登录后继续编辑。", actionLabel = "登录", action = ::login) }
                     }
@@ -269,7 +269,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             PrivateMessageScreen(member, app.repository, app.settings, { nav.popBackStack() }, published = { result ->
                                 nav.popBackStack()
                                 if (!result.queued) result.topicId?.let { topic(it) }
-                                scope.launch { snackbar.showSnackbar(if (result.queued) "私信已提交审核" else "私信已发送") }
+                                showMessage(if (result.queued) "私信已提交审核" else "私信已发送")
                             }, recipient = entry.arguments?.getString("recipient").orEmpty(), existingDraftKey = entry.arguments?.getString("draft").orEmpty())
                         } } ?: Column { AccountPageTopBar("写私信", { nav.popBackStack() }); EmptyState("请先登录", "登录后发送私信。", actionLabel = "登录", action = ::login) }
                     }
@@ -302,7 +302,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val state by vm.state.collectAsStateWithLifecycle()
                         val nonce by entry.savedStateHandle.getStateFlow("refresh", 0L).collectAsStateWithLifecycle()
                         LaunchedEffect(nonce) { if (nonce != 0L) vm.refresh() }
-                        LaunchedEffect(vm) { vm.events.collect { snackbar.showSnackbar(it) } }
+                        LaunchedEffect(vm) { vm.events.collect { showMessage(it) } }
                         var replyTarget by rememberSaveable(account.user?.id) { mutableStateOf<Int?>(null) }
                         val replyVisibility = remember(account.user?.id) { MutableTransitionState(replyTarget != null) }
                         val keyboard = LocalSoftwareKeyboardController.current
@@ -332,7 +332,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             LaunchedEffect(editorVm) { editorVm.published.collect { result ->
                                 keyboard?.hide(); replyVisibility.targetState = false
                                 vm.refresh(); refreshEpoch++
-                                snackbar.showSnackbar(if (result.queued) "内容已提交，等待社区审核" else "发布成功")
+                                showMessage(if (result.queued) "内容已提交，等待社区审核" else "发布成功")
                             } }
                             ReplyEditorSheet(replyVisibility, editorVm.sending, { replyVisibility.targetState = false }) {
                                 val replyAuthor = if (target > 0) state.allPosts.firstOrNull { it.number == target }?.author
@@ -343,7 +343,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         }
                         }
                     }
-                    composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); scope.launch { snackbar.showSnackbar("欢迎回来，${account.user?.displayName}") } }) }
+                    composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); showMessage("欢迎回来，${account.user?.displayName}") }) }
                     composable("settings") {
                         val network by app.network.state.collectAsStateWithLifecycle()
                         SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openWebPage,
@@ -393,13 +393,12 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                 nav.previousBackStackEntry?.savedStateHandle?.set("refresh", System.nanoTime())
                                 nav.popBackStack(); refreshEpoch++
                                 if (!result.queued && topicId == null) result.topicId?.let { topic(it) }
-                                snackbar.showSnackbar(if (result.queued) "内容已提交，等待社区审核" else "发布成功")
+                                showMessage(if (result.queued) "内容已提交，等待社区审核" else "发布成功")
                             } }
                             EditorScreen(vm, account.categories, account.categoryError, account::loadCategories, { nav.popBackStack() })
                         }
                     }
                 }
-                SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 90.dp).widthIn(max = 600.dp))
             }
             }
             }

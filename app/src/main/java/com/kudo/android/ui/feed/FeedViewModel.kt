@@ -192,7 +192,7 @@ class FeedViewModel(private val repository: CommunityRepository, private val cat
                 baseline = page.topics.associateBy(Topic::id)
                 acknowledgeOnProbe = arrivalRevision != refreshRevision
                 _state.update { it.copy(topics = page.topics.distinctBy(Topic::id), next = page.next, loading = false, hasUpdates = it.hasUpdates && acknowledgeOnProbe) }
-                if (categoryId == null && tagSlug == null) loadedNewCount?.let(refreshResults::trySend)
+                if (categoryId == null && tagSlug == null) loadedNewCount?.takeIf { it > 0 }?.let(refreshResults::trySend)
                 if (acknowledgeOnProbe) signals?.trySend(Unit)
                 coroutineScope {
                     if (_state.value.categories.isEmpty()) launch {

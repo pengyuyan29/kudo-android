@@ -35,3 +35,4 @@
 5. 真机调试必须保留已安装开发版的数据，使用 `adb install -r` 覆盖安装；禁止为解决签名或安装问题卸载应用、清除数据。覆盖前核对签名，签名不一致时先修复构建签名配置。
 
 6. 真机构建或运行 AndroidTest 前，先读取 app/build.gradle.kts 实际使用的 versionCode/versionName 与真机已安装包版本；构建参数必须显式传入且版本不低于已安装版本，禁止用默认 versionCode=1 覆盖高版本开发版。
+7. 真机 AndroidTest 禁止直接使用会自动管理安装生命周期的 `connectedDebugAndroidTest`；先显式构建，再用 `adb install -r -t` 安装测试 APK，并通过 `adb shell am instrument` 运行，避免测试任务自动卸载开发版或清除登录数据。

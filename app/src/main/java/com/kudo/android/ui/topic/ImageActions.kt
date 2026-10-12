@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -27,6 +26,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import com.kudo.android.KudoApplication
+import com.kudo.android.ui.components.showKudoToast
 import com.kudo.android.media.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -110,7 +110,7 @@ internal fun ImageActions(target: ImageActionTarget?, dismiss: () -> Unit, busyC
     }
     var busy by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<List<ArticleBlock.Image>?>(null) }
-    fun message(text: String) { Toast.makeText(context, text, Toast.LENGTH_SHORT).show() }
+    fun message(text: String) { showKudoToast(context, text) }
     fun save(images: List<ArticleBlock.Image>) {
         if (busy) return
         busy = true; busyChanged(true)
