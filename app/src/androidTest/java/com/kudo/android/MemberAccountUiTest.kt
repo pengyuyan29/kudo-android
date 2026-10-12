@@ -99,7 +99,7 @@ class MemberAccountUiTest {
                 ProfileScreen(Member(42, "fixture", "较长的昵称用于验证文字布局", "", trustLevel = 2), {}, {}, {}, {})
             } }
         } }
-        for (label in listOf("我的话题", "我的收藏", "我的草稿", "浏览历史", "界面与显示", "关于酷DO")) {
+        for (label in listOf("我的话题", "我的收藏", "我的草稿", "浏览历史", "设置", "关于酷DO")) {
             compose.onNodeWithTag("member-profile").performScrollToNode(hasText(label))
             compose.onNodeWithText(label).assertIsDisplayed()
         }

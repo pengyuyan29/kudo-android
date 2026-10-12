@@ -168,7 +168,7 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
                 }
                 item(key = "settings") {
                     Column(Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface)) {
-                        CompactAccountRow(Icons.Rounded.Palette, Color(0xFF9B6FE6), "界面与显示", settings)
+                        CompactAccountRow(Icons.Rounded.Palette, Color(0xFF9B6FE6), "设置", settings)
                         CompactAccountRow(Icons.Rounded.Info, Color(0xFF328AE5), "关于酷DO", about, BuildConfig.VERSION_NAME)
                     }
                 }
