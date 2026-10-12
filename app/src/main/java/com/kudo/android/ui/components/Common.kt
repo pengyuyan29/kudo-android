@@ -123,13 +123,28 @@ fun TopicCard(topic: Topic, category: Category?, onClick: () -> Unit, onUser: (S
 @Composable
 private fun TopicPreviewImage(topicId: Int, url: String, openTopic: () -> Unit) {
     var decodedRatio by remember(url) { mutableStateOf<Float?>(null) }
+    var loading by remember(url) { mutableStateOf(true) }
+    var failed by remember(url) { mutableStateOf(false) }
+    var retry by remember(url) { mutableIntStateOf(0) }
     Box(Modifier.fillMaxWidth().heightIn(max = 190.dp).aspectRatio(1.9f)
-        .testTag("topic-image-$topicId").clip(RoundedCornerShape(10.dp)).clickable(onClick = openTopic)) {
-        AsyncImage(url, "话题图片，点击进入帖子详情", Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
+        .testTag("topic-image-$topicId").clip(RoundedCornerShape(10.dp))
+        .then(if (loading || failed) Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else Modifier)
+        .clickable(onClickLabel = if (failed) "重新加载图片" else "进入帖子详情") {
+            if (failed) { loading = true; failed = false; retry++ } else openTopic()
+        }) {
+        key(url, retry) { AsyncImage(url, if (failed) "话题图片加载失败，点击重试" else "话题图片，点击进入帖子详情",
+            Modifier.fillMaxSize(), contentScale = ContentScale.Crop,
+            onLoading = { loading = true; failed = false; decodedRatio = null },
+            onError = { loading = false; failed = true; decodedRatio = null },
             onSuccess = {
+                loading = false
+                failed = false
                 val decoded = it.result.image
                 if (decoded.width > 0 && decoded.height > 0) decodedRatio = decoded.width.toFloat() / decoded.height
-            })
+            }) }
+        if (loading) CommunityLoadingIndicator(Modifier.align(Alignment.Center).size(24.dp).testTag("topic-image-$topicId-loading"))
+        if (failed) Text("加载失败，点击重试", Modifier.align(Alignment.Center),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         ImageAspectBadge(decodedRatio)
     }
 }
