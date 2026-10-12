@@ -48,6 +48,10 @@ v0.1.5 的 build、publish 虽然成功，使用的七个 Action 的 action.yml 
 
 Node 24 Action 至少需要支持该运行时的 Actions Runner；官方迁移文档给出的最低版本为 v2.327.1，发布仍使用 GitHub 托管的 ubuntu-24.04。JDK 21、脚本 Node 22、SDK 36、Build Tools 35.0.0 及仓库 Gradle Wrapper 保持原有版本。setup-node 显式设置 package-manager-cache: false，避免新版包管理器自动检测开启共享缓存；setup-gradle 保留 cache-disabled: true，不将签名相关构建状态写入共享缓存。
 
+原生 DoH 接入后，云端 SDK 安装同时包含 NDK 27.0.12077973 与 CMake 3.22.1 / Ninja；编译前通过 runner 已有 rustup 显式安装 Rust 1.96.1 及 aarch64-linux-android 标准库，版本与已验收本机构建一致。原生测试使用 Cargo.lock，随后保留完整 JVM / Lint 与正式 R8 门禁。2026-10-12 的 [v0.2.0 首轮运行](https://github.com/woliubang256/kudo-android/actions/runs/38167524220)因 NDK 未安装在 buildDoh 阶段失败，尚未执行 JVM 测试；日志为 `artifacts/release/0.2.0/cloud-repair/failed-job-114553072702.log`。针对实际工作流编写 SDK 包、Rust 目标与安装失败即停止、原生测试顺序的回归测试，不能用本机已安装环境替代 CI 准备步骤。
+
+工具链修复的 3 项回归先全部失败（`cloud-repair/toolchain-repro-tests.txt`），补齐后全部通过（`toolchain-fixed-tests.txt`）；actionlint 与 89 篇笔记检查通过。此时仅证明工作流准备契约，真实 Ubuntu 编译与发布仍由重推 Tag 后的云端运行验收。
+
 新版上传支持不压缩的单文件制品，但发布需要 APK、摘要和正文三个文件，因此显式使用 archive: true；下载显式使用 skip-decompress: false，让文件继续直接解压到 dist。digest-mismatch: error 使 Actions 制品摘要不一致时立即失败，发布 shell 仍单独核对 APK 的 SHA256。Tag 触发、权限拆分、临时密钥清理和草稿上传完才公开的契约保持一致。
 
 ## Related decisions
