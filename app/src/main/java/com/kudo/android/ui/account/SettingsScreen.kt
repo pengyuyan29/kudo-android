@@ -40,6 +40,7 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit, user: Member?, logout: () -> Unit, back: () -> Unit, openLink: (String) -> Unit, manageIgnored: () -> Unit = {},
     networkSummary: String = "已关闭", manageNetwork: () -> Unit = {}) {
     val context = LocalContext.current
+    val verification = LocalWebVerification.current
     var notificationsEnabled by remember { mutableStateOf(false) }
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
         notificationsEnabled = context.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled()
@@ -109,6 +110,10 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                 item {
                     Column(Modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface)) {
                         SettingRow("DNS over HTTPS", networkSummary, !showing, manageNetwork)
+                        SettingsDivider()
+                        SettingRow("手动过盾", "打开网页完成验证", !showing && verification != null) {
+                            verification?.invoke {}
+                        }
                     }
                 }
                 item { SectionLabel("链接打开") }

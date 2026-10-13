@@ -16,6 +16,8 @@ App内全屏验证页直接打开https://linux.do/challenge，与原生请求共
 
 错误入口使用统一CompositionLocal承载验证动作，避免逐个页面混用登录回调；验证页作为全屏窗口覆盖在当前导航上，保留原生页面及重试回调，不重放发帖等写入。登录入口及账号检查继续单独负责认证。Connect等级页属于独立域名，其错误入口将LocalWebVerification置空，保留原有打开Connect网页的认证/过盾动作，避免主站验证检查误判独立服务恢复。
 
+设置的“网络”分组在 DNS over HTTPS 下提供“手动过盾”，通过同一个 LocalWebVerification 打开现有验证窗口，不要求先遇到接口错误或先登录。该入口传入空的重试回调，完成验证只返回原设置位置，不重新提交操作，也不改变 DoH 或显示偏好。
+
 改动按每批不超过3文件的小单元提交，覆盖网络识别、首页推送、通知推送、验证页、统一入口和Connect独立认证。版本仍为0.1.7/1008，手机保留数据，按用户要求不做账号切换专项验证。
 
 ## Related decisions
@@ -35,6 +37,8 @@ App内全屏验证页直接打开https://linux.do/challenge，与原生请求共
 关联用例覆盖普通403/格式错误不误报、一次短暂挑战恢复、连续挑战只请求两次、写请求不重放、重试读取新Cookie；后台错误不覆盖正常列表。验证入口不走/login，刷新位于完成左侧且不使用缓存重新请求/challenge，提示页面不存在时多刷新直到看到盾、完成后点击完成验证；网页完成不自动退出，只有原生确认成功才触发一次重试，失败保留验证页，游客不要求登录。
 
 ## Verification evidence
+
+2026-10-13：设置网络新增手动入口，`VerificationUiTest` 的6项真机夹具用例通过（`artifacts/manual-verification-device.txt`）。新增用例从设置滚动进入验证，检查右上角完成按钮，取消后再次打开并完成，返回时入口仍在原滚动位置；只请求一次原生列表，不改变偏好、不跳登录或 DoH 页面。显式 0.2.3 / 2005 构建，同签名覆盖安装，保留数据。该夹具不访问真实 Cloudflare。
 
 DiscourseClientTest先复现17项中的4项失败（artifacts/cloudflare-client-repro-20261011.txt），修复后17项全部通过（artifacts/cloudflare-client-fixed-20261011.txt）。覆盖普通HTML403、登录Turnstile、文章引用及常规jsd脚本不误报；短暂挑战重试成功并读取新Cookie；持续挑战最多两次；POST遇盾不重放。
 

@@ -17,6 +17,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 class VerificationUiTest {
     @get:Rule val compose = createComposeRule()
@@ -105,6 +106,44 @@ class VerificationUiTest {
         compose.waitUntil { retries == 1 }
         compose.onNodeWithTag("verification-page").assertDoesNotExist()
         compose.runOnIdle { assertEquals(1, nativeChecks); assertEquals(0, logins); assertEquals(1, retries) }
+    }
+
+    @Test fun manualSettingsVerificationReturnsWithoutChangingPreferencesOrOpeningLogin() {
+        val checks = AtomicInteger()
+        var updates = 0
+        var otherActions = 0
+        val http = OkHttpClient.Builder().addInterceptor { chain ->
+            assertEquals("GET", chain.request().method)
+            assertEquals("/latest.json", chain.request().url.encodedPath)
+            checks.incrementAndGet()
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                .body("""{"topic_list":{"topics":[]}}""".toResponseBody("application/json".toMediaType())).build()
+        }.build()
+        val client = DiscourseClient(object : SessionCookies {
+            override fun get(url: String) = ""
+            override fun set(url: String, cookie: String) = Unit
+        }, http = http)
+        compose.setContent { KudoTheme(DisplaySettings()) {
+            VerificationHost(client, "fixture-agent", ::factory) {
+                SettingsScreen(DisplaySettings(), { updates++ }, null, { otherActions++ }, { otherActions++ },
+                    { otherActions++ }, networkSummary = "已开启", manageNetwork = { otherActions++ })
+            }
+        } }
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("手动过盾"))
+        compose.onNodeWithText("手动过盾").performClick()
+        compose.onNodeWithTag("verification-page").assertIsDisplayed()
+        compose.onNodeWithText("完成验证").assertIsDisplayed()
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.onNodeWithText("手动过盾").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("verification-complete").performClick()
+        compose.waitUntil { compose.onAllNodesWithTag("verification-page").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithText("手动过盾").assertIsDisplayed()
+        compose.runOnIdle {
+            assertEquals(1, checks.get())
+            assertEquals(List(2) { "https://linux.do/challenge" }, loads)
+            assertEquals(0, updates)
+            assertEquals(0, otherActions)
+        }
     }
 
     @Test fun connectChallengeKeepsItsOwnWebsiteActionInsteadOfOpeningTheMainSiteChallenge() {
