@@ -12,6 +12,8 @@ CommunitySheet 在同窗口绘制，手机底部贴边、顶部20dp圆角、实�
 
 LiquidModal 的 actionSheet 分支委托新面板，说明和破坏性确认保留现有玻璃 Dialog。设置单选采用浅灰底与白色分组、分隔线及黄色字和勾；操作菜单保留已有第一排功能。
 
+面板通过可选 `maxHeightFraction`（大于0且不超过1）限制可用高度占比，默认 1 保留既有面板尺寸；可用高度先扣除顶部安全区和 12dp 间距，比例限制覆盖整个面板及底部导航避让区。固定操作区使用独立 actions 槽位，滚动内容不带动底部动作，供[版本更新面板](2026-10-11-github-updates.md)选择限高和固定下载入口。
+
 ## Related decisions
 
 检索弹窗、sheet、表单、编辑器、举报。[玻璃模态](../../implemented/feature/2026-10-08-glass-settings-modals.md)部分被替代，仅替换底部面板外观和手势，保留居中说明/确认及模态隔离；[主题操作](../../implemented/feature/2026-10-09-topic-actions.md)和[楼中楼](../../implemented/feature/2026-10-10-nested-replies.md)部分重叠，保持业务与阅读契约。无完全吸收或过时提案。
@@ -26,6 +28,8 @@ LiquidModal 的 actionSheet 分支委托新面板，说明和破坏性确认保�
 SheetGestureUiTest 先在旧实现失败，无法找到设置面板拖动条，日志 artifacts/sheet-repro-device.txt。RMX2202 / Android 13 上三项手势用例通过：把手跟手、小幅回弹与长拖关闭；长内容先滚动、到顶后的下拉关闭；320dp 短窗口与130%字号下取消可达、忙碌时拖动和遮罩不能关闭。
 
 集中回归36项全部通过，日志 artifacts/coolapk-forms-final-device.txt，同时覆盖设置、详情操作、楼中楼、详情、签名开关和列表样式。129项 JVM 测试通过。最终 Debug 与测试 APK 构建通过，Lint 为0错误、30条现有警告和1条提示，日志 artifacts/coolapk-final-build.txt；笔记门禁通过。实色贴边面板与黄色选中状态截图为 artifacts/coolapk-settings-sheet-light.png、artifacts/coolapk-topic-actions-detail-light.png。
+
+新增限高参数后，默认比例的 SheetGestureUiTest 3项与 SettingsModalUiTest 7项在同一台 RMX2202 / Android13 上全部通过，覆盖滚动优先、拖动关闭、回弹、焦点、遮罩以及深色大字；日志 artifacts/update-panel-cap-device.txt。显式 Debug 版本0.2.3 / 2005构建通过，原签名覆盖安装保留数据；笔记门禁通过。
 
 ## Consequences
 

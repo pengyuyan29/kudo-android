@@ -32,11 +32,12 @@ internal val LocalSheetActions = staticCompositionLocalOf { false }
 internal fun CommunitySheet(
     visibility: MutableTransitionState<Boolean>, title: String, dismiss: () -> Unit,
     modifier: Modifier = Modifier, showTitle: Boolean = false, dismissEnabled: Boolean = true,
-    scrollContent: Boolean = true, showActions: Boolean = false,
+    scrollContent: Boolean = true, showActions: Boolean = false, maxHeightFraction: Float = 1f,
     containerColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surface,
     contentPadding: PaddingValues = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
     actions: @Composable RowScope.() -> Unit = {}, content: @Composable ColumnScope.() -> Unit,
 ) {
+    require(maxHeightFraction > 0f && maxHeightFraction <= 1f)
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val focus = remember { FocusRequester() }
@@ -85,7 +86,7 @@ internal fun CommunitySheet(
         LaunchedEffect(visibility.targetState) { if (visibility.targetState) focus.requestFocus() }
         BoxWithConstraints(Modifier.fillMaxSize().imePadding()) {
             val safe = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal).asPaddingValues()
-            val maxPanelHeight = (maxHeight - safe.calculateTopPadding() - 12.dp).coerceAtLeast(48.dp)
+            val maxPanelHeight = (maxHeight - safe.calculateTopPadding() - 12.dp).coerceAtLeast(48.dp) * maxHeightFraction
             Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.38f * (1f - offset / panelHeight).coerceIn(0f, 1f)))
                 .clickable(interactionSource = null, indication = null, onClickLabel = "关闭弹窗") { if (dismissEnabled) dismiss() }
                 .testTag("modal-scrim"))
