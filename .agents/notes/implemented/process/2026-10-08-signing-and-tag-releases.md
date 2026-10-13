@@ -160,6 +160,12 @@ main 路径过滤回归先复现无条件分支触发（`cloud-repair/main-paths
 - 随后按现有Tag映射构建0.2.4 / 2005，默认Gradle版本继续保留0.1.0 / 1。正式包 `artifacts/release/0.2.4/kodo_0.2.4_release_arm64-v8a.apk` 为9,224,550字节，SHA256为 `f50a7c9c5b16cb2d892706208dc2713b870c838b77936d56632a336fb9106085`；正式证书与既有Release一致，版本、仅arm64-v8a、非debuggable、ZIP及ELF 16KB对齐验证通过，证据为同目录 `verification.json` 和 `verification.txt`。两个正式包均未安装覆盖手机开发版。
 - API确认当前已公开基线为v0.2.3，`release-notes/v0.2.4.md` 将10条App候选合并为2条新增、3条修复；面板限高与升级弹窗修复合并，三个点赞/草稿提交合并，三个原图容量修复合并。HEAD来源校验通过，原始候选保留在 `artifacts/release/0.2.4/release-notes.raw.md`。此处只记录本地准备，云端发布及实际附件另行验收。
 
+2026-10-13 v0.2.4 云端发布验收：
+
+- 首轮运行38362477072在完整357项JVM中出现两项时序夹具失败，正式构建与发布未执行。[客户端验证](../testing/2026-10-07-client-verification.md)记录原始报告、作者请求计数的确定性复现、可控取消回调修正、两核110项重复验证及完整357项JVM和Lint通过。未改App运行时行为，更新日志来源保持有效。
+- 修复提交1660e09后替换尚未发布的v0.2.4 Tag，并原子推送main与Tag；[运行38364386746](https://github.com/woliubang256/kudo-android/actions/runs/38364386746)的build和publish均success，完整JVM、Lint和正式R8构建通过。[v0.2.4](https://github.com/woliubang256/kudo-android/releases/tag/v0.2.4)于北京时间2026-10-13 15:52:55公开发布，非草稿、非预发布，latest API指向该版本。发布后补记仅推main，不移动该Tag。
+- 下载实际附件到 `artifacts/release/0.2.4/published/`：APK为9,223,822字节，SHA256为 `9658b26d5a486d574b2a9684516d04d1b9616eb77483b059f764aa2fdac18092`，与发布校验文件一致。正式证书、0.2.4 / 2005、仅arm64-v8a、非debuggable、ZIP及ELF 16KB对齐全部通过，正文与已整理日志逐字匹配；证据为该目录 `verification.json`，云端成功日志保留在同级 `cloud-success/`。本地包与Linux云端包分别验签，不要求跨环境二进制相同；手机开发版及其数据未变动。
+
 ## Consequences
 
 签名与版本检查使发布包能保持更新身份并对应 Tag；代价是开发者必须备份 signing/ 和 signing.properties。丢失正式证书或密码后无法使用原签名更新已安装应用。Debug 和 Release 保持相同包名、使用不同签名，不能互相覆盖安装；当前手机仍保留旧 Debug 签名应用，本次未卸载或替换，也未把构建和验签当成真机运行验收。

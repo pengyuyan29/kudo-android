@@ -80,7 +80,7 @@ Windows 可将密钥库 Base64 直接复制到剪贴板，再粘贴到对应 Sec
 [Convert]::ToBase64String([IO.File]::ReadAllBytes((Resolve-Path 'signing/kudo-release.p12').Path)) | Set-Clipboard
 ```
 
-当前已公开正式 Release 为 `v0.2.3` / `versionCode=2004`。本次先构建包含最新改动的本地 `0.2.3` / `2004` 正式包，再升级至 `0.2.4` / `2005`；新版本产物为 `kodo_0.2.4_release_arm64-v8a.apk` 和同名 `.sha256`，通过本地验证并提交已整理日志后推送 `v0.2.4`。正式 Release 只包含 `arm64-v8a`。自动发布从上一个已公开正式 Release 到当前 Tag 的 commit 中筛选 App 运行时变化，失败 Tag 和草稿不截断更新日志，首次版本包含完整历史。新提交请使用 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:`、`chore:` 等前缀，冒号后写中文说明；只有 `feat:`、`fix:`、`perf:` 且实际修改 `app/src/main/` 运行时源码或资源的提交会进入更新日志，文档、测试、工具链、CI、许可证和合并提交被过滤。
+当前已公开正式 Release 为 `v0.2.4` / `versionCode=2005`。本次先构建包含最新改动的本地 `0.2.3` / `2004` 正式包，再升级至 `0.2.4` / `2005`；新版本产物为 `kodo_0.2.4_release_arm64-v8a.apk` 和同名 `.sha256`，云编译及发布成功，实际附件已复核签名、版本和校验值。正式 Release 只包含 `arm64-v8a`。自动发布从上一个已公开正式 Release 到当前 Tag 的 commit 中筛选 App 运行时变化，失败 Tag 和草稿不截断更新日志，首次版本包含完整历史。新提交请使用 `feat:`、`fix:`、`perf:`、`doc:`、`test:`、`build:`、`ci:`、`chore:` 等前缀，冒号后写中文说明；只有 `feat:`、`fix:`、`perf:` 且实际修改 `app/src/main/` 运行时源码或资源的提交会进入更新日志，文档、测试、工具链、CI、许可证和合并提交被过滤。
 
 发布前先由当前 AI 协作者整理日志，再提交并打 Tag。脚本提取原始候选和校验来源，AI 负责合并同一功能的多次提交及后续修复，写成“新增、修复、调整”下的简短中文条目；同一新增功能的配套修复并入新增条目，保留最终效果，省略开发、调试及测试过程。整理时必须对照 App 变更核实，避免遗漏或夸大。CI 直接读取已提交的版本文件，不调用模型，无需 AI API Key。
 
