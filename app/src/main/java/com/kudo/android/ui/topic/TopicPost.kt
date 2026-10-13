@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.InlineTextContent
+import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -11,12 +13,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.Placeholder
+import androidx.compose.ui.text.PlaceholderVerticalAlign
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.relocation.BringIntoViewRequester
@@ -111,40 +122,15 @@ internal fun ReplyPreview(thread: PostThread, load: ReplyLoad?, hasMore: Boolean
         thread.replies.take(3).forEach { post ->
             val hidden = post.author.username.lowercase(Locale.ROOT) in ignored
             val images = remember(post.cooked) { parseArticle(post.cooked).articleImages() }
-            Column(Modifier.fillMaxWidth().testTag("reply-preview-post-${post.number}"),
-                verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            Box(Modifier.fillMaxWidth().testTag("reply-preview-post-${post.number}")) {
+                if (hidden) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("${post.author.displayName}：", color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.bodyMedium, maxLines = 1,
                         modifier = Modifier.clickable(enabled = enabled) { open(post.number) })
-                    if (hidden) {
-                        Text("内容已忽略", Modifier.weight(1f).clickable(enabled = enabled) { open(post.number) }, maxLines = 2,
-                            overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-                    } else {
-                    val linkColor = MaterialTheme.colorScheme.primary
-                    val textHtml = remember(post.cooked) {
-                        parseArticle(post.cooked).filterIsInstance<ArticleBlock.TextBlock>()
-                            .joinToString("<br>") { it.html }
-                    }
-                    val article = remember(textHtml, linkColor) {
-                        parseInlineArticle(textHtml, linkColor)
-                    }
-                    val inline = remember(article.emojis) { article.emojis.mapValues { (_, emoji) ->
-                        androidx.compose.foundation.text.InlineTextContent(
-                            androidx.compose.ui.text.Placeholder(1.25.em, 1.25.em,
-                                androidx.compose.ui.text.PlaceholderVerticalAlign.TextCenter),
-                        ) { SiteEmoji(emoji.name, Modifier.fillMaxSize(), emoji.url) }
-                    } }
-                        if (article.text.isNotBlank()) Text(article.text,
-                            Modifier.weight(1f).clickable(enabled = enabled) { open(post.number) },
-                            inlineContent = inline, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-                if (!hidden && images.isNotEmpty()) Row(Modifier.padding(start = 2.dp)) {
-                    ReplyPreviewImages(images, post.id, enabled) { open(post.number) }
-                }
+                    Text("内容已忽略", Modifier.weight(1f).clickable(enabled = enabled) { open(post.number) }, maxLines = 2,
+                        overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                } else ReplyPreviewText(post, images, enabled) { open(post.number) }
             }
         }
         Text(if (load?.loading == true && thread.replies.isEmpty()) "正在加载回复…" else if (hasMore || thread.replies.size > 3) "查看更多回复" else "查看 ${thread.replies.size} 条回复",
@@ -153,14 +139,98 @@ internal fun ReplyPreview(thread: PostThread, load: ReplyLoad?, hasMore: Boolean
 }
 
 @Composable
-private fun ReplyPreviewImages(images: List<ArticleBlock.Image>, postId: Int, enabled: Boolean, fallback: () -> Unit) {
+private fun ReplyPreviewText(post: Post, images: List<ArticleBlock.Image>, enabled: Boolean, open: () -> Unit) {
+    val linkColor = MaterialTheme.colorScheme.primary
+    val style = MaterialTheme.typography.bodyMedium
+    val textHtml = remember(post.cooked) {
+        parseArticle(post.cooked).filterIsInstance<ArticleBlock.TextBlock>().joinToString("<br>") { it.html }
+    }
+    val article = remember(textHtml, linkColor) { parseInlineArticle(textHtml, linkColor) }
+    val text = remember(article.text, post.author.displayName, linkColor) {
+        buildAnnotatedString {
+            withStyle(SpanStyle(color = linkColor)) { append("${post.author.displayName}：") }
+            append(article.text.subSequence(0, article.text.text.trimEnd().length))
+        }
+    }
+    val emojis = remember(article.emojis) { article.emojis.mapValues { (_, emoji) ->
+        InlineTextContent(Placeholder(1.25.em, 1.25.em, PlaceholderVerticalAlign.TextCenter)) {
+            SiteEmoji(emoji.name, Modifier.fillMaxSize(), emoji.url)
+        }
+    } }
+    if (images.isEmpty()) {
+        Text(text, Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = open),
+            inlineContent = emojis, maxLines = 2, overflow = TextOverflow.Ellipsis, style = style)
+        return
+    }
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val label = "查看图片${if (images.size > 1) "(${images.size})" else ""}"
+    val iconSize = with(density) { style.fontSize.toDp() * 1.15f }
+    val gap = with(density) { style.fontSize.toDp() * .15f }
+    val placeholder = remember(label, style, density, measurer) {
+        val labelSize = measurer.measure(label, style, maxLines = 1).size
+        with(density) {
+            // 内联占位符和子布局分别取整，留出像素余量以免裁掉末尾数字。
+            Placeholder((labelSize.width + iconSize.roundToPx() + gap.roundToPx() + 2).toSp(),
+                maxOf(labelSize.height, iconSize.roundToPx()).toSp(), PlaceholderVerticalAlign.Center)
+        }
+    }
+    val inline = emojis + (ReplyImageInlineId to InlineTextContent(placeholder) {
+        ReplyPreviewImages(images, post.id, label, iconSize, gap, enabled, open)
+    })
+    val placeholders = inline.mapValues { it.value.placeholder }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val width = constraints.maxWidth
+        val preview = remember(text, placeholders, style, width, measurer) {
+            fitReplyPreviewImages(text, placeholders, style, width, measurer)
+        }
+        Text(preview, Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = open),
+            inlineContent = inline, maxLines = 2, overflow = TextOverflow.Ellipsis, style = style)
+    }
+}
+
+private const val ReplyImageInlineId = "reply-preview-image-action"
+
+private fun fitReplyPreviewImages(text: AnnotatedString, placeholders: Map<String, Placeholder>,
+    style: TextStyle, width: Int, measurer: TextMeasurer): AnnotatedString {
+    fun candidate(length: Int): AnnotatedString = buildAnnotatedString {
+        var end = length
+        if (end in 1 until text.length && Character.isHighSurrogate(text[end - 1]) && Character.isLowSurrogate(text[end])) end--
+        end = text.text.substring(0, end).trimEnd().length
+        append(text.subSequence(0, end))
+        if (length < text.length) append("…")
+        append(" ")
+        appendInlineContent(ReplyImageInlineId, "\uFFFC")
+    }
+    fun fits(value: AnnotatedString): Boolean {
+        val ranges = value.getStringAnnotations(0, value.length).mapNotNull { annotation ->
+            placeholders[annotation.item]?.let { AnnotatedString.Range(it, annotation.start, annotation.end) }
+        }
+        val result = measurer.measure(value, style, maxLines = 2, constraints = Constraints(maxWidth = width),
+            placeholders = ranges)
+        return !result.hasVisualOverflow && result.placeholderRects.lastOrNull() != null
+    }
+    val full = candidate(text.length)
+    if (fits(full)) return full
+    var start = 0
+    var end = text.length
+    while (start < end) {
+        val middle = (start + end + 1) / 2
+        if (fits(candidate(middle))) start = middle else end = middle - 1
+    }
+    return candidate(start)
+}
+
+@Composable
+private fun ReplyPreviewImages(images: List<ArticleBlock.Image>, postId: Int, label: String,
+    iconSize: Dp, gap: Dp, enabled: Boolean, fallback: () -> Unit) {
     val gallery = LocalImageGallery.current
-    Row(Modifier.width(if (images.size > 1) 94.dp else 80.dp).clickable(enabled = enabled) {
+    Row(Modifier.fillMaxSize().clickable(enabled = enabled) {
         if (gallery != null) gallery.open(images, 0, "reply-preview-$postId") else fallback()
     }.testTag("reply-preview-images-${postId}"), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        Icon(Icons.Rounded.Image, "查看图片", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-        Text("查看图片${if (images.size > 1) "(${images.size})" else ""}",
+        horizontalArrangement = Arrangement.spacedBy(gap)) {
+        Icon(Icons.Rounded.Image, "查看图片", Modifier.size(iconSize), tint = MaterialTheme.colorScheme.primary)
+        Text(label,
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary,
             maxLines = 1)
     }

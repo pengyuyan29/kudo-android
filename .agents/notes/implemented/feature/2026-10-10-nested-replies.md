@@ -23,6 +23,8 @@ reply_to_post_number > 1 的帖子按实际父链归入一级评论，更深后�
 - 保留平铺并加回复标签：无需额外读取且维持时间线，但没有用户要求的聚合讨论。
 - 递归缩进每一级：忠实展示树结构，但窄屏阅读宽度持续缩小，也不符合酷安式平铺楼中楼。
 - reply_ids 递归列表一次获取后代：请求少，但网站默认排除关联多个被引用帖子的回复；逐父帖分页并校验实际 reply_to 可避免遗漏和错误归组。
+- 在加权正文 Text 后放图片按钮：点击区域独立且布局简单，但按钮会停在正文分配区域的末端，无法紧跟最后一行文字；图片入口使用 InlineTextContent 参与文字排版。
+- 直接追加图片占位符并依赖两行省略：无需额外测量，但长文字会把唯一的图片入口一起省略；有图片时先按实际字体和可用宽度测量，必要时省略文字并保留入口。
 
 ## Testing
 
@@ -34,10 +36,14 @@ NestedReplyUiTest 的3项测试随50项真机回归通过，日志 artifacts/com
 
 祖先不可访问时保留独立评论，不能虚构父帖；超长祖先链限制补齐次数。完整讨论按需读取多个父节点，后续由[到底自动续载](2026-10-10-topic-continuation.md)替代手动加载按钮，分页与游标契约保留。
 
+带图片的短预览增加文字测量，结果按内容、字体和可用宽度复用；摘要仍最多两行，正文可能提前省略以保留图片入口。完整讨论和原楼层的富文本图片布局不变。
+
 ## Image preview extension
 
-Reply previews keep the existing plain text and emoji extraction. When a reply contains article images, the preview adds a compact `查看图片` action and includes the image count for multiple images. The action opens the shared image gallery with original URLs, so it does not navigate to the floor; ignored replies never expose the image action.
+Reply previews keep the existing plain text and emoji extraction. The author, text and compact `查看图片` action share one text flow: the action follows the final text character, or the author's colon for image-only replies, and wraps only when space requires it. Its placeholder uses the measured label, icon and gap at the current font scale instead of a fixed dp width. Long previews shorten text with an ellipsis to keep the action inside two lines. Multiple images include their count. The action opens the shared image gallery with original URLs, so it does not navigate to the floor; clicking the author or text still navigates to the original floor, and ignored replies never expose the image action.
 
 ## Verification
 
-`ReplyPreviewImagesUiTest` covers a single image, multiple images with emoji text, gallery selection, original URL resolution, and ignored reply redaction. The three instrumentation tests pass on the connected device.
+`ReplyPreviewImagesUiTest` covers image-only and short-text inline placement, explicit line breaks, a 12-image label at 130% font scale, a 280dp-wide two-line preview, emoji preservation, original gallery URLs, text navigation, gallery-unavailable fallback, and ignored reply redaction. The original layout fails the three new placement assertions (`artifacts/reply-image-inline-repro-device.txt`). The six image-preview tests, four timeline tests and two discussion/navigation tests pass together on RMX2202 / Android 13 (`artifacts/reply-image-inline-complete-device.txt`, 12 tests). Debug builds and Lint pass with explicit 0.2.3 / 2005 parameters; signing matches the installed app, and installation uses `adb install -r` to preserve data.
+
+The separate `NestedReplyUiTest.darkLargeTextKeepsIgnoredRepliesHiddenUntilExplicitlyRevealed` assertion expects the preview container to expose one combined string even though ignored author/content remain separate clickable Text nodes. It also fails with the unchanged HEAD runtime (`artifacts/reply-image-inline-baseline-device.txt`); this change leaves that existing assertion untouched. The focused image test verifies that ignored content and its image action remain hidden. Screenshots `reply-preview-inline-image-only.png`, `reply-preview-inline-short-text.png`, `reply-preview-inline-narrow-large-text.png` and `reply-preview-inline-multiline-large-count.png` in `artifacts/` are visually checked.
