@@ -64,13 +64,13 @@ private fun formatImageCapacity(bytes: Long): String {
     return "$value ${imageCapacityUnits[power]}"
 }
 
-internal fun imageActionCapacityLabels(target: ImageActionTarget): Pair<String, String> {
-    val current = imageCapacityBytes(target.current.sizeLabel)?.let(::formatImageCapacity) ?: "容量未知"
+internal fun imageActionCapacityLabels(target: ImageActionTarget): Pair<String?, String?> {
+    val current = imageCapacityBytes(target.current.sizeLabel)?.let(::formatImageCapacity)
     val sizes = target.album.map { imageCapacityBytes(it.sizeLabel) }
     val total = if (sizes.isEmpty() || sizes.any { it == null }) null else runCatching {
         sizes.fold(0L) { sum, bytes -> Math.addExact(sum, requireNotNull(bytes)) }
     }.getOrNull()
-    return current to (total?.let { "约 ${formatImageCapacity(it)}" } ?: "容量未知")
+    return current to total?.let { "约 ${formatImageCapacity(it)}" }
 }
 
 /** Deliberately uses flat text rows and a small radius, matching the provided Coolapk menu. */
@@ -81,8 +81,8 @@ internal fun ImageActionMenu(target: ImageActionTarget, dismiss: () -> Unit, sel
         Column(Modifier.padding(horizontal = 32.dp).widthIn(max = 320.dp).fillMaxWidth()
             .clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface)
             .verticalScroll(rememberScrollState()).padding(vertical = 8.dp).testTag("image-action-menu")) {
-            val options = listOf(ImageAction.SHARE to "分享图片", ImageAction.SAVE to "保存原图（$currentCapacity）") +
-                if (target.album.size > 1) listOf(ImageAction.SAVE_ALL to "保存所有图片（$totalCapacity）") else emptyList()
+            val options = listOf(ImageAction.SHARE to "分享图片", ImageAction.SAVE to ("保存原图" + currentCapacity?.let { "（$it）" }.orEmpty())) +
+                if (target.album.size > 1) listOf(ImageAction.SAVE_ALL to ("保存所有图片" + totalCapacity?.let { "（$it）" }.orEmpty())) else emptyList()
             options.forEach { (action, title) ->
                 Box(Modifier.fillMaxWidth().clickable(role = Role.Button) { select(action) }
                     .heightIn(min = 56.dp).padding(horizontal = 24.dp, vertical = 16.dp)) {

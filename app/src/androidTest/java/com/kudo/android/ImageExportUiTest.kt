@@ -24,6 +24,21 @@ class ImageExportUiTest {
     @get:Rule val compose = createComposeRule()
     private val context get() = InstrumentationRegistry.getInstrumentation().targetContext
 
+    @Test fun missingCapacityOmitsParenthesesAndDoesNotHideKnownCurrentCapacity() {
+        val unknown = ArticleBlock.Image("https://image.test/animation.webp", "")
+        var target by mutableStateOf(ImageActionTarget(unknown, listOf(unknown)))
+        compose.setContent { KudoTheme(DisplaySettings()) { ImageActionMenu(target, {}, {}) } }
+        compose.onNodeWithText("保存原图").assertIsDisplayed()
+        compose.onNodeWithText("容量未知", substring = true).assertDoesNotExist()
+        compose.runOnIdle {
+            val known = unknown.copy(originalUrl = "https://image.test/known.png", sizeLabel = "512 KB")
+            target = ImageActionTarget(known, listOf(known, unknown))
+        }
+        compose.onNodeWithText("保存原图（512 KB）").assertIsDisplayed()
+        compose.onNodeWithText("保存所有图片").assertIsDisplayed()
+        compose.onNodeWithText("容量未知", substring = true).assertDoesNotExist()
+    }
+
     @Test fun singleImageHidesBatchAndDarkLargeTextMenuRemainsReadable() {
         var multiple by mutableStateOf(false)
         val current = ArticleBlock.Image("https://image.test/1.png", "", sizeLabel = "512 KB")

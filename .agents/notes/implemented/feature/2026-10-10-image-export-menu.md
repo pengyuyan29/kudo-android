@@ -10,7 +10,7 @@ Status: implemented
 
 菜单使用自定义 Dialog 内容，居中、小圆角、纯文本行，不使用 Material AlertDialog 外观；只显示分享图片、保存原图和按浏览组数量决定的保存所有图片。长按时固定当前图片与相册快照，防止异步补齐或翻页改变操作对象。菜单取消只关闭弹窗，翻页和来源返回沿用相册协议。
 
-保存菜单括号内显示原图容量，来源为正文已解析的 lightbox 附件 sizeLabel。当前图片显示规范化的 B / KB / MB 等容量，所有图片将长按时浏览组快照内的容量相加并加“约”；站点提供的是舍入后的容量，因此总量属于预估。按 1024 换算，兼容大小写、空格和 KiB / MiB 等单位，未知、非法、非正数及超出 Long 范围的容量不参与猜测：单图未知时显示“容量未知”，批量任一张未知或累加溢出时总量也显示“容量未知”。菜单打开不发 HEAD 或预下载请求，不改变导出对象、顺序或文件内容。
+保存菜单括号内显示原图容量，来源为正文已解析的 lightbox 附件 sizeLabel。当前图片显示规范化的 B / KB / MB 等容量，所有图片将长按时浏览组快照内的容量相加并加“约”；站点提供的是舍入后的容量，因此总量属于预估。按 1024 换算，兼容大小写、空格和 KiB / MiB 等单位，未知、非法、非正数及超出 Long 范围的容量不参与猜测：单图未知时只显示“保存原图”，批量任一张未知或累加溢出时只显示“保存所有图片”，不展示“容量未知”或空括号。菜单打开不发 HEAD 或预下载请求，不改变导出对象、顺序或文件内容。
 
 ImageDownloader 使用现有受限图片 HTTP 客户端下载 originalUrl，流式写入临时文件，按文件头判断格式，保留 GIF/APNG/WebP 原始字节；单图最多64 MiB，拒绝把验证 HTML 当图片保存。分享通过仅开放 image_exports 缓存目录的 ImageFileProvider 提供临时只读 content URI，并使用 ACTION_SEND 系统选择器。GalleryImageStore 通过 MediaStore 写入 Pictures/酷DO，Android 10+ 使用 IS_PENDING，失败删除未完成条目；API 26–28 按需请求 WRITE_EXTERNAL_STORAGE，不请求读图库权限。ImageSaver 批量逐张执行，失败继续并显示数量，取消删除当前未完成文件；已经保存的图片保留。重复点击不并发执行。
 
@@ -29,6 +29,8 @@ ImageDownloader 使用现有受限图片 HTTP 客户端下载 originalUrl，流�
 
 ## Verification
 
+2026-10-13：缺失容量时的菜单文字先由 `missingCapacityOmitsParenthesesAndDoesNotHideKnownCurrentCapacity` 在真机复现失败（`artifacts/image-capacity-label-repro-device.txt`），覆盖单图省略容量和批量缺失时保留当前已知容量。修复后 `ImageExportUiTest` 的4项真机测试通过（`artifacts/image-capacity-label-device.txt`），包含原始动画字节导出和失败清理回归。
+
 容量展示沿用用户要求仅编译打包，不运行设备测试；已同步 ImageExportUiTest 与 ImageGalleryUiTest 中受菜单文案影响的断言。本次手工检查用例（未执行）：单图 512 KB 显示“保存原图（512 KB）”并隐藏批量；512 KB 与 1 MB 的两图浏览组显示“保存所有图片（约 1.5 MB）”；任一张缺少或带非法容量时批量显示“容量未知”，当前已知图片仍保留自己的容量；翻页长按显示新当前图片的容量，批量仍汇总同一浏览组；深色 130% 字号下括号内容允许换行且选项可点击。
 
 2026-10-12：Release 与受影响的 AndroidTest Kotlin 编译通过（`:app:assembleRelease :app:compileDebugAndroidTestKotlin -PversionName=0.2.0 -PversionCode=2001`），日志 `artifacts/image-action-capacity-release-build.txt`。正式包保持 0.2.0 / 2001，仅 arm64-v8a，产物为 `artifacts/release/0.2.0/image-action-capacity/kodo_0.2.0_release_arm64-v8a.apk`；没有安装到手机、运行设备用例或移动发布 Tag。
@@ -41,6 +43,6 @@ ImageGalleryUiTest 从第3张实际长按，确认保存和分享都下载第3�
 
 ## Consequences
 
-容量来自站点的附件信息，随原图变化或元信息舍入可能与实际保存字节数略有差异；总量明确显示预估，信息缺失时不给不完整的合计。没有额外网络或预下载开销，菜单仍可直接保存容量未知的图片。
+容量来自站点的附件信息，随原图变化或元信息舍入可能与实际保存字节数略有差异；总量明确显示预估，信息缺失时不给不完整的合计，也不增加“容量未知”提示。没有额外网络或预下载开销，菜单仍可直接保存缺失容量的图片。
 
 原图导出保留清晰度与动画，不受查看器解码采样影响。下载失败、存储空间不足或旧系统拒绝权限反馈失败；单图超过64 MiB不能导出，未识别格式不能保存。当前真机覆盖 Android 13，API 26–28 的授权分支尚无同版本设备验收。动图字节保留不保证每个系统图库都能播放 APNG 等格式。
