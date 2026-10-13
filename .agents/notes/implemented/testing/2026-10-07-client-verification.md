@@ -36,6 +36,10 @@ CommunityUiTest 的整栏抬升与取消复位检查同样按真实16ms间隔推
 
 ## JVM fixture lifecycle
 
+0.2.4云端运行38362477072的357项JVM中两项失败，完整XML与日志保留在 `artifacts/release/0.2.4/cloud-failure-1/`。点赞取消用例期望刷新楼层3却得到空列表，原夹具通过500ms真实socket延迟制造顺序，未记录失败状态，不能据此确定底层传输根因；顺序契约采用现有可控Call回调模式验证取消和迟到结果。ThreadAndDecorationTest的预览转主时间线用例期望总请求数3、实际4，断言覆盖了与跳楼无关的异步作者资料读取；请求数量契约限定目标 `/t/5/3.json`，并显式让作者请求在跳楼过程中进入计数，以复现错误边界。
+
+作者请求受控放行后，本地先稳定复现同样的期望3/实际4（`thread-count-repro.xml`），修复仅按目标接口计数，保留连续楼层、目标修订号及唯一跳楼读取断言。点赞用例使用单线程Main、可控Call回调，确认刷新取消旧Call、先完成最新结果、随后交付旧结果不能覆盖、新账号独立列表，并等待两作用域cancelAndJoin后重置Main。11项关联测试及两核同JVM配置10轮共110项通过（`fixture-fixed.txt`、`fixture-repeat-1.txt`至`fixture-repeat-10.txt`）；完整357项JVM通过，日志为同目录 `full-unit-lint-fixed.txt`。未改App行为，未延长原网络等待或删掉原状态断言。
+
 0.2.0 云端运行 38205318965 的完整 XML 已保存至 `artifacts/release/0.2.0/cloud-repair/floor-failure-report.xml`；311 项 JVM 仅 aSupersededJumpCannotReplaceTheLatestTarget 失败，明确超时于取消80楼后等待100楼完成（TopicFloorNavigationTest.kt:228），不是初始化或释放旧请求阶段。先在等待失败时记录完整夹具状态和请求路径，进行两核重复运行定位，不增加超时或移除旧响应不能覆盖新目标的断言。
 
 补充状态诊断后，本地两核同一 JVM 50 轮共 600 项楼层测试通过（`cloud-repair/floor-diagnostic-repeat.txt`，测试 9.297 秒），没有复现云端底层传输失败。该顺序用例通过 DiscourseClient 已有 Call.Factory 入口使用可控异步 HTTP 回调：确认80楼请求已挂起、发起100楼后断言旧 Call 已取消，显式完成100楼并等待跳转，再从 IO 回送80楼迟到响应，检查目标、修订号和内容均不被覆盖。控制取消后仍能返回 onResponse 的真实竞态契约，不使用 sleep 或延长超时；其他楼层请求仍使用原网络夹具。不能据此声称已确定云端 socket 失败的底层根因。

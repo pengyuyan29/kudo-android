@@ -4,11 +4,22 @@ import androidx.lifecycle.viewModelScope
 import com.kudo.android.data.*
 import com.kudo.android.ui.account.LikedPostsViewModel
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.*
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.mockwebserver.*
+import okio.Timeout
 import org.junit.Assert.*
 import org.junit.Test
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LikedPostsViewModelTest {
@@ -81,27 +92,81 @@ class LikedPostsViewModelTest {
     }
 
     @Test fun refreshDiscardsDelayedResponseAndSeparateAccountKeepsItsOwnFeed() = runTest {
-        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        MockWebServer().use { server ->
-            server.enqueue(page(listOf(action(1, 2))).setBodyDelay(500, TimeUnit.MILLISECONDS))
-            server.enqueue(page(listOf(action(2, 3))))
-            server.enqueue(page(listOf(action(3, 4))))
-            val repository = CommunityRepository(DiscourseClient(NoCookies, server.url("/")))
-            val vm = LikedPostsViewModel(repository, "first")
+        val first = CompletableDeferred<ControlledCall>()
+        val refreshed = CompletableDeferred<ControlledCall>()
+        val second = CompletableDeferred<ControlledCall>()
+        val firstAccountRequests = AtomicInteger()
+        val requests = CopyOnWriteArrayList<Request>()
+        val calls = Call.Factory { request -> ControlledCall(request) { call ->
+            requests += request
+            check(request.url.encodedPath == "/user_actions.json")
+            check(request.url.queryParameter("filter") == "1")
+            check(request.url.queryParameter("offset") == "0")
+            when (request.url.queryParameter("username")) {
+                "first" -> if (firstAccountRequests.incrementAndGet() == 1) first.complete(call) else refreshed.complete(call)
+                "second" -> second.complete(call)
+                else -> error("Unexpected account in likes fixture")
+            }
+        } }
+        Executors.newSingleThreadExecutor().asCoroutineDispatcher().use { main ->
+            Dispatchers.setMain(main)
+            val repository = CommunityRepository(DiscourseClient(NoCookies, "https://likes.test/".toHttpUrl(), route = { calls }))
+            val vm = withContext(main) { LikedPostsViewModel(repository, "first") }
             var other: LikedPostsViewModel? = null
+            suspend fun awaitCall(pending: CompletableDeferred<ControlledCall>) = withContext(Dispatchers.IO) {
+                withTimeout(5000) { pending.await() }
+            }
+            suspend fun awaitFloor(model: LikedPostsViewModel, floor: Int) = withContext(Dispatchers.Default) {
+                withTimeout(5000) { model.state.first { !it.loading && it.entries.singleOrNull()?.number == floor } }
+            }
             try {
-                runCurrent()
-                assertEquals("first", server.takeRequest(5, TimeUnit.SECONDS)!!.requestUrl!!.queryParameter("username"))
-                vm.load(); finish(vm)
+                val stale = awaitCall(first)
+                withContext(main) { vm.load() }
+                val latest = awaitCall(refreshed)
+                assertTrue("刷新必须取消旧请求", stale.isCanceled())
+                withContext(Dispatchers.IO) { latest.respond("""{"user_actions":[${action(2, 3)}]}""") }
+                awaitFloor(vm, 3)
                 assertEquals(listOf(3), vm.state.value.entries.map { it.number })
-                other = LikedPostsViewModel(repository, "second")
-                finish(other)
-                assertEquals(listOf(4), other.state.value.entries.map { it.number })
+                // The response callback may already be in flight when cancellation occurs.
+                withContext(Dispatchers.IO) { stale.respond("""{"user_actions":[${action(1, 2)}]}""") }
+                withContext(main) { yield() }
                 assertEquals(listOf(3), vm.state.value.entries.map { it.number })
-                assertEquals("first", server.takeRequest().requestUrl!!.queryParameter("username"))
-                assertEquals("second", server.takeRequest().requestUrl!!.queryParameter("username"))
-            } finally { vm.viewModelScope.cancel(); other?.viewModelScope?.cancel(); Dispatchers.resetMain() }
+                val currentAccount = withContext(main) { LikedPostsViewModel(repository, "second") }.also { other = it }
+                val current = awaitCall(second)
+                withContext(Dispatchers.IO) { current.respond("""{"user_actions":[${action(3, 4)}]}""") }
+                awaitFloor(currentAccount, 4)
+                assertEquals(listOf(4), currentAccount.state.value.entries.map { it.number })
+                assertEquals(listOf(3), vm.state.value.entries.map { it.number })
+                assertEquals(listOf("first", "first", "second"), requests.map { it.url.queryParameter("username") })
+            } finally {
+                withContext(main) {
+                    vm.viewModelScope.coroutineContext.job.cancelAndJoin()
+                    other?.viewModelScope?.coroutineContext?.job?.cancelAndJoin()
+                }
+                Dispatchers.resetMain()
+            }
         }
+    }
+
+    private class ControlledCall(private val request: Request, private val onEnqueue: (ControlledCall) -> Unit) : Call {
+        private var callback: Callback? = null
+        @Volatile private var cancelled = false
+        override fun request() = request
+        override fun enqueue(responseCallback: Callback) {
+            check(callback == null)
+            callback = responseCallback
+            onEnqueue(this)
+        }
+        fun respond(body: String) {
+            checkNotNull(callback).onResponse(this, Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                .code(200).message("OK").body(body.toResponseBody()).build())
+        }
+        override fun cancel() { cancelled = true }
+        override fun isCanceled() = cancelled
+        override fun isExecuted() = callback != null
+        override fun timeout() = Timeout.NONE
+        override fun clone(): Call = ControlledCall(request, onEnqueue)
+        override fun execute(): Response = error("Fixture expects asynchronous HTTP calls")
     }
 
     @Test fun emptyPageStopsPaginationAndRemainsSuccessfulEmptyState() = runTest {

@@ -11,12 +11,16 @@ import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ThreadAndDecorationTest {
     @Test fun previewOnlyCachedFloorBecomesAnOriginalTimelineItemWhenNavigated() = runTest {
         val paths = CopyOnWriteArrayList<String>()
+        val releaseAuthor = CountDownLatch(1)
         withVm(dispatch = { request ->
+            if (request.path == "/u/author.json") check(releaseAuthor.await(8, TimeUnit.SECONDS))
             paths += request.path!!
             when (request.path) {
                 "/t/5.json" -> topic(json(1), json(2, 1, 1))
@@ -24,18 +28,20 @@ class ThreadAndDecorationTest {
                 "/t/5/3.json" -> topic(json(1), json(2, 1, 1), json(3, 2), json(4))
                 else -> null
             }
-        }) { vm ->
+        }) { vm -> try {
             val root = vm.await { !it.loading }.detail!!.posts.last()
             vm.loadReplies(root, true)
             vm.await { it.replyLoads[root.id]?.loading == false && it.related.any { p -> p.number == 3 } }
-            val before = paths.size
+            val before = paths.count { it == "/t/5/3.json" }
             vm.jumpTo(3)
             val state = vm.await { it.targetNumber == 3 && !it.jumping }
+            releaseAuthor.countDown()
+            vm.await { it.authorProfile != null }
             assertEquals(listOf(1, 2, 3, 4), state.detail!!.posts.map(Post::number))
-            assertEquals(before + 1, paths.size)
+            assertEquals(before + 1, paths.count { it == "/t/5/3.json" })
             assertTrue(paths.contains("/t/5/3.json"))
             assertEquals(1L, state.targetRevision)
-        }
+        } finally { releaseAuthor.countDown() } }
     }
     @Test fun prefetchedPreviewDoesNotMakeContinuationSkipTheOriginalFloor() = runTest {
         val requested = CopyOnWriteArrayList<Int>()
