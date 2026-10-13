@@ -26,7 +26,9 @@ ImageDownloader 提供原图容量读取：优先使用同 URL 的原图磁盘�
 
 ImageExportTest 的8项单测通过（`artifacts/image-capacity-reader-tests.txt`），覆盖缓存命中不请求网络、当前原图 HEAD 读取与 URL 复用、缺失/非法容量、HTML/失败/压缩响应拒绝、导出原始字节记忆，以及原有动画原字节、大小限制、批量失败和取消清理。
 
-容量读取已落在 ImageDownloader，菜单接入沿用同一个服务实例和后续界面验证；本单元不改变菜单调用方。
+ImageExportUiTest 的6项真机用例通过（`artifacts/image-capacity-resolution-device.txt`）。新增场景验证当前 originalUrl 的 HEAD 得到 2401362 字节后显示“2.3 MB”，其他相册图不发请求；生产菜单实际读取 Coil 原图缓存 4 KB，并忽略预览缓存的 1 KB。既有未知省略、批量汇总、动画字节导出和失败清理继续通过。
+
+菜单接入沿用同一个 ImageDownloader 实例；Coil DiskCache 以 originalUrl 打开快照并在 IO 线程读取 data 文件长度，不使用预览尺寸。LaunchedEffect 绑定菜单目标，关闭或切换时取消读取；缓存可提供批量已知项，只有当前缺失项会发送 HEAD。菜单获取期间保持可点击，响应后只更新容量文案。
 
 ## Consequences
 

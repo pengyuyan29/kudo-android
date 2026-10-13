@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
+import coil3.SingletonImageLoader
 import com.kudo.android.KudoApplication
 import com.kudo.android.ui.components.showKudoToast
 import com.kudo.android.media.*
@@ -64,9 +65,10 @@ private fun formatImageCapacity(bytes: Long): String {
     return "$value ${imageCapacityUnits[power]}"
 }
 
-internal fun imageActionCapacityLabels(target: ImageActionTarget): Pair<String?, String?> {
-    val current = imageCapacityBytes(target.current.sizeLabel)?.let(::formatImageCapacity)
-    val sizes = target.album.map { imageCapacityBytes(it.sizeLabel) }
+internal fun imageActionCapacityLabels(target: ImageActionTarget, capacities: Map<String, Long> = emptyMap()): Pair<String?, String?> {
+    fun bytes(image: ArticleBlock.Image) = capacities[image.originalUrl]?.takeIf { it > 0 } ?: imageCapacityBytes(image.sizeLabel)
+    val current = bytes(target.current)?.let(::formatImageCapacity)
+    val sizes = target.album.map(::bytes)
     val total = if (sizes.isEmpty() || sizes.any { it == null }) null else runCatching {
         sizes.fold(0L) { sum, bytes -> Math.addExact(sum, requireNotNull(bytes)) }
     }.getOrNull()
@@ -75,8 +77,9 @@ internal fun imageActionCapacityLabels(target: ImageActionTarget): Pair<String?,
 
 /** Deliberately uses flat text rows and a small radius, matching the provided Coolapk menu. */
 @Composable
-internal fun ImageActionMenu(target: ImageActionTarget, dismiss: () -> Unit, select: (ImageAction) -> Unit) {
-    val (currentCapacity, totalCapacity) = remember(target) { imageActionCapacityLabels(target) }
+internal fun ImageActionMenu(target: ImageActionTarget, dismiss: () -> Unit, select: (ImageAction) -> Unit,
+    capacities: Map<String, Long> = emptyMap()) {
+    val (currentCapacity, totalCapacity) = remember(target, capacities) { imageActionCapacityLabels(target, capacities) }
     Dialog(onDismissRequest = dismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.padding(horizontal = 32.dp).widthIn(max = 320.dp).fillMaxWidth()
             .clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surface)
@@ -100,8 +103,11 @@ internal fun ImageActions(target: ImageActionTarget?, dismiss: () -> Unit, busyC
     val injected = LocalImageExportServices.current
     val services = remember(context, injected) {
         injected ?: run {
+            val cache = SingletonImageLoader.get(context).diskCache
             val downloader = ImageDownloader((context.applicationContext as KudoApplication).container.imageHttpClient,
-                File(context.cacheDir, "image_exports"))
+                File(context.cacheDir, "image_exports"), cachedSize = { url ->
+                    cache?.openSnapshot(url)?.use { cache.fileSystem.metadata(it.data).size }
+                })
             ImageExportServices(downloader, ImageSaver(downloader, GalleryImageStore(context.applicationContext))) { image ->
                 context.startActivity(Intent.createChooser(imageShareIntent(context, image), "分享图片")
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
@@ -110,6 +116,20 @@ internal fun ImageActions(target: ImageActionTarget?, dismiss: () -> Unit, busyC
     }
     var busy by remember { mutableStateOf(false) }
     var pending by remember { mutableStateOf<List<ArticleBlock.Image>?>(null) }
+    var capacities by remember(target) { mutableStateOf<Map<String, Long>>(emptyMap()) }
+    LaunchedEffect(target, services) {
+        val selected = target ?: return@LaunchedEffect
+        val known = mutableMapOf<String, Long>()
+        (listOf(selected.current) + selected.album).distinctBy { it.originalUrl }.forEach { image ->
+            services.downloader.cachedCapacity(OriginalImage(image.originalUrl))?.let { known[image.originalUrl] = it }
+        }
+        capacities = known.toMap()
+        if (known[selected.current.originalUrl] == null && imageCapacityBytes(selected.current.sizeLabel) == null) {
+            services.downloader.capacity(OriginalImage(selected.current.originalUrl))?.let {
+                capacities = known + (selected.current.originalUrl to it)
+            }
+        }
+    }
     fun message(text: String) { showKudoToast(context, text) }
     fun save(images: List<ArticleBlock.Image>) {
         if (busy) return
@@ -133,7 +153,7 @@ internal fun ImageActions(target: ImageActionTarget?, dismiss: () -> Unit, busyC
         else if (images != null) message("未获得存储权限，无法保存图片")
     }
     DisposableEffect(Unit) { onDispose { busyChanged(false) } }
-    if (target != null) ImageActionMenu(target, dismiss) { action ->
+    if (target != null) ImageActionMenu(target, dismiss, capacities = capacities, select = { action ->
         dismiss()
         if (!busy && pending == null) {
             if (action == ImageAction.SHARE) {
@@ -158,5 +178,5 @@ internal fun ImageActions(target: ImageActionTarget?, dismiss: () -> Unit, busyC
                 } else save(images)
             }
         }
-    }
+    })
 }
