@@ -28,6 +28,8 @@ ImageExportTest 的8项单测通过（`artifacts/image-capacity-reader-tests.txt
 
 ImageExportUiTest 的6项真机用例通过（`artifacts/image-capacity-resolution-device.txt`）。新增场景验证当前 originalUrl 的 HEAD 得到 2401362 字节后显示“2.3 MB”，其他相册图不发请求；生产菜单实际读取 Coil 原图缓存 4 KB，并忽略预览缓存的 1 KB。既有未知省略、批量汇总、动画字节导出和失败清理继续通过。
 
+已查看 `artifacts/image-capacity-from-head.png` 和 `artifacts/image-capacity-omitted.png`，已知容量括号与缺失时无括号的排版均正常；对应2项截图用例通过（`artifacts/image-capacity-screenshot-device.txt`）。
+
 菜单接入沿用同一个 ImageDownloader 实例；Coil DiskCache 以 originalUrl 打开快照并在 IO 线程读取 data 文件长度，不使用预览尺寸。LaunchedEffect 绑定菜单目标，关闭或切换时取消读取；缓存可提供批量已知项，只有当前缺失项会发送 HEAD。菜单获取期间保持可点击，响应后只更新容量文案。
 
 ## Consequences
