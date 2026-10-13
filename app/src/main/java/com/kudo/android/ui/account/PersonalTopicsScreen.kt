@@ -95,10 +95,11 @@ internal fun AccountTabs(labels: List<String>, selection: Int, select: (Int) -> 
 @Composable
 internal fun PersonalTopicsScreen(vm: PersonalTopicsViewModel, categories: List<Category>, style: TopicListStyle,
     back: () -> Unit, login: () -> Unit, open: (Int, Int?) -> Unit, user: (String) -> Unit,
-    composeMessage: () -> Unit) {
+    composeMessage: () -> Unit, drafts: () -> Unit = {}) {
     val scroll = rememberLazyListState()
     Column(Modifier.fillMaxSize()) {
         AccountPageTopBar(vm.destination.title, back) {
+            if (vm.destination == AccountDestination.TOPICS) CommunityIconButton(Icons.Rounded.EditNote, "我的草稿", drafts)
             if (vm.destination == AccountDestination.MESSAGES) CommunityIconButton(Icons.Rounded.Edit, "写私信", composeMessage)
             CommunityIconButton(Icons.Rounded.Refresh, "刷新", { vm.load() })
         }

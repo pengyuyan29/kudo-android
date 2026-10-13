@@ -225,7 +225,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         if (member != null && destination != null) {
                             val vm = model("personal-${member.id}-$destination") { PersonalTopicsViewModel(app.repository, member.username, destination) }
                             PersonalTopicsScreen(vm, account.categories, display.topicListStyle, { nav.popBackStack() }, ::login, ::topic, ::user,
-                                { nav.navigate("new-message") })
+                                { nav.navigate("new-message") }, drafts = { nav.navigate("drafts") })
                         } else Column { AccountPageTopBar("个人内容", { nav.popBackStack() }); EmptyState("登录后查看", "登录后查看自己的社区内容。", actionLabel = "登录", action = ::login) }
                     }
                     composable("trust") {
