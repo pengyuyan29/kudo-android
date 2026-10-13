@@ -140,7 +140,7 @@ internal fun MemberProfileScreen(user: Member, repository: CommunityRepository?,
                         .background(MaterialTheme.colorScheme.surface).padding(horizontal = 4.dp, vertical = 12.dp)) {
                         val columns = if (maxWidth < 300.dp) 2 else 4
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            listOf(AccountDestination.TOPICS, AccountDestination.BOOKMARKS, AccountDestination.DRAFTS, AccountDestination.HISTORY)
+                            listOf(AccountDestination.TOPICS, AccountDestination.BOOKMARKS, AccountDestination.LIKES, AccountDestination.HISTORY)
                                 .chunked(columns).forEach { entries ->
                                     Row(Modifier.fillMaxWidth()) { entries.forEach { entry ->
                                         val (icon, color) = destinationIcon(entry)
@@ -198,6 +198,7 @@ private fun destinationIcon(entry: AccountDestination): Pair<ImageVector, Color>
     AccountDestination.TOPICS -> Icons.Rounded.Article to Color(0xFF2196F3)
     AccountDestination.BOOKMARKS -> Icons.Rounded.BookmarkBorder to Color(0xFFFF9800)
     AccountDestination.DRAFTS -> Icons.Rounded.EditNote to Color(0xFF26A69A)
+    AccountDestination.LIKES -> Icons.Rounded.ThumbUp to Color(0xFF26A69A)
     AccountDestination.HISTORY -> Icons.Rounded.History to Color(0xFFA374EF)
     AccountDestination.MESSAGES -> Icons.Rounded.MailOutline to Color(0xFF5B83E8)
     AccountDestination.CHAT -> Icons.Rounded.Forum to Color(0xFF00A68E)

@@ -182,6 +182,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                                                 AccountDestination.TRUST -> nav.navigate("trust")
                                                 AccountDestination.TOPICS, AccountDestination.HISTORY, AccountDestination.MESSAGES -> nav.navigate("personal/${destination.name}")
                                                 AccountDestination.DRAFTS -> nav.navigate("drafts")
+                                                AccountDestination.LIKES -> nav.navigate("liked-posts")
                                                 AccountDestination.CHAT, AccountDestination.PENDING, AccountDestination.BADGES, AccountDestination.INVITES -> nav.navigate("account-records/${destination.name}")
                                             }
                                         }, statusBarStyle = { darkStatusIcons = it })
@@ -227,6 +228,18 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                             PersonalTopicsScreen(vm, account.categories, display.topicListStyle, { nav.popBackStack() }, ::login, ::topic, ::user,
                                 { nav.navigate("new-message") }, drafts = { nav.navigate("drafts") })
                         } else Column { AccountPageTopBar("个人内容", { nav.popBackStack() }); EmptyState("登录后查看", "登录后查看自己的社区内容。", actionLabel = "登录", action = ::login) }
+                    }
+                    composable("liked-posts") {
+                        val member = account.user
+                        if (member != null) {
+                            val vm = model("liked-posts-${member.id}") { LikedPostsViewModel(app.repository, member.username) }
+                            val state by vm.state.collectAsStateWithLifecycle()
+                            LikedPostsScreen(state, { nav.popBackStack() }, ::login, ::openLink,
+                                { vm.load() }, { vm.load(true) }, vm::retry)
+                        } else Column {
+                            AccountPageTopBar("我的点赞", { nav.popBackStack() })
+                            EmptyState("登录后查看点赞", "你送出的赞会出现在这里。", actionLabel = "登录", action = ::login)
+                        }
                     }
                     composable("trust") {
                         account.user?.let { member ->
