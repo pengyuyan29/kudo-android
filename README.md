@@ -1,5 +1,7 @@
 ﻿# 酷DO
 
+![酷DO 应用封面](docs/readme-preview/banner.png)
+
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-yellow.svg)](LICENSE)
 
 Linux.do 社区的 Android 原生第三方客户端，使用 Kotlin 与 Jetpack Compose 开发。以社区 Logo 的黄色为主色，结合液态玻璃材质，提供原生话题阅读、社区互动和账号管理。
