@@ -22,6 +22,8 @@ Status: implemented
 
 ## Related decisions
 
+“我的点赞”的轻量列表复用[公开活动数据协议](../architecture/2026-10-10-public-profile-data.md)：只读取当前账号的 `/user_actions.json?username=…&filter=1&offset=…`，不顺带请求资料、背景和统计。LikedPostsViewModel 按请求代次取消旧结果，刷新保留现有列表直到新结果返回，失败重试保留原请求的刷新/分页语义；合并按活动 key 去重，原始 offset 仍由数据层推进，同一话题的不同楼层不能合并。页面提供刷新、继续加载、空态与错误恢复，点击条目保留原楼层 URL。ViewModel 身份在导航接线时绑定账号 id。
+
 检索个人中心、通知、背景、草稿、FluxDO 和 Connect。[账号与草稿](../../implemented/feature/2026-10-07-account-and-composer.md)、[用户背景](../../implemented/feature/2026-10-10-user-decoration.md)、[访客界面](../../implemented/feature/2026-10-10-guest-account-layout.md)部分重叠并保留其会话、签名和访客边界；标题图替代“我的”资料卡背景的用途，其余背景语义继续成立。[数据契约](../../implemented/architecture/2026-10-07-discourse-data-contract.md)继续约束分页与会话。没有完全吸收或过时的提案。
 
 ## Alternatives considered
@@ -31,6 +33,8 @@ Status: implemented
 - 用当前一页做分组：实现简单、切换快，但回复或赞可能在后续页，必须保留继续加载能力。
 
 ## Testing
+
+- LikedPostsViewModelTest 4项通过（artifacts/liked-posts-unit.txt）：当前账号 filter=1、原始 offset、同主题不同楼层、刷新替换、分页/刷新失败重试、延迟请求取消、换账号隔离、空页结束。列表与导航真机验收在入口接线后进行。
 
 - 151项JVM测试通过，覆盖个人接口、通知分类和分页、草稿版本保护、私信与聊天提交契约、账号代次；最终日志 artifacts/member-account-final-checks.txt。
 - 21项真机用例通过（artifacts/member-account-final-device.txt），包括访客页面、标题图、滚动状态栏、窄屏大字号、通知跨页筛选、表单及删除本机恢复副本不触发云端删除。所有写操作使用离线夹具。
