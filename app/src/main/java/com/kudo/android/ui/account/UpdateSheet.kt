@@ -2,7 +2,9 @@ package com.kudo.android.ui.account
 
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -35,7 +37,15 @@ internal fun UpdateSheet(visibility: MutableTransitionState<Boolean>, check: sus
         catch (e: Exception) { error = e.message ?: "检查失败，请稍后重试" }
         finally { loading = false }
     }
-    CommunitySheet(visibility, "检查更新", dismiss) {
+    CommunitySheet(visibility, "检查更新", dismiss, maxHeightFraction = .8f,
+        scrollContent = release == null, showActions = release != null, actions = {
+            release?.let { value ->
+                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    if (newer) CommunityButton("前往 GitHub 下载", { external(value.url) }, Modifier.fillMaxWidth())
+                    else ModalLink("在 GitHub 查看此版本") { external(value.url) }
+                }
+            }
+        }) {
         if (loading) {
             LoadingRow()
             Text("正在检查 GitHub 版本…", style = MaterialTheme.typography.bodyMedium)
@@ -46,23 +56,24 @@ internal fun UpdateSheet(visibility: MutableTransitionState<Boolean>, check: sus
             ModalLink("到 GitHub 查看版本") { external("$KudoSourceUrl/releases") }
         }
         release?.let { value ->
-            Text(if (newer) "发现新版本 ${value.version}" else "当前已是最新版本",
-                style = MaterialTheme.typography.titleLarge)
-            Text("当前 ${BuildConfig.VERSION_NAME} · 最新 ${value.version}", style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (value.publishedAt.isNotBlank()) Text("发布于 ${value.publishedAt.take(10)}",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            ReleaseNotes(value.notes.ifBlank { "此版本暂未提供更新日志。" }, external)
-            if (newer) CommunityButton("前往 GitHub 下载", { external(value.url) }, Modifier.fillMaxWidth())
-            else ModalLink("在 GitHub 查看此版本") { external(value.url) }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(if (newer) "发现新版本 ${value.version}" else "当前已是最新版本",
+                    style = MaterialTheme.typography.titleLarge)
+                Text("当前 ${BuildConfig.VERSION_NAME} · 最新 ${value.version}", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (value.publishedAt.isNotBlank()) Text("发布于 ${value.publishedAt.take(10)}",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            ReleaseNotes(value.notes.ifBlank { "此版本暂未提供更新日志。" }, external,
+                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()))
         }
     }
 }
 
 /** Release bodies use Markdown headings, bullet lists, and links; long notes remain selectable and scrollable. */
 @Composable
-private fun ReleaseNotes(body: String, external: (String) -> Unit) {
-    SelectionContainer {
+private fun ReleaseNotes(body: String, external: (String) -> Unit, modifier: Modifier = Modifier) {
+    SelectionContainer(modifier) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             body.lines().forEach { raw ->
                 val heading = raw.startsWith("#")

@@ -8,7 +8,9 @@ Status: implemented
 
 ## Decision
 
-通过独立无会话OkHttp客户端请求woliubang256/kudo-android的公开latest Release API，不带社区Cookie或GitHub凭据。只接受三段正式版本、比较数字分量，拒绝草稿与预发布。点击检查打开可滚动更新面板，展示版本、日期和Release正文；已有最新版本也可看日志，更新入口通过外部浏览器打开Release页面。检查期间去重，退出取消请求，错误可重试。404显示尚无公开版本而非已是最新；网络、限流及无效响应分别提示。源码入口始终外部打开仓库。
+通过独立无会话OkHttp客户端请求woliubang256/kudo-android的公开latest Release API，不带社区Cookie或GitHub凭据。只接受三段正式版本、比较数字分量，拒绝草稿与预发布。点击检查打开更新面板，展示版本、日期和Release正文；已有最新版本也可看日志，更新入口通过外部浏览器打开Release页面。检查期间去重，退出取消请求，错误可重试。404显示尚无公开版本而非已是最新；网络、限流及无效响应分别提示。源码入口始终外部打开仓库。
+
+更新面板使用[共享面板](2026-10-10-coolapk-sheets.md)的80%可用高度上限，短日志按内容收缩。顶部版本信息紧凑排列并固定，中间日志独立滚动且可选中，下载或查看当前版本入口放在独立底部操作区，系统导航栏避让计入面板高度。加载与错误分支保留可滚动内容和重试入口。
 
 ## Existing note audit
 
@@ -18,8 +20,11 @@ Status: implemented
 
 - 直接打开Release网页最简单，但不能在App显示新版本与日志；原生读取API并提供外部下载入口。
 - 内置APK下载及安装能减少跳转，但引入下载生命周期和安装权限，当前需求使用Release页提供现有附件下载。
+- 整个面板一起滚动实现简单，也能容纳任意长度的日志，但长日志将下载按钮推到屏幕外，滚动时也会移走版本信息；改为仅日志滚动并复用固定底部操作区。
 
 ## Verification
+
+限高修复前，真机新增3项用例确认两个失败：640dp约束下长日志面板高度1884px，超过80%上限1507.2px；320×360dp、深色130%字号下下载入口初始不可见，短日志自然收缩用例通过。日志 artifacts/update-height-repro-device-v4.txt。夹具用外层全尺寸Box释放根节点最小约束，确保内层短窗口真实生效；显式使用合法三段Debug版本0.2.3 / 2005，避免0.2.2-dev被现有正式版本解析规则拒绝而误测错误分支。
 
 离线夹具验证数字排序、同版旧版、草稿预发布、404、限流、网络失败、空日志、重试以及源码外部回调。
 
@@ -27,6 +32,12 @@ GitHubUpdatesTest的5项JVM测试通过，末项断网用例记录于artifacts/g
 
 实际账号About页截图artifacts/interface-about-live.png已查看。真机从“检查更新”匿名请求当前仓库，展示“暂无公开版本，仓库可能尚未公开或尚未发布正式版本”、重试和仓库入口，记录artifacts/interface-update-live.json；未误报已是最新。
 
+限高修复后，RMX2202 / Android13上UpdateUiTest的7项全部通过：完整窗口60条日志、80%高度边界、320×360dp深色130%字号下触摸滚动及标题/下载位置不变、短日志收缩、新版外部下载回调、当前版本查看入口、错误重试和关闭取消请求。日志 artifacts/update-height-final-device.txt；共享面板另有10项相关回归通过，见 artifacts/update-panel-cap-device.txt。扩展运行的AboutPageUiTest有5项通过、1项既有失败：settingsKeepsShortSiteLinkTitleAndMovesAllAboutEntriesOut使用performScrollTo直接查找LazyColumn尚未组合的屏幕外“站内链接”，SettingsScreen与该测试本次均未修改，不计入本次修复通过数。
+
+已查看真机生成的截图 artifacts/update-long-full-window.png、artifacts/update-height-long-light.png、artifacts/update-short-dark-large-scrolled.png、artifacts/update-short-notes.png，确认日志区域裁切及底部操作可见；短窗口截图采用真实布局约束。显式版本0.2.3 / 2005构建Debug与测试APK通过，GitHubUpdatesTest的5项单测通过，Lint为0错误、45条警告和1条提示，变更文件无Lint问题；日志 artifacts/update-height-final-build.txt。同签名覆盖安装，保留现有数据和应用，测试结束已回到MainActivity。
+
 ## Consequences
 
 App与GitHub Release共用一份日志，避免维护两套版本说明；代价是检查依赖GitHub网络和公开正式版本。私有仓库公开前匿名API为404；GitHub网络不可达时检查失败。当前本地Debug签名不能直接被正式签名APK覆盖。
+
+固定版本信息和底部操作会减少矮屏的日志可视行数，日志本身仍可滚动。当前实际设备覆盖Android13，其他系统与设备的系统栏、极端窗口尺寸尚未真机验证。
