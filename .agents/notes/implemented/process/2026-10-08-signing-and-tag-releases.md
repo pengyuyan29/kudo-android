@@ -154,6 +154,12 @@ main 路径过滤回归先复现无条件分支触发（`cloud-repair/main-paths
 - 更新日志支持已发布基线并拒绝非法/非祖先范围，实际shell夹具验证空基线与API失败停止；自动流程查询上次已公开Release，避免v0.1.6、v0.1.8失败Tag漏掉App变更，仍过滤文档、测试、工具链和CI。
 - 使用 `-PversionName=0.1.9 -PversionCode=1010` 完成正式R8构建，默认Gradle版本保持不变。`artifacts/release/0.1.9/kodo_0.1.9_release_arm64-v8a.apk` 的SHA256为 `0a6f4830e227876fef62ed2ed90764e646136d9c47922d08393ba4241b1ce2ca`；正式证书与既有发布一致，版本0.1.9 / 1010、仅arm64-v8a、非debuggable及16KB zipalign通过，详情为同目录 `local-verification.txt`。构建日志为 `artifacts/release-0.1.9-build.txt`，本地验证不代替云端附件验收。已认证API确认上个已公开版本仍为v0.1.5，更新日志预览使用该基线。
 
+2026-10-13 v0.2.4 发布准备：
+
+- 用户要求先打本地正式包、再升版本并推送Tag。先以最新功能代码构建0.2.3 / 2004，保留在 `artifacts/release/0.2.3/local-current/`；它包含已公开v0.2.3之后的改动，不能冒充该Tag的原附件，SHA256为 `9ec321e0f326ccfdb5787dc9f4389e6e56514d86f57ff98c989ddcb091f67402`。
+- 随后按现有Tag映射构建0.2.4 / 2005，默认Gradle版本继续保留0.1.0 / 1。正式包 `artifacts/release/0.2.4/kodo_0.2.4_release_arm64-v8a.apk` 为9,224,550字节，SHA256为 `f50a7c9c5b16cb2d892706208dc2713b870c838b77936d56632a336fb9106085`；正式证书与既有Release一致，版本、仅arm64-v8a、非debuggable、ZIP及ELF 16KB对齐验证通过，证据为同目录 `verification.json` 和 `verification.txt`。两个正式包均未安装覆盖手机开发版。
+- API确认当前已公开基线为v0.2.3，`release-notes/v0.2.4.md` 将10条App候选合并为2条新增、3条修复；面板限高与升级弹窗修复合并，三个点赞/草稿提交合并，三个原图容量修复合并。HEAD来源校验通过，原始候选保留在 `artifacts/release/0.2.4/release-notes.raw.md`。此处只记录本地准备，云端发布及实际附件另行验收。
+
 ## Consequences
 
 签名与版本检查使发布包能保持更新身份并对应 Tag；代价是开发者必须备份 signing/ 和 signing.properties。丢失正式证书或密码后无法使用原签名更新已安装应用。Debug 和 Release 保持相同包名、使用不同签名，不能互相覆盖安装；当前手机仍保留旧 Debug 签名应用，本次未卸载或替换，也未把构建和验签当成真机运行验收。
