@@ -77,9 +77,10 @@ class MemberAccountUiTest {
         capture("member-profile-light.png", "member-profile")
         compose.onNodeWithTag("member-avatar").performClick()
         compose.onNodeWithText("Lv.3").performClick()
-        compose.onNodeWithText("我的草稿").performClick()
+        compose.onNodeWithText("我的点赞").performClick()
+        compose.onNodeWithText("我的草稿").assertDoesNotExist()
         compose.onNodeWithText("邀请链接").performScrollTo().assertIsDisplayed()
-        compose.runOnIdle { assertEquals(1, profiles); assertEquals(listOf(AccountDestination.TRUST, AccountDestination.DRAFTS), destinations); assertEquals(0, writes.get()) }
+        compose.runOnIdle { assertEquals(1, profiles); assertEquals(listOf(AccountDestination.TRUST, AccountDestination.LIKES), destinations); assertEquals(0, writes.get()) }
     }
     @Test fun likesGroupFindsReactionOnFollowingPageWithoutMarkingRealOrFixtureNotificationsRead() {
         vm = AccountViewModel(repository, {}, {})
@@ -99,7 +100,7 @@ class MemberAccountUiTest {
                 ProfileScreen(Member(42, "fixture", "较长的昵称用于验证文字布局", "", trustLevel = 2), {}, {}, {}, {})
             } }
         } }
-        for (label in listOf("我的话题", "我的收藏", "我的草稿", "浏览历史", "设置", "关于酷DO")) {
+        for (label in listOf("我的话题", "我的收藏", "我的点赞", "浏览历史", "设置", "关于酷DO")) {
             compose.onNodeWithTag("member-profile").performScrollToNode(hasText(label))
             compose.onNodeWithText(label).assertIsDisplayed()
         }

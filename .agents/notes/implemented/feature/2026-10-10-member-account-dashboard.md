@@ -37,7 +37,10 @@ Status: implemented
 
 ## Testing
 
-- LikedPostsViewModelTest 4项通过（artifacts/liked-posts-unit.txt）：当前账号 filter=1、原始 offset、同主题不同楼层、刷新替换、分页/刷新失败重试、延迟请求取消、换账号隔离、空页结束。列表与导航真机验收在入口接线后进行。
+- LikedPostsViewModelTest 4项通过（artifacts/liked-posts-unit.txt）：当前账号 filter=1、原始 offset、同主题不同楼层、刷新替换、分页/刷新失败重试、延迟请求取消、换账号隔离、空页结束。与 UserProfileDataTest、AccountDataTest 合计21项通过（artifacts/liked-posts-build.txt）。
+- LikedPostsUiTest 与 MemberAccountUiTest 共8项在 RMX2202 / Android 13 通过（artifacts/liked-posts-device.txt）：送出赞分页重试和原楼层跳转、空态和会话过期、280dp深色130%字号、个人中心快捷入口替换、话题顶栏按钮对齐、进入现有草稿页和返回保留列表位置、历史/私信不显示草稿按钮；读取流程无写请求。草稿测试使用独立偏好文件，不改真实账号草稿。
+- 实际登录账号从个人中心进入“我的点赞”读取真实送出赞记录，并从“我的话题”右上角进入现有草稿页。截图 artifacts/live-liked-posts.png、live-topics-draft-entry.png，草稿空态布局 live-drafts-layout.json。分页和楼层跳转的可控断言使用夹具，没有对真实内容点踩、点赞或编辑草稿。
+- 同签名 `adb install -r` 覆盖开发版0.2.3 / 2005，首次安装时间保持2026-10-13 04:31:25，实际账号仍已登录；没有卸载或清数据。Lint通过（artifacts/current-features-lint.txt）。此轮连接设备不是一加13，不能推断其专有行为。
 
 - 151项JVM测试通过，覆盖个人接口、通知分类和分页、草稿版本保护、私信与聊天提交契约、账号代次；最终日志 artifacts/member-account-final-checks.txt。
 - 21项真机用例通过（artifacts/member-account-final-device.txt），包括访客页面、标题图、滚动状态栏、窄屏大字号、通知跨页筛选、表单及删除本机恢复副本不触发云端删除。所有写操作使用离线夹具。
