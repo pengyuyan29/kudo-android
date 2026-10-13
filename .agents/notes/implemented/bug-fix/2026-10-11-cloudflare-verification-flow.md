@@ -40,6 +40,8 @@ App内全屏验证页直接打开https://linux.do/challenge，与原生请求共
 
 2026-10-13：设置网络新增手动入口，`VerificationUiTest` 的6项真机夹具用例通过（`artifacts/manual-verification-device.txt`）。新增用例从设置滚动进入验证，检查右上角完成按钮，取消后再次打开并完成，返回时入口仍在原滚动位置；只请求一次原生列表，不改变偏好、不跳登录或 DoH 页面。显式 0.2.3 / 2005 构建，同签名覆盖安装，保留数据。该夹具不访问真实 Cloudflare。
 
+同日实际登录的 RMX2202 / Android 13 从设置网络“手动过盾”打开生产 VerificationHost，核对“网页验证”、刷新图标和右上角“完成验证”，返回设置。截图 `artifacts/live-manual-verification.png` 与布局 `live-manual-verification-layout.json`；此时 `/challenge` 显示站点的不存在页面，未触发新挑战，不能据此声称真实盾已完成。三个功能完成后的 Lint 再次通过（`artifacts/current-features-lint.txt`），签名和0.2.3 / 2005保持一致，首次安装时间未变。
+
 DiscourseClientTest先复现17项中的4项失败（artifacts/cloudflare-client-repro-20261011.txt），修复后17项全部通过（artifacts/cloudflare-client-fixed-20261011.txt）。覆盖普通HTML403、登录Turnstile、文章引用及常规jsd脚本不误报；短暂挑战重试成功并读取新Cookie；持续挑战最多两次；POST遇盾不重放。
 
 首页推送用例先复现正常列表被写入VERIFICATION错误（artifacts/cloudflare-feed-repro-20261011.txt）。接收独立推送失败时只暂停订阅，正常话题及分页不变，主站读取错误仍走既有错误状态。
