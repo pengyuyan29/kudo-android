@@ -147,7 +147,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                     enterTransition = { fadeIn(tween(280)) }, exitTransition = { fadeOut(tween(180)) },
                     popEnterTransition = { fadeIn(tween(220)) }, popExitTransition = { fadeOut(tween(220)) }) {
                     composable("root") {
-                        val feed = model("feed") { FeedViewModel(app.repository, initialUser = account.user, updates = DiscourseMessageBus(app.client, userAgent = app.userAgent, route = app.network::client)) }
+                        val feed = model("feed") { FeedViewModel(app.repository, initialUser = account.user, updates = DiscourseMessageBus(app.client, userAgent = app.userAgent, route = app.network::client, limits = app.limits)) }
                         val state by feed.state.collectAsStateWithLifecycle()
                         val pages by feed.pages.collectAsStateWithLifecycle()
                         val backdrop = rememberLayerBackdrop()
@@ -310,7 +310,7 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                         val number = entry.arguments!!.getInt("post").takeIf { it > 0 }
                         val vm = model("topic-$id-$number-${account.user?.id}") {
                             TopicViewModel(app.repository, id, number, account.user?.id,
-                                updates = DiscourseMessageBus(app.client, userAgent = app.userAgent, route = app.network::client), updateUser = account.user)
+                                updates = DiscourseMessageBus(app.client, userAgent = app.userAgent, route = app.network::client, limits = app.limits), updateUser = account.user)
                         }
                         ObserveTopicUpdates(vm)
                         val state by vm.state.collectAsStateWithLifecycle()
@@ -360,10 +360,13 @@ fun KudoApp(app: AppContainer, incomingUrl: String? = null, linkSequence: Long =
                     composable("login") { LoginScreen(account, { refreshEpoch++; nav.popBackStack() }, { refreshEpoch++; nav.popBackStack(); showMessage("欢迎回来，${account.user?.displayName}") }) }
                     composable("settings") {
                         val network by app.network.state.collectAsStateWithLifecycle()
+                        val limits by app.limits.settings.values.collectAsStateWithLifecycle()
                         SettingsScreen(display, app.settings::update, account.user, account::logout, { nav.popBackStack() }, ::openWebPage,
-                            { nav.navigate("ignored-users") }, network.summary, { nav.navigate("doh-settings") })
+                            { nav.navigate("ignored-users") }, network.summary, { nav.navigate("doh-settings") },
+                            "并发 ${limits.maxConcurrent} · ${limits.windowSeconds} 秒 ${limits.maxPerWindow} 个", { nav.navigate("rate-limit-settings") })
                     }
                     composable("doh-settings") { DohSettingsScreen(app.network) { nav.popBackStack() } }
+                    composable("rate-limit-settings") { RateLimitSettingsScreen(app.limits.settings) { nav.popBackStack() } }
                     composable("about") { AboutScreen(openLink = ::openWebPage, openExternal = ::openBrowser) { nav.popBackStack() } }
                     composable("ignored-users") {
                         LaunchedEffect(Unit) { account.checkSession() }

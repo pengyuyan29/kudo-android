@@ -1,5 +1,6 @@
 package com.kudo.android.data
 
+import com.kudo.android.network.limits.RateLimitHeaders
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -119,7 +120,7 @@ class DiscourseClient(
             val notFound = it.code == 404 || url.encodedPath.trimEnd('/') == "/404" || json?.stringField("error_type") == "not_found"
             when {
                 it.code == 401 || (it.code == 403 && json?.text("error_type") == "not_logged_in") -> throw ApiFailure(FailureKind.SIGN_IN, "请先登录 Linux.do")
-                it.code == 429 -> throw ApiFailure(FailureKind.RATE_LIMIT, reason ?: "请求较频繁，请稍后再试", it.header("Retry-After")?.toIntOrNull())
+                it.code == 429 -> throw ApiFailure(FailureKind.RATE_LIMIT, reason ?: "请求较频繁，请稍后再试", RateLimitHeaders.from(it))
                 isCloudflareChallenge(it, text) -> {
                     if (method == "GET" && verificationAttempt == 0) {
                         it.close()

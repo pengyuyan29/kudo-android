@@ -38,7 +38,8 @@ import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 @Composable
 fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit, user: Member?, logout: () -> Unit, back: () -> Unit, openLink: (String) -> Unit, manageIgnored: () -> Unit = {},
-    networkSummary: String = "已关闭", manageNetwork: () -> Unit = {}) {
+    networkSummary: String = "已关闭", manageNetwork: () -> Unit = {},
+    rateLimitSummary: String = "并发 3 · 3 秒 6 个", manageRateLimit: () -> Unit = {}) {
     val context = LocalContext.current
     val verification = LocalWebVerification.current
     var notificationsEnabled by remember { mutableStateOf(false) }
@@ -110,6 +111,8 @@ fun SettingsScreen(settings: DisplaySettings, update: (DisplaySettings) -> Unit,
                 item {
                     Column(Modifier.clip(RoundedCornerShape(19.dp)).background(MaterialTheme.colorScheme.surface)) {
                         SettingRow("DNS over HTTPS", networkSummary, !showing, manageNetwork)
+                        SettingsDivider()
+                        SettingRow("请求限流", rateLimitSummary, !showing, manageRateLimit)
                         SettingsDivider()
                         SettingRow("手动过盾", "打开网页完成验证", !showing && verification != null) {
                             verification?.invoke {}

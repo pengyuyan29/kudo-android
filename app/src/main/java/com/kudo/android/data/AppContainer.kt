@@ -3,8 +3,10 @@ package com.kudo.android.data
 import android.content.Context
 import android.webkit.CookieManager
 import android.webkit.WebSettings
+import com.kudo.android.network.limits.RequestLimits
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 
 class AndroidSessionCookies : SessionCookies {
@@ -22,9 +24,15 @@ class AppContainer(context: Context) {
     val notifications = com.kudo.android.notifications.LocalNotifications(context.applicationContext)
     val cookies = AndroidSessionCookies()
     val userAgent: String = WebSettings.getDefaultUserAgent(context.applicationContext)
-    val client = DiscourseClient(cookies, userAgent = { userAgent }, route = network::client)
+    val limits = RequestLimits()
+    val client = DiscourseClient(cookies, userAgent = { userAgent }, route = network::client,
+        http = limits.install(OkHttpClient.Builder().connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(35, TimeUnit.SECONDS).callTimeout(50, TimeUnit.SECONDS)
+            .followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)).build())
     val repository = CommunityRepository(client)
-    val connect = ConnectRepository(cookies, userAgent, route = network::client)
+    val connect = ConnectRepository(cookies, userAgent, route = network::client,
+        http = limits.install(OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
+            .retryOnConnectionFailure(false).callTimeout(35, TimeUnit.SECONDS)).build())
     val imageHttpClient: okhttp3.Call.Factory = network.client(OkHttpClient.Builder().addNetworkInterceptor { chain ->
         val request = chain.request()
         val builder = request.newBuilder().removeHeader("Cookie")
